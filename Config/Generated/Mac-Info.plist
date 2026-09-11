@@ -22,5 +22,11 @@
 	<string>$(QUEEP_API_URL)</string>
 	<key>QueepFirebaseProjectID</key>
 	<string>$(QUEEP_FIREBASE_PROJECT_ID)</string>
+	<key>QueepPrivacyURL</key>
+	<string>$(QUEEP_PRIVACY_URL)</string>
+	<key>QueepRevenueCatKey</key>
+	<string>$(QUEEP_REVENUECAT_PUBLIC_KEY)</string>
+	<key>QueepTermsURL</key>
+	<string>$(QUEEP_TERMS_URL)</string>
 </dict>
 </plist>

@@ -1,2 +1,4 @@
 // Production API, Firebase apps and distribution signing are configured before beta.
 // Debug's local configuration is deliberately not inherited.
+
+#include? "BillingProduction.xcconfig"

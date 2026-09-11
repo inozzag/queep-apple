@@ -28,6 +28,11 @@ public struct APIClient: Sendable {
         return decoder
     }
 
+    public func subscriptionAccess(refresh: Bool = false) async throws -> SubscriptionAccess {
+        try await decoded(refresh ? "v1/billing/sync" : "v1/billing/access",
+                       method: refresh ? "POST" : "GET")
+    }
+
     public func list(cursor: String? = nil) async throws -> LibraryPage {
         let query = cursor.map { [URLQueryItem(name: "cursor", value: $0)] } ?? []
         return try await decoded("v1/references", query: query)
@@ -125,7 +130,7 @@ public struct APIClient: Sendable {
         case 415: throw QueepError.server("Não foi possível ler esta imagem. Escolha outra imagem.")
         case 422: throw QueepError.invalidCapture
         case 404: throw QueepError.server("Essa referência não está mais disponível.")
-        case 429, 503:
+        case 402, 403, 429, 503:
             struct Failure: Decodable { let detail: String }
             let failure = try? JSONDecoder().decode(Failure.self, from: data)
             throw QueepError.server(failure?.detail ?? "Serviço temporariamente indisponível. Tente novamente.")

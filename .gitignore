@@ -8,3 +8,5 @@ xcuserdata/
 Config/GoogleService-Info.plist
 Config/Local.xcconfig
 .local/
+Config/BillingDevelopment.xcconfig
+Config/BillingProduction.xcconfig

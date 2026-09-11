@@ -29,6 +29,9 @@ settings:
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG QUEEP_CLOUD"
       QUEEP_AUTH_GROUP: app.queep.auth.dev
 packages:
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios-spm.git
+    exactVersion: 5.89.0
   QueepCore:
     path: Packages/QueepCore
   Firebase:
@@ -36,26 +39,39 @@ packages:
     exactVersion: 12.19.1
 targets:
   QueepMac:
+    attributes:
+      SystemCapabilities:
+        com.apple.InAppPurchase:
+          enabled: 1
     type: application
     platform: macOS
     info:
       path: Config/Generated/Mac-Info.plist
       properties:
+        QueepRevenueCatKey: $(QUEEP_REVENUECAT_PUBLIC_KEY)
+        QueepPrivacyURL: $(QUEEP_PRIVACY_URL)
+        QueepTermsURL: $(QUEEP_TERMS_URL)
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
     sources: [Sources/Shared, Sources/Mac]
     postBuildScripts:
+      - path: Scripts/verify-billing-config.sh
+        name: Verify release billing configuration
+        basedOnDependencyAnalysis: false
       - path: Scripts/copy-firebase-config.sh
         name: Select Firebase environment
         basedOnDependencyAnalysis: false
         inputFiles: ["$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)"]
         outputFiles: ["$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist"]
     dependencies:
+      - package: RevenueCat
+        product: RevenueCat
       - package: QueepCore
       - package: Firebase
         product: FirebaseAuth
     settings:
       base:
+        QUEEP_REVENUECAT_PUBLIC_KEY: $(QUEEP_REVENUECAT_MAC_KEY)
         PRODUCT_BUNDLE_IDENTIFIER: app.queep.mac
         INFOPLIST_KEY_LSUIElement: YES
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
@@ -69,22 +85,34 @@ targets:
           PRODUCT_BUNDLE_IDENTIFIER: app.queep.mac.dev
           QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/Mac/GoogleService-Info.plist
   QueepiOS:
+    attributes:
+      SystemCapabilities:
+        com.apple.InAppPurchase:
+          enabled: 1
     type: application
     platform: iOS
     info:
       path: Config/Generated/iOS-Info.plist
       properties:
+        QueepRevenueCatKey: $(QUEEP_REVENUECAT_PUBLIC_KEY)
+        QueepPrivacyURL: $(QUEEP_PRIVACY_URL)
+        QueepTermsURL: $(QUEEP_TERMS_URL)
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
         QueepAuthGroup: $(AppIdentifierPrefix)$(QUEEP_AUTH_GROUP)
     sources: [Sources/Shared, Sources/iOS]
     postBuildScripts:
+      - path: Scripts/verify-billing-config.sh
+        name: Verify release billing configuration
+        basedOnDependencyAnalysis: false
       - path: Scripts/copy-firebase-config.sh
         name: Select Firebase environment
         basedOnDependencyAnalysis: false
         inputFiles: ["$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)"]
         outputFiles: ["$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist"]
     dependencies:
+      - package: RevenueCat
+        product: RevenueCat
       - target: QueepShare
         embed: true
       - package: QueepCore
@@ -92,6 +120,7 @@ targets:
         product: FirebaseAuth
     settings:
       base:
+        QUEEP_REVENUECAT_PUBLIC_KEY: $(QUEEP_REVENUECAT_IOS_KEY)
         PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios
         CODE_SIGN_ENTITLEMENTS: Config/iOS.entitlements
         INFOPLIST_KEY_UILaunchScreen_Generation: YES

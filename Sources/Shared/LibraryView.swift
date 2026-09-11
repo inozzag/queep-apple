@@ -96,6 +96,8 @@ struct LibraryView: View {
                         .keyboardShortcut("n")
                         .accessibilityIdentifier("library.add")
                     Menu {
+                        Button("Assinatura") { store.presentation = .subscription }
+                            .accessibilityIdentifier("account.subscription")
                         Button("Sair da conta") {
                             do { try session.signOut() } catch { logoutError = error.localizedDescription }
                         }
@@ -104,6 +106,7 @@ struct LibraryView: View {
             }
             .sheet(item: $store.presentation) { presentation in
                 switch presentation {
+                case .subscription: SubscriptionView()
                 case .capture: CaptureView(reference: nil)
                 case .reference(let reference):
                     if reference.kind == "image" { ImageDetailView(reference: reference) }
