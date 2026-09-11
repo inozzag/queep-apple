@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		01EF845F807B78FD51C42F90 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0561B8E204ED34B1D47FE99F /* QueepCore */; };
+		085A80289A13884C55D5E1AC /* DeletionFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93948A8C9F10608A56D7B0A0 /* DeletionFixture.swift */; };
 		1039CC5CEB1857A90863D1D6 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 70FB7F20F84669C0D56036C3 /* QueepCore */; };
 		11FF8A1D0B75E3E90668C2D9 /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DD8C45948F2A04A479DAE9 /* SubscriptionView.swift */; };
 		159AD3F959B5E4F6BADAC07A /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4D35BA562A69DBA8C0AD000E /* FirebaseAuth */; };
@@ -23,9 +24,11 @@
 		501F90400089000CDD303C66 /* IncomingReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FCC66E4D155E455FEEB017 /* IncomingReference.swift */; };
 		5221A3E01F1F0813C0C5AAD1 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */; };
 		53FAAA8A7E9653EAA1821FFA /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF400C89CE0A73581FB4FFBB /* CaptureView.swift */; };
+		625E8DD020ACD90251C09826 /* DeleteAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */; };
 		63063E30E7CDEFBEFB3BB90E /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 8750AF34361F6CBA2F436EAB /* FirebaseAuth */; };
 		63BF0AFBBD76CB21975B3D7E /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7204B7FD55FC25256854F095 /* Session.swift */; };
 		63D7F519853E5C53C449222D /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7204B7FD55FC25256854F095 /* Session.swift */; };
+		63E610B06A2527ED87FC283F /* AccountDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316CD0F3D2B3FC139105EAAB /* AccountDeletionTests.swift */; };
 		6B80ECD478746A3AF06AC53E /* CloudShareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B2E01C5CB6E1489B7A89607 /* CloudShareTests.swift */; };
 		6CBA2064CBD92A89CC8D918B /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7204B7FD55FC25256854F095 /* Session.swift */; };
 		6CF50A01298B13950E9C0EB8 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = ED8EFCBC4554E34C190E82A5 /* RevenueCat */; };
@@ -33,6 +36,7 @@
 		72862B11E52F19794B5E76F4 /* QueepiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E15BE1356E67A48F8B24FB6D /* QueepiOSApp.swift */; };
 		84EF50E7F0D78F2323685F5A /* IncomingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C884AB1D62891FBCDA93B83F /* IncomingTests.swift */; };
 		86C87CA4AF9BE15FB1CC3FB6 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 542E89D179A6A1FD2BB2B0E0 /* QueepCore */; };
+		8A92E8BB0C5AFCEE98C7DD8D /* DeleteAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */; };
 		8B00E55AB16F33F240721861 /* ScreenCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259B81A4876BC372ECB2E2E0 /* ScreenCapture.swift */; };
 		910B030B8B554269E0BF2619 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 49C2B2B21B99F3931F3643BE /* RevenueCat */; };
 		922C2A4A7FC30A5612C1E9C5 /* GlobalShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91246D1B12DC2DEBD9F44C7A /* GlobalShortcut.swift */; };
@@ -54,8 +58,10 @@
 		D36B61D13131A00D06E32B6C /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
 		DA37A5F519AF2E2FE627B9FA /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
 		E232346E9AE8CF9696B5D962 /* QueepShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 96D7F12B5BBB1AB4CC310E2F /* QueepShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E4B1C2368954046D42983959 /* AccountDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A79B0CDD062EEC96B1A19BB /* AccountDeletionTests.swift */; };
 		E867783DC81E3FC6B816D676 /* ImageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */; };
 		EFE14BF78C6513E7C87F0BFC /* CloudSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED0F006731E0A73E315B86EE /* CloudSearchTests.swift */; };
+		F282797542C60E15433336F2 /* DeletionFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93948A8C9F10608A56D7B0A0 /* DeletionFixture.swift */; };
 		F2EDB272C9D0985BAE3AE2B3 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 448A171EFDE10BD4B0D93D7B /* ShareViewController.swift */; };
 		F487741FE2762A0E66C39774 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 9309C2F0B1E82167BA6BE0E2 /* FirebaseAuth */; };
 		F5916405D574C2053446FEAF /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
@@ -106,8 +112,11 @@
 		1B933BB3853BDB934552380F /* QueepCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = QueepCore; path = Packages/QueepCore; sourceTree = SOURCE_ROOT; };
 		259B81A4876BC372ECB2E2E0 /* ScreenCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCapture.swift; sourceTree = "<group>"; };
 		2B2E01C5CB6E1489B7A89607 /* CloudShareTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudShareTests.swift; sourceTree = "<group>"; };
+		316CD0F3D2B3FC139105EAAB /* AccountDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionTests.swift; sourceTree = "<group>"; };
+		427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountView.swift; sourceTree = "<group>"; };
 		448A171EFDE10BD4B0D93D7B /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		4A209CB032567C65928FAABB /* QueepiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QueepiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4A79B0CDD062EEC96B1A19BB /* AccountDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionTests.swift; sourceTree = "<group>"; };
 		4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViews.swift; sourceTree = "<group>"; };
 		4D8DD2B33C0013545C7F814B /* SubscriptionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionStore.swift; sourceTree = "<group>"; };
 		53EEC78FC45562FEAB6B0EC9 /* QueepiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = QueepiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -119,6 +128,7 @@
 		7BD4065FE9552201BF6CFE6F /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		81C43FA84B7768BB69F55080 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		91246D1B12DC2DEBD9F44C7A /* GlobalShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalShortcut.swift; sourceTree = "<group>"; };
+		93948A8C9F10608A56D7B0A0 /* DeletionFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionFixture.swift; sourceTree = "<group>"; };
 		96D7F12B5BBB1AB4CC310E2F /* QueepShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = QueepShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9CE34B866AE958971C4D6CA3 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		BE3EC29C819B440A82AB3595 /* MacCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacCapture.swift; sourceTree = "<group>"; };
@@ -182,6 +192,7 @@
 		0CF362B3A09D1CA88FD65CD3 /* MacUITests */ = {
 			isa = PBXGroup;
 			children = (
+				316CD0F3D2B3FC139105EAAB /* AccountDeletionTests.swift */,
 				EBE4A8C78F8D235C019E5B60 /* RevenueCatCrossDeviceTests.swift */,
 				CAAE69E5E9F1233A6C2509B1 /* ShortcutTests.swift */,
 			);
@@ -210,6 +221,15 @@
 			path = Sources/Mac;
 			sourceTree = "<group>";
 		};
+		3323C20444AF8A8E7DD7758D /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				93948A8C9F10608A56D7B0A0 /* DeletionFixture.swift */,
+			);
+			name = Support;
+			path = Tests/Support;
+			sourceTree = "<group>";
+		};
 		3526604EA5A2F3637D280648 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -234,6 +254,7 @@
 				510A4BFD8031EE5C7ABB9466 /* Packages */,
 				C3098DCD612C602CAA7BC465 /* Share */,
 				94B3F89C3F36C8FD9867959E /* Shared */,
+				3323C20444AF8A8E7DD7758D /* Support */,
 				6A5DE55C71F4565B16482F2F /* UITests */,
 				3526604EA5A2F3637D280648 /* Products */,
 			);
@@ -259,6 +280,7 @@
 		6A5DE55C71F4565B16482F2F /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				4A79B0CDD062EEC96B1A19BB /* AccountDeletionTests.swift */,
 				EB2450314ED132A7828F8730 /* CaptureFlowTests.swift */,
 				ED0F006731E0A73E315B86EE /* CloudSearchTests.swift */,
 				2B2E01C5CB6E1489B7A89607 /* CloudShareTests.swift */,
@@ -275,6 +297,7 @@
 			children = (
 				199F14B28CC882C0FF83A29C /* AnalysisView.swift */,
 				FF400C89CE0A73581FB4FFBB /* CaptureView.swift */,
+				427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */,
 				4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */,
 				E1395287258F14C65D8424EE /* ImportedImage.swift */,
 				71FCC66E4D155E455FEEB017 /* IncomingReference.swift */,
@@ -617,6 +640,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				63E610B06A2527ED87FC283F /* AccountDeletionTests.swift in Sources */,
+				F282797542C60E15433336F2 /* DeletionFixture.swift in Sources */,
 				716253DD8952BD4D56500432 /* RevenueCatCrossDeviceTests.swift in Sources */,
 				C713DFAE4400275284E907A1 /* ShortcutTests.swift in Sources */,
 			);
@@ -626,10 +651,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E4B1C2368954046D42983959 /* AccountDeletionTests.swift in Sources */,
 				2B11EE24943CB84FDDFAF46E /* CaptureFlowTests.swift in Sources */,
 				EFE14BF78C6513E7C87F0BFC /* CloudSearchTests.swift in Sources */,
 				6B80ECD478746A3AF06AC53E /* CloudShareTests.swift in Sources */,
 				1E52D38AD26B18FB5C72D227 /* CloudSourceTests.swift in Sources */,
+				085A80289A13884C55D5E1AC /* DeletionFixture.swift in Sources */,
 				A9D01D4AB91DD1E1D2A40FEA /* RevenueCatTests.swift in Sources */,
 				9BD2862017B36BA3F833A706 /* SubscriptionTests.swift in Sources */,
 			);
@@ -641,6 +668,7 @@
 			files = (
 				9E43D657290AB0E8E52F9085 /* AnalysisView.swift in Sources */,
 				94E8917F4CDF140F5313CFF3 /* CaptureView.swift in Sources */,
+				8A92E8BB0C5AFCEE98C7DD8D /* DeleteAccountView.swift in Sources */,
 				B05597C3071D416F5763975D /* ImageViews.swift in Sources */,
 				D36B61D13131A00D06E32B6C /* ImportedImage.swift in Sources */,
 				1646C9AF3721E4FF85FE630A /* IncomingReference.swift in Sources */,
@@ -660,6 +688,7 @@
 			files = (
 				B9135461F523B4D98E1EB85B /* AnalysisView.swift in Sources */,
 				53FAAA8A7E9653EAA1821FFA /* CaptureView.swift in Sources */,
+				625E8DD020ACD90251C09826 /* DeleteAccountView.swift in Sources */,
 				922C2A4A7FC30A5612C1E9C5 /* GlobalShortcut.swift in Sources */,
 				E867783DC81E3FC6B816D676 /* ImageViews.swift in Sources */,
 				F5916405D574C2053446FEAF /* ImportedImage.swift in Sources */,

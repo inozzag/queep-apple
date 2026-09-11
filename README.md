@@ -54,6 +54,14 @@ usa o UID Firebase como App User ID; compra/restauração Test Store e reconheci
 Mac/iPhone foram validados. Produtos Apple/publicação seguem pendentes.
 Configuração, testes opt-in e evidências: [BILLING.md](../queep-api/infra/BILLING.md).
 
+**Conta → Excluir conta** confirma a senha e solicita remoção em segundo plano.
+O app encerra a sessão após a aceitação; outras sessões são encerradas ao detectar
+o bloqueio. A assinatura Apple é gerenciada separadamente, com link na tela.
+Fluxo testado em contas descartáveis nos emuladores; ativação cloud aguarda a chave
+restrita de exclusão RevenueCat. [Estado e retenção](../queep-api/infra/ACCOUNTS.md).
+`AccountDeletionTests` roda somente em Debug local; cria contas próprias e nunca
+exclui a conta de prévia ou a biblioteca cloud.
+
 O teste de interface usa `preview@queep.test` / `queep-preview-only`, exclusivamente no emulador. A sessão é iniciada pelo SDK Firebase antes de exercitar a captura, evitando diálogos do gerenciador de senhas. `--ui-testing` e essas variáveis são aceitos apenas em Debug local. Nenhum token é simulado e o backend continua validando a identidade.
 
 Com API/emuladores abertos, execute o teste de interface pelo esquema `QueepiOS` no Xcode. Ele salva e reabre uma nota com título único. A mesma conta local pode ser usada no Mac para verificar a sincronização.

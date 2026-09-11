@@ -3,12 +3,14 @@ import QueepCore
 import Foundation
 
 enum LibraryPresentation: Identifiable {
+    case deleteAccount
     case subscription
     case capture(UUID)
     case reference(Reference)
 
     var id: String {
         switch self {
+        case .deleteAccount: "delete-account"
         case .subscription: "subscription"
         case .capture(let id): "capture-\(id)"
         case .reference(let reference): "reference-\(reference.id)"

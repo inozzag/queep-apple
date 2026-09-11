@@ -101,11 +101,15 @@ struct LibraryView: View {
                         Button("Sair da conta") {
                             do { try session.signOut() } catch { logoutError = error.localizedDescription }
                         }
+                        Divider()
+                        Button("Excluir conta", role: .destructive) { store.presentation = .deleteAccount }
+                            .accessibilityIdentifier("account.delete")
                     } label: { Label("Conta", systemImage: "person.crop.circle") }
                 }
             }
             .sheet(item: $store.presentation) { presentation in
                 switch presentation {
+                case .deleteAccount: DeleteAccountView()
                 case .subscription: SubscriptionView()
                 case .capture: CaptureView(reference: nil)
                 case .reference(let reference):

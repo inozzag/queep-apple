@@ -14,6 +14,8 @@ final class Session {
     var isLocal = false
     var apiURL: URL?
     var preparing = true
+    var accountNotice: String?
+    var deletingAccount = false
     private var listener: AuthStateDidChangeListenerHandle?
 
     init() {
@@ -96,11 +98,47 @@ final class Session {
             _ = try await Auth.auth().signIn(withEmail: email, password: password)
         }
         userID = Auth.auth().currentUser?.uid
+        accountNotice = nil
     }
 
     func signOut() throws {
         try Auth.auth().signOut()
         userID = nil
+    }
+
+    func invalidate(_ owner: String) {
+        guard userID == owner else { return }
+        if let current = Auth.auth().currentUser, current.uid != owner {
+            userID = current.uid
+            return
+        }
+        try? Auth.auth().signOut()
+        userID = nil
+        accountNotice = "Sua sessão foi encerrada. Entre novamente se sua conta ainda estiver ativa."
+    }
+
+    func deleteAccount(password: String, owner: String) async throws {
+        guard !deletingAccount, userID == owner,
+              let user = Auth.auth().currentUser, user.uid == owner,
+              let email = user.email, let apiURL else { throw QueepError.unauthorized }
+        deletingAccount = true
+        defer { deletingAccount = false }
+        do {
+            _ = try await user.reauthenticate(with: EmailAuthProvider.credential(withEmail: email,
+                                                                               password: password))
+        } catch {
+            throw QueepError.server("Não foi possível confirmar sua identidade. Confira a senha e a conexão.")
+        }
+        guard userID == owner, Auth.auth().currentUser?.uid == owner else { throw QueepError.unauthorized }
+        let fresh = try await user.getIDToken(forcingRefresh: true)
+        guard userID == owner, Auth.auth().currentUser?.uid == owner else { throw QueepError.unauthorized }
+        let api = APIClient(baseURL: apiURL) { fresh }
+        try await api.requestAccountDeletion()
+        // Another window may have switched accounts while the server accepted this request.
+        if userID == owner { invalidate(owner) }
+        if userID == nil {
+            accountNotice = "Exclusão solicitada. Seu acesso foi encerrado e a remoção dos dados continua em segundo plano."
+        }
     }
 
     func token(for owner: String) async throws -> String {
@@ -110,12 +148,22 @@ final class Session {
                 throw QueepError.unauthorized
             }
         }
-        return try await user.getIDToken()
+        do { return try await user.getIDToken() }
+        catch {
+            let failure = error as NSError
+            let invalid = [AuthErrorCode.userDisabled, .userNotFound, .invalidUserToken, .userTokenExpired]
+            if failure.domain == AuthErrorDomain, invalid.contains(where: { $0.rawValue == failure.code }) {
+                invalidate(owner)
+            }
+            throw error
+        }
     }
 
     func client() -> APIClient? {
         guard let apiURL, let owner = userID else { return nil }
-        return APIClient(baseURL: apiURL) { [weak self] in
+        return APIClient(baseURL: apiURL, onUnauthorized: { [weak self] in
+            await self?.invalidate(owner)
+        }) { [weak self] in
             guard let self else { throw QueepError.unauthorized }
             return try await self.token(for: owner)
         }

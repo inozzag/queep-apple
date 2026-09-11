@@ -4,12 +4,15 @@ public struct APIClient: Sendable {
     public let baseURL: URL
     private let session: URLSession
     private let token: @Sendable () async throws -> String
+    private let onUnauthorized: @Sendable () async -> Void
 
     public init(baseURL: URL, session: URLSession = .shared,
+                onUnauthorized: @escaping @Sendable () async -> Void = {},
                 token: @escaping @Sendable () async throws -> String) {
         self.baseURL = baseURL
         self.session = session
         self.token = token
+        self.onUnauthorized = onUnauthorized
     }
 
     public static func decoder() -> JSONDecoder {
@@ -31,6 +34,16 @@ public struct APIClient: Sendable {
     public func subscriptionAccess(refresh: Bool = false) async throws -> SubscriptionAccess {
         try await decoded(refresh ? "v1/billing/sync" : "v1/billing/access",
                        method: refresh ? "POST" : "GET")
+    }
+
+    public func requestAccountDeletion() async throws {
+        struct Confirmation: Decodable { let status: String }
+        let confirmation: Confirmation = try await decoded("v1/account/deletion", method: "POST")
+        guard confirmation.status == "deleting" else { throw QueepError.unavailable }
+    }
+
+    public func validateSession() async throws {
+        _ = try await request("v1/account", method: "GET")
     }
 
     public func list(cursor: String? = nil) async throws -> LibraryPage {
@@ -124,7 +137,9 @@ public struct APIClient: Sendable {
         guard let http = response as? HTTPURLResponse else { throw QueepError.unavailable }
         switch http.statusCode {
         case 200..<300: return data
-        case 401: throw QueepError.unauthorized
+        case 401:
+            await onUnauthorized()
+            throw QueepError.unauthorized
         case 409: throw QueepError.conflict
         case 413: throw QueepError.server("A imagem é muito grande. Escolha outra ou reduza a resolução.")
         case 415: throw QueepError.server("Não foi possível ler esta imagem. Escolha outra imagem.")

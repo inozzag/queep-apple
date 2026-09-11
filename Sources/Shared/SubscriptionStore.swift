@@ -17,6 +17,20 @@ final class SubscriptionStore {
     private(set) var storeAvailable = false
     private(set) var awaitingConfirmation = false
 
+    func clearSession(_ session: Session) async {
+        while busy && session.userID == nil {
+            do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+        }
+        guard session.userID == nil, !busy else { return }
+        busy = true
+        defer { busy = false }
+        ownerID = nil; access = nil; packages = []; error = nil; message = nil
+        storeAvailable = false; awaitingConfirmation = false
+        if Purchases.isConfigured && !Purchases.shared.isAnonymous {
+            _ = try? await Purchases.shared.logOut()
+        }
+    }
+
     static func configuredURL(_ name: String) -> URL? {
         guard let raw = Bundle.main.object(forInfoDictionaryKey: name) as? String,
               let url = URL(string: raw), url.scheme == "https", url.host != nil else { return nil }

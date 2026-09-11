@@ -181,7 +181,7 @@ targets:
   QueepMacUITests:
     type: bundle.ui-testing
     platform: macOS
-    sources: [Tests/MacUITests]
+    sources: [Tests/MacUITests, Tests/Support]
     dependencies:
       - target: QueepMac
     settings:
@@ -203,7 +203,7 @@ targets:
   QueepiOSUITests:
     type: bundle.ui-testing
     platform: iOS
-    sources: [Tests/UITests]
+    sources: [Tests/UITests, Tests/Support]
     dependencies:
       - target: QueepiOS
     settings:
