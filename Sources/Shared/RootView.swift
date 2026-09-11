@@ -13,14 +13,24 @@ struct RootView: View {
                                        description: Text(error))
             } else if session.preparing {
                 ProgressView("Abrindo sua biblioteca…")
+            } else if let state = session.accountState, !state.isActive {
+                AccountRecoveryView(state: state)
             } else if session.userID != nil {
                 LibraryView()
             } else { SignInView() }
         }
-        .task(id: SyncKey(userID: session.userID, active: phase == .active)) {
+        .task(id: SyncKey(userID: session.userID, owner: session.accountOwner, active: phase == .active)) {
             library.reset(for: session.userID)
             if session.userID == nil { await SubscriptionStore.shared.clearSession(session) }
-            guard phase == .active, let uid = session.userID, let api = session.client() else { return }
+            guard phase == .active else { return }
+            if session.userID == nil, let owner = session.accountOwner {
+                while !Task.isCancelled {
+                    do { try await Task.sleep(for: .seconds(4)) } catch { return }
+                    await session.handleUnauthorized(owner)
+                }
+                return
+            }
+            guard let uid = session.userID, let api = session.client() else { return }
             await library.refresh(api, account: uid)
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(4)) } catch { return }
@@ -30,7 +40,7 @@ struct RootView: View {
                     await library.refresh(api, account: uid)
                 } else if phase == .active {
                     // Account closure must also dismiss details and capture sheets on other devices.
-                    try? await api.validateSession()
+                    await session.handleUnauthorized(uid)
                 }
             }
         }
@@ -38,6 +48,7 @@ struct RootView: View {
 
     private struct SyncKey: Equatable {
         let userID: String?
+        let owner: String?
         let active: Bool
     }
 }

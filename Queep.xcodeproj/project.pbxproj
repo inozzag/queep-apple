@@ -56,6 +56,7 @@
 		D171D7345892DC00167FD700 /* IncomingReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FCC66E4D155E455FEEB017 /* IncomingReference.swift */; };
 		D1E4C876B6403A49612518C2 /* SubscriptionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D8DD2B33C0013545C7F814B /* SubscriptionStore.swift */; };
 		D36B61D13131A00D06E32B6C /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
+		D6DCA284EF2864CB23B9DE8E /* AccountRecoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C525F2515A3AE17962468274 /* AccountRecoveryView.swift */; };
 		DA37A5F519AF2E2FE627B9FA /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
 		E232346E9AE8CF9696B5D962 /* QueepShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 96D7F12B5BBB1AB4CC310E2F /* QueepShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E4B1C2368954046D42983959 /* AccountDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A79B0CDD062EEC96B1A19BB /* AccountDeletionTests.swift */; };
@@ -65,6 +66,7 @@
 		F2EDB272C9D0985BAE3AE2B3 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 448A171EFDE10BD4B0D93D7B /* ShareViewController.swift */; };
 		F487741FE2762A0E66C39774 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 9309C2F0B1E82167BA6BE0E2 /* FirebaseAuth */; };
 		F5916405D574C2053446FEAF /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
+		FD80C5C6D0BA77A153C77FC6 /* AccountRecoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C525F2515A3AE17962468274 /* AccountRecoveryView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -132,6 +134,7 @@
 		96D7F12B5BBB1AB4CC310E2F /* QueepShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = QueepShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9CE34B866AE958971C4D6CA3 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		BE3EC29C819B440A82AB3595 /* MacCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacCapture.swift; sourceTree = "<group>"; };
+		C525F2515A3AE17962468274 /* AccountRecoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountRecoveryView.swift; sourceTree = "<group>"; };
 		C884AB1D62891FBCDA93B83F /* IncomingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingTests.swift; sourceTree = "<group>"; };
 		CAAE69E5E9F1233A6C2509B1 /* ShortcutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutTests.swift; sourceTree = "<group>"; };
 		D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
@@ -295,6 +298,7 @@
 		94B3F89C3F36C8FD9867959E /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				C525F2515A3AE17962468274 /* AccountRecoveryView.swift */,
 				199F14B28CC882C0FF83A29C /* AnalysisView.swift */,
 				FF400C89CE0A73581FB4FFBB /* CaptureView.swift */,
 				427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */,
@@ -666,6 +670,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D6DCA284EF2864CB23B9DE8E /* AccountRecoveryView.swift in Sources */,
 				9E43D657290AB0E8E52F9085 /* AnalysisView.swift in Sources */,
 				94E8917F4CDF140F5313CFF3 /* CaptureView.swift in Sources */,
 				8A92E8BB0C5AFCEE98C7DD8D /* DeleteAccountView.swift in Sources */,
@@ -686,6 +691,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FD80C5C6D0BA77A153C77FC6 /* AccountRecoveryView.swift in Sources */,
 				B9135461F523B4D98E1EB85B /* AnalysisView.swift in Sources */,
 				53FAAA8A7E9653EAA1821FFA /* CaptureView.swift in Sources */,
 				625E8DD020ACD90251C09826 /* DeleteAccountView.swift in Sources */,

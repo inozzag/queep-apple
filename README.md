@@ -54,13 +54,14 @@ usa o UID Firebase como App User ID; compra/restauração Test Store e reconheci
 Mac/iPhone foram validados. Produtos Apple/publicação seguem pendentes.
 Configuração, testes opt-in e evidências: [BILLING.md](../queep-api/infra/BILLING.md).
 
-**Conta → Excluir conta** confirma a senha e solicita remoção em segundo plano.
-O app encerra a sessão após a aceitação; outras sessões são encerradas ao detectar
-o bloqueio. A assinatura Apple é gerenciada separadamente, com link na tela.
-Fluxo testado em contas descartáveis nos emuladores; ativação cloud aguarda a chave
-restrita de exclusão RevenueCat. [Estado e retenção](../queep-api/infra/ACCOUNTS.md).
-`AccountDeletionTests` roda somente em Debug local; cria contas próprias e nunca
-exclui a conta de prévia ou a biblioteca cloud.
+**Conta → Excluir conta** agenda a remoção para 30 dias e bloqueia a biblioteca.
+Entrar novamente mostra a data e permite **Cancelar exclusão e recuperar conta**,
+com confirmação de senha. Login sozinho não cancela. A opção de exclusão definitiva
+imediata permanece disponível. Política ativa e validada na nuvem; RevenueCat adiado.
+[Funcionamento e retenção](../queep-api/infra/ACCOUNTS.md).
+`AccountDeletionTests` cria contas descartáveis nos emuladores; nunca usa a conta
+cloud do usuário. Agendamento, reabertura, recuperação e exclusão imediata passaram
+no iPhone; bloqueio entre sessões e recuperação passaram no Mac.
 
 O teste de interface usa `preview@queep.test` / `queep-preview-only`, exclusivamente no emulador. A sessão é iniciada pelo SDK Firebase antes de exercitar a captura, evitando diálogos do gerenciador de senhas. `--ui-testing` e essas variáveis são aceitos apenas em Debug local. Nenhum token é simulado e o backend continua validando a identidade.
 

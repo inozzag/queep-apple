@@ -36,14 +36,17 @@ public struct APIClient: Sendable {
                        method: refresh ? "POST" : "GET")
     }
 
-    public func requestAccountDeletion() async throws {
-        struct Confirmation: Decodable { let status: String }
-        let confirmation: Confirmation = try await decoded("v1/account/deletion", method: "POST")
-        guard confirmation.status == "deleting" else { throw QueepError.unavailable }
+    public func accountStatus() async throws -> AccountStatus {
+        try await decoded("v1/account")
     }
 
-    public func validateSession() async throws {
-        _ = try await request("v1/account", method: "GET")
+    public func changeAccountDeletion(version: Int, operationID: UUID,
+                                      immediate: Bool = false, cancel: Bool = false) async throws -> AccountStatus {
+        let body: [String: Any] = ["version": version,
+                                   "operation_id": operationID.uuidString.lowercased(),
+                                   "immediate": immediate]
+        return try await decoded(cancel ? "v1/account/deletion/cancel" : "v1/account/deletion",
+                                 method: "POST", body: JSONSerialization.data(withJSONObject: body))
     }
 
     public func list(cursor: String? = nil) async throws -> LibraryPage {

@@ -15,6 +15,8 @@ final class Session {
     var apiURL: URL?
     var preparing = true
     var accountNotice: String?
+    var accountState: AccountStatus?
+    var accountOwner: String?
     var deletingAccount = false
     private var listener: AuthStateDidChangeListenerHandle?
 
@@ -62,9 +64,16 @@ final class Session {
         }
         #endif
         listener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            Task { @MainActor [weak self] in self?.userID = user?.uid }
+            Task { @MainActor [weak self] in
+                guard let self, Auth.auth().currentUser?.uid == user?.uid else { return }
+                if let user { try? await self.refreshAccount(owner: user.uid) }
+                else { self.clearAccountState() }
+            }
         }
-        userID = Auth.auth().currentUser?.uid
+        if let user = Auth.auth().currentUser {
+            do { try await refreshAccount(owner: user.uid) }
+            catch { accountNotice = "Conecte-se à internet e entre novamente para verificar sua conta." }
+        }
         #if DEBUG
         // Test fixtures still authenticate against Firebase; never enabled for cloud builds.
         if isLocal, ProcessInfo.processInfo.arguments.contains("--ui-testing"),
@@ -97,28 +106,54 @@ final class Session {
         } else {
             _ = try await Auth.auth().signIn(withEmail: email, password: password)
         }
-        userID = Auth.auth().currentUser?.uid
+        if let user = Auth.auth().currentUser { try await refreshAccount(owner: user.uid) }
         accountNotice = nil
     }
 
     func signOut() throws {
         try Auth.auth().signOut()
-        userID = nil
+        clearAccountState()
+    }
+
+    private func clearAccountState() {
+        userID = nil; accountState = nil; accountOwner = nil
+    }
+
+    func apply(_ state: AccountStatus, owner: String) {
+        guard Auth.auth().currentUser?.uid == owner else { return }
+        if accountOwner == owner, let previous = accountState, previous.version > state.version { return }
+        accountOwner = owner; accountState = state
+        userID = state.isActive ? owner : nil
+    }
+
+    func refreshAccount(owner: String) async throws {
+        guard let apiURL else { throw QueepError.unauthorized }
+        let api = APIClient(baseURL: apiURL) { [weak self] in
+            guard let self else { throw QueepError.unauthorized }
+            return try await self.token(for: owner)
+        }
+        let state = try await api.accountStatus()
+        apply(state, owner: owner)
+    }
+
+    func handleUnauthorized(_ owner: String) async {
+        do { try await refreshAccount(owner: owner) }
+        catch { invalidate(owner) }
     }
 
     func invalidate(_ owner: String) {
-        guard userID == owner else { return }
+        guard userID == owner || accountOwner == owner else { return }
         if let current = Auth.auth().currentUser, current.uid != owner {
-            userID = current.uid
             return
         }
         try? Auth.auth().signOut()
-        userID = nil
+        clearAccountState()
         accountNotice = "Sua sessão foi encerrada. Entre novamente se sua conta ainda estiver ativa."
     }
 
-    func deleteAccount(password: String, owner: String) async throws {
-        guard !deletingAccount, userID == owner,
+    func changeAccountDeletion(password: String, owner: String, version: Int,
+                               operationID: UUID, immediate: Bool = false, cancel: Bool = false) async throws {
+        guard !deletingAccount, accountOwner == owner,
               let user = Auth.auth().currentUser, user.uid == owner,
               let email = user.email, let apiURL else { throw QueepError.unauthorized }
         deletingAccount = true
@@ -129,15 +164,22 @@ final class Session {
         } catch {
             throw QueepError.server("Não foi possível confirmar sua identidade. Confira a senha e a conexão.")
         }
-        guard userID == owner, Auth.auth().currentUser?.uid == owner else { throw QueepError.unauthorized }
+        guard accountOwner == owner, Auth.auth().currentUser?.uid == owner else { throw QueepError.unauthorized }
         let fresh = try await user.getIDToken(forcingRefresh: true)
-        guard userID == owner, Auth.auth().currentUser?.uid == owner else { throw QueepError.unauthorized }
+        guard accountOwner == owner, Auth.auth().currentUser?.uid == owner else { throw QueepError.unauthorized }
         let api = APIClient(baseURL: apiURL) { fresh }
-        try await api.requestAccountDeletion()
-        // Another window may have switched accounts while the server accepted this request.
-        if userID == owner { invalidate(owner) }
-        if userID == nil {
-            accountNotice = "Exclusão solicitada. Seu acesso foi encerrado e a remoção dos dados continua em segundo plano."
+        do {
+            let state = try await api.changeAccountDeletion(version: version, operationID: operationID,
+                                                            immediate: immediate, cancel: cancel)
+            apply(state, owner: owner)
+            if state.status == "deleting" {
+                invalidate(owner)
+                accountNotice = "Exclusão definitiva solicitada. A remoção continua em segundo plano."
+            }
+        } catch {
+            // A request may have succeeded despite a lost response. Read its actual state.
+            try? await refreshAccount(owner: owner)
+            throw error
         }
     }
 
@@ -162,7 +204,7 @@ final class Session {
     func client() -> APIClient? {
         guard let apiURL, let owner = userID else { return nil }
         return APIClient(baseURL: apiURL, onUnauthorized: { [weak self] in
-            await self?.invalidate(owner)
+            await self?.handleUnauthorized(owner)
         }) { [weak self] in
             guard let self else { throw QueepError.unauthorized }
             return try await self.token(for: owner)

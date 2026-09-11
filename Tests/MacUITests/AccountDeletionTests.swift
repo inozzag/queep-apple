@@ -18,11 +18,19 @@ final class AccountDeletionTests: XCTestCase {
         app.menuItems["account.delete"].click()
         XCTAssertTrue(app.secureTextFields["account.delete.password"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["account.delete.confirm"].isEnabled)
-        let deleted = try await fixture.delete()
+        let deleted = try await fixture.delete(immediate: false)
         XCTAssertEqual(deleted, 202)
-        XCTAssertTrue(app.textFields["auth.email"].waitForExistence(timeout: 20), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["account.recovery.title"].waitForExistence(timeout: 20), app.debugDescription)
         XCTAssertFalse(app.buttons[fixture.title].exists)
         XCTAssertFalse(app.secureTextFields["account.delete.password"].exists)
+        let password = app.secureTextFields["account.recovery.password"]
+        password.click(); password.typeText(fixture.password)
+        app.buttons["account.recovery.restore"].click()
+        XCTAssertTrue(account.waitForExistence(timeout: 20))
+        let restored = try await fixture.libraryStatus()
+        XCTAssertEqual(restored, 200)
+        let cleanup = try await fixture.delete()
+        XCTAssertEqual(cleanup, 202)
         #endif
     }
 }

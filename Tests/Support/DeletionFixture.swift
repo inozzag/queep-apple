@@ -25,8 +25,13 @@ struct DeletionFixture {
         return fixture
     }
 
-    func delete() async throws -> Int {
-        try await Self.send("http://127.0.0.1:8000/v1/account/deletion", method: "POST", token: token).1
+    func delete(immediate: Bool = true) async throws -> Int {
+        let (data, status) = try await Self.send("http://127.0.0.1:8000/v1/account", method: "GET", token: token)
+        guard status == 200 else { return status }
+        let account = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        return try await Self.send("http://127.0.0.1:8000/v1/account/deletion", method: "POST", token: token,
+            body: ["version": account["version"]!, "operation_id": UUID().uuidString.lowercased(),
+                   "immediate": immediate]).1
     }
 
     func libraryStatus() async throws -> Int {
