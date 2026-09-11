@@ -1,0 +1,2 @@
+// Developer-specific signing stays outside Git.
+#include? "Local.xcconfig"

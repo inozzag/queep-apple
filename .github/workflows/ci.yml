@@ -1,0 +1,14 @@
+name: Apple
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: swift test --package-path Packages/QueepCore
+      - run: xcodegen generate
+      - run: xcodebuild -project Queep.xcodeproj -scheme QueepMac -configuration Debug -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - run: xcodebuild -project Queep.xcodeproj -scheme QueepiOS -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
