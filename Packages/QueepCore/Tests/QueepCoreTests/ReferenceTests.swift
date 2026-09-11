@@ -19,4 +19,17 @@ import Foundation
     #expect(page.items[0].displayTitle == "github.com")
     #expect(page.items[0].statusLabel == "Análise parcial")
     #expect(page.items[0].analysis?.limitations == ["Only title available"])
+    #expect(page.items[0].source == nil)
+}
+
+@Test func decodesExtractedSourceWithoutReplacingUserTitleOrContext() throws {
+    let raw = #"{"id":"link","kind":"link","title":"","text":"Meu contexto","url":"https://example.com","status":"ready","revision":1,"created_at":"2026-09-11T15:00:00Z","updated_at":"2026-09-11T15:00:00Z","source":{"state":"read","url":"https://example.com/page","title":"Título da página","text":"Conteúdo extraído","fetched_at":"2026-09-11T15:00:00Z","truncated":true,"limitations":["Trecho"]}}"#
+    let ref = try APIClient.decoder().decode(Reference.self, from: Data(raw.utf8))
+    #expect(ref.source?.text == "Conteúdo extraído")
+    #expect(ref.source?.truncated == true)
+    #expect(ref.displayTitle == "Título da página")
+    #expect(ref.title.isEmpty && ref.text == "Meu contexto")
+    let titled = raw.replacingOccurrences(of: #""title":"""#, with: #""title":"Minha referência""#)
+    let custom = try APIClient.decoder().decode(Reference.self, from: Data(titled.utf8))
+    #expect(custom.displayTitle == "Minha referência")
 }

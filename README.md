@@ -63,4 +63,12 @@ em segundo plano, encontrada pelo assunto e aberta no iPhone. O teste opt-in
 previamente autenticada com a nota indicada no teste; não cria nem troca contas.
 Em Debug local ele é ignorado. Limpar a nota sintética pela API após a rodada.
 
+Links agora mostram texto extraído, data e limitações quando o backend fornece `source`.
+Títulos escritos pelo usuário continuam prioritários; links sem título usam o título
+da página quando disponível. `CloudSourceTests/testSearchAndReadExtractedPage` é opt-in:
+preparar o link público HTTPX com o título indicado no teste, sem contexto adicional.
+Funciona com conta cloud existente ou `preview@queep.test` nos emuladores; não executa
+busca paga sem encontrar a referência de teste. Limpar essa referência após a rodada.
+A publicação cloud desta funcionalidade aguarda renovação da sessão Google Cloud.
+
 Validado na nuvem: PNG de Fotos no iPhone → aberto/excluído no Mac; HEIC do Mac → aberto/excluído no iPhone. Uploads usam a mesma API autenticada das notas. A conta usada no teste manual foi preservada com a imagem adicionada durante o teste; credenciais locais ficam em `.local/`, ignorado pelo Git, sem tokens exportados.

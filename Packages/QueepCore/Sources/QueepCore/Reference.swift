@@ -12,10 +12,12 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
     public let updatedAt: Date
     public let analysis: Interpretation?
     public let image: ImageInfo?
+    public let source: SourceContent?
 
     public var displayTitle: String {
         if !title.isEmpty { return title }
         if kind == "image" { return "Imagem" }
+        if kind == "link", let source, !source.title.isEmpty { return source.title }
         if kind == "link", let url, let host = URL(string: url)?.host { return host }
         return String(text.split(separator: "\n").first.map(String.init)?.prefix(100) ?? "Nota")
     }
@@ -32,6 +34,16 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
         default: "Salvo"
         }
     }
+}
+
+public struct SourceContent: Codable, Sendable, Equatable {
+    public let state: String
+    public let url: String
+    public let title: String
+    public let text: String
+    public let fetchedAt: Date
+    public let truncated: Bool
+    public let limitations: [String]
 }
 
 public struct ImageInfo: Codable, Sendable, Equatable {

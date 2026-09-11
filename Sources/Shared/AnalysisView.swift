@@ -19,6 +19,27 @@ struct AnalysisView: View {
                     Text(limitation).font(.caption).foregroundStyle(.secondary)
                 }
             }
+            if let source = current.source {
+                Label(source.state == "read" ? "Texto da página lido" : "Página indisponível",
+                      systemImage: source.state == "read" ? "doc.text" : "exclamationmark.circle")
+                    .font(.caption)
+                    .accessibilityIdentifier("source.status")
+                if source.state == "read" {
+                    DisclosureGroup("Ver texto lido") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if !source.title.isEmpty { Text(source.title).font(.headline) }
+                            Text(source.text).font(.callout).textSelection(.enabled)
+                                .accessibilityIdentifier("source.text")
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                Text(source.fetchedAt, format: .dateTime.day().month().year().hour().minute())
+                    .font(.caption).foregroundStyle(.secondary)
+                if source.url != current.url, let url = URL(string: source.url),
+                   ["https", "http"].contains(url.scheme ?? "") {
+                    Link("Abrir página de destino", destination: url).font(.caption)
+                }
+            }
             if current.status == "error" {
                 Button("Tentar análise novamente") {
                     Task {
