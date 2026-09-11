@@ -46,6 +46,7 @@ struct CaptureView: View {
                 if kind == "link" {
                     TextField("https://…", text: $url).autocorrectionDisabled()
                         .accessibilityLabel("Endereço do link")
+                        .accessibilityIdentifier("capture.url")
                         .disabled(busy || attempted)
                     if let source = reference?.url, let destination = URL(string: source) {
                         Button("Abrir site original") { openURL(destination) }

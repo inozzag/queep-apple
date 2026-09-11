@@ -21,9 +21,13 @@ settings:
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_CFBundleDisplayName: Queep
     ENABLE_USER_SCRIPT_SANDBOXING: YES
+    QUEEP_AUTH_GROUP: app.queep.auth
   configs:
+    Debug:
+      QUEEP_AUTH_GROUP: app.queep.auth.dev
     CloudDevelopment:
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG QUEEP_CLOUD"
+      QUEEP_AUTH_GROUP: app.queep.auth.dev
 packages:
   QueepCore:
     path: Packages/QueepCore
@@ -72,6 +76,7 @@ targets:
       properties:
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
+        QueepAuthGroup: $(AppIdentifierPrefix)$(QUEEP_AUTH_GROUP)
     sources: [Sources/Shared, Sources/iOS]
     postBuildScripts:
       - path: Scripts/copy-firebase-config.sh
@@ -80,6 +85,8 @@ targets:
         inputFiles: ["$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)"]
         outputFiles: ["$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist"]
     dependencies:
+      - target: QueepShare
+        embed: true
       - package: QueepCore
       - package: Firebase
         product: FirebaseAuth
@@ -96,6 +103,74 @@ targets:
         CloudDevelopment:
           PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev
           QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/iOS/GoogleService-Info.plist
+  QueepShare:
+    type: app-extension
+    platform: iOS
+    info:
+      path: Config/Generated/Share-Info.plist
+      properties:
+        CFBundleDisplayName: Queep
+        QueepAPIURL: $(QUEEP_API_URL)
+        QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
+        QueepAuthGroup: $(AppIdentifierPrefix)$(QUEEP_AUTH_GROUP)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsImageWithMaxCount: 1
+    sources:
+      - Sources/Share
+      - Sources/Shared/Session.swift
+      - Sources/Shared/ImportedImage.swift
+      - Sources/Shared/IncomingReference.swift
+    postBuildScripts:
+      - path: Scripts/copy-firebase-config.sh
+        name: Select Firebase environment
+        basedOnDependencyAnalysis: false
+        inputFiles: ["$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)"]
+        outputFiles: ["$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist"]
+    dependencies:
+      - package: QueepCore
+      - package: Firebase
+        product: FirebaseAuth
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.share
+        CODE_SIGN_ENTITLEMENTS: Config/iOS.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: '1,2'
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev.share
+        CloudDevelopment:
+          PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev.share
+          QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/Share/GoogleService-Info.plist
+  QueepMacUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources: [Tests/MacUITests]
+    dependencies:
+      - target: QueepMac
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.queep.mac.uitests
+        TEST_TARGET_NAME: QueepMac
+  QueepCaptureTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests/CaptureTests
+      - Sources/Shared/IncomingReference.swift
+      - Sources/Shared/ImportedImage.swift
+    dependencies:
+      - package: QueepCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.queep.capture.tests
   QueepiOSUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -107,6 +182,12 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.uitests
         TEST_TARGET_NAME: QueepiOS
 schemes:
+  QueepCaptureTests:
+    build:
+      targets:
+        QueepCaptureTests: all
+    test:
+      targets: [QueepCaptureTests]
   QueepMac:
     build:
       targets:
@@ -123,6 +204,9 @@ schemes:
         QueepMac: all
     run:
       config: CloudDevelopment
+    test:
+      config: CloudDevelopment
+      targets: [QueepMacUITests]
   QueepiOSCloud:
     build:
       targets:

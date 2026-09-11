@@ -11,13 +11,15 @@ struct RootView: View {
             if let error = session.configurationError {
                 ContentUnavailableView("Configuração pendente", systemImage: "icloud.slash",
                                        description: Text(error))
+            } else if session.preparing {
+                ProgressView("Abrindo sua biblioteca…")
             } else if session.userID != nil {
                 LibraryView()
             } else { SignInView() }
         }
-        .task(id: session.userID) {
+        .task(id: SyncKey(userID: session.userID, active: phase == .active)) {
             library.reset(for: session.userID)
-            guard let uid = session.userID, let api = session.client() else { return }
+            guard phase == .active, let uid = session.userID, let api = session.client() else { return }
             await library.refresh(api, account: uid)
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(4)) } catch { return }
@@ -28,6 +30,11 @@ struct RootView: View {
                 }
             }
         }
+    }
+
+    private struct SyncKey: Equatable {
+        let userID: String?
+        let active: Bool
     }
 }
 

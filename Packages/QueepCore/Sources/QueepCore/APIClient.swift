@@ -112,7 +112,10 @@ public struct APIClient: Sendable {
         let response: URLResponse
         do { (data, response) = try await session.data(for: request) }
         catch is CancellationError { throw CancellationError() }
-        catch { throw QueepError.unavailable }
+        catch {
+            if Task.isCancelled { throw CancellationError() }
+            throw QueepError.unavailable
+        }
         guard let http = response as? HTTPURLResponse else { throw QueepError.unavailable }
         switch http.statusCode {
         case 200..<300: return data

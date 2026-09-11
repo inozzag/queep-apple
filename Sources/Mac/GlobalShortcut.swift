@@ -1,34 +1,39 @@
 import AppKit
 import Carbon
 
-extension Notification.Name {
-    static let queepQuickCapture = Notification.Name("Queep.quickCapture")
-}
-
 @MainActor
 final class MacDelegate: NSObject, NSApplicationDelegate {
-    private var hotKey: EventHotKeyRef?
+    private var hotKeys: [EventHotKeyRef] = []
     private var handler: EventHandlerRef?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
                                   eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), { _, _, _ in
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
+            var identifier = EventHotKeyID()
+            guard let event, GetEventParameter(event, EventParamName(kEventParamDirectObject),
+                EventParamType(typeEventHotKeyID), nil, MemoryLayout<EventHotKeyID>.size,
+                nil, &identifier) == noErr else { return OSStatus(eventNotHandledErr) }
+            let action = identifier.id
             Task { @MainActor in
-                NotificationCenter.default.post(name: .queepQuickCapture, object: nil)
+                if action == 1 { MacCapture.shared.show() }
+                else if action == 2 { MacCapture.shared.captureScreen() }
             }
             return noErr
         }, 1, &event, nil, &handler)
-        let identifier = EventHotKeyID(signature: 0x51454550, id: 1)
-        let status = RegisterEventHotKey(UInt32(kVK_Space), UInt32(cmdKey | shiftKey), identifier,
-                                        GetApplicationEventTarget(), 0, &hotKey)
-        if status != noErr {
-            NSLog("Queep: global shortcut unavailable (%d). Menu capture remains available.", status)
+        for (id, key, label) in [(UInt32(1), kVK_Space, "⌘⇧Espaço"), (UInt32(2), kVK_ANSI_7, "⌘⇧7")] {
+            var hotKey: EventHotKeyRef?
+            let identifier = EventHotKeyID(signature: 0x51454550, id: id)
+            let status = RegisterEventHotKey(UInt32(key), UInt32(cmdKey | shiftKey), identifier,
+                                            GetApplicationEventTarget(), 0, &hotKey)
+            if let hotKey, status == noErr { hotKeys.append(hotKey) }
+            else { MacCapture.shared.shortcutIssues.append("Atalho \(label) indisponível. Use o menu.") }
         }
+        MacCapture.shared.install()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        if let hotKey { UnregisterEventHotKey(hotKey) }
+        for hotKey in hotKeys { UnregisterEventHotKey(hotKey) }
         if let handler { RemoveEventHandler(handler) }
     }
 }

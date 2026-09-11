@@ -1,0 +1,74 @@
+import XCTest
+import UniformTypeIdentifiers
+import ImageIO
+import AppKit
+
+@MainActor
+final class IncomingTests: XCTestCase {
+    func testTextDistinguishesLinksAndNotes() throws {
+        let link = try IncomingReference.text("  https://example.com/reference?q=swift\n")
+        XCTAssertEqual(link.url, "https://example.com/reference?q=swift")
+        XCTAssertTrue(link.text.isEmpty)
+        let note = try IncomingReference.text("Veja https://example.com para estudar Swift")
+        XCTAssertNil(note.url)
+        XCTAssertTrue(note.text.hasPrefix("Veja"))
+        XCTAssertThrowsError(try IncomingReference.text(" \n"))
+        XCTAssertThrowsError(try IncomingReference.text(String(repeating: "a", count: 30_001)))
+    }
+
+    func testURLWinsOverItsPreviewImage() async throws {
+        let incoming = try await IncomingLoader.load([
+            NSItemProvider(object: URL(string: "https://example.com/reference")! as NSURL),
+            NSItemProvider(object: NSImage(size: .init(width: 10, height: 10)))
+        ], context: "Referência de interface")
+        XCTAssertEqual(incoming.url, "https://example.com/reference")
+        XCTAssertEqual(incoming.text, "Referência de interface")
+        XCTAssertNil(incoming.image)
+    }
+
+    func testTextProviderAndEmptyShare() async throws {
+        let incoming = try await IncomingLoader.load([NSItemProvider(object: "Nota compartilhada" as NSString)])
+        XCTAssertEqual(incoming.text, "Nota compartilhada")
+        do { _ = try await IncomingLoader.load([]); XCTFail("Empty shares must not be saved") }
+        catch { }
+    }
+
+    func testMultipleReferencesAndUnsupportedTypesAreRejected() async throws {
+        let invalid: [[NSItemProvider]] = [
+            [NSItemProvider(object: URL(string: "https://example.com/a")! as NSURL),
+             NSItemProvider(object: URL(string: "https://example.com/b")! as NSURL)],
+            [NSItemProvider(item: Data() as NSData, typeIdentifier: UTType.pdf.identifier)],
+            [NSItemProvider(object: URL(string: "ftp://example.com/a")! as NSURL)]
+        ]
+        for providers in invalid {
+            do { _ = try await IncomingLoader.load(providers); XCTFail("Unsupported share accepted") }
+            catch { }
+        }
+    }
+
+    func testTemporaryImageIsReadAndOptimizedBeforeProviderReturns() async throws {
+        let context = CGContext(data: nil, width: 2400, height: 1200, bitsPerComponent: 8,
+                                bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+        context.setFillColor(NSColor.blue.cgColor)
+        context.fill(.init(x: 0, y: 0, width: 2400, height: 1200))
+        let data = try ImportedImage.encode(context.makeImage()!).data
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
+        try data.write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let provider = NSItemProvider()
+        provider.registerFileRepresentation(forTypeIdentifier: UTType.jpeg.identifier,
+                                            fileOptions: [], visibility: .all) { completion in
+            completion(file, false, nil)
+            return nil
+        }
+        let incoming = try await IncomingLoader.load([provider])
+        let bytes = try XCTUnwrap(incoming.image)
+        let source = try XCTUnwrap(CGImageSourceCreateWithData(bytes as CFData, nil))
+        let properties = try XCTUnwrap(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+        XCTAssertEqual(properties[kCGImagePropertyPixelWidth] as? Int, 2048)
+        XCTAssertEqual(properties[kCGImagePropertyPixelHeight] as? Int, 1024)
+        XCTAssertNil(properties[kCGImagePropertyGPSDictionary])
+        XCTAssertThrowsError(try ImportedImage.prepare(data: Data("not an image".utf8)))
+    }
+}

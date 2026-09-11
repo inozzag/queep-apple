@@ -6,10 +6,14 @@ import SwiftUI
 
 @MainActor @Observable
 final class Session {
-    var userID: String?
+    var userID: String? {
+        didSet { if oldValue != userID { onAccountChange?() } }
+    }
+    var onAccountChange: (() -> Void)?
     var configurationError: String?
     var isLocal = false
     var apiURL: URL?
+    var preparing = true
     private var listener: AuthStateDidChangeListenerHandle?
 
     init() {
@@ -19,8 +23,10 @@ final class Session {
                                           gcmSenderID: "123456789")
             options.projectID = "demo-queep"
             options.apiKey = "local-emulator-key"
-            FirebaseApp.configure(options: options)
-            Auth.auth().useEmulator(withHost: "127.0.0.1", port: 9099)
+            if FirebaseApp.app() == nil {
+                FirebaseApp.configure(options: options)
+                Auth.auth().useEmulator(withHost: "127.0.0.1", port: 9099)
+            }
             if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
                 try? Auth.auth().signOut()
             }
@@ -30,7 +36,29 @@ final class Session {
         #else
         configureCloud()
         #endif
-        guard configurationError == nil else { return }
+        guard configurationError == nil else { preparing = false; return }
+        Task { await finishSetup() }
+    }
+
+    private func finishSetup() async {
+        defer { preparing = false }
+        #if os(iOS)
+        do {
+            if let group = Bundle.main.object(forInfoDictionaryKey: "QueepAuthGroup") as? String {
+                let auth = Auth.auth()
+                let previous = auth.currentUser
+                let wasPrivate = auth.userAccessGroup == nil
+                try auth.useUserAccessGroup(group)
+                // Move the already signed-in user once; never revive a shared session after logout.
+                if wasPrivate, auth.currentUser == nil, let previous {
+                    try await auth.updateCurrentUser(previous)
+                }
+            }
+        } catch {
+            configurationError = "Não foi possível preparar o acesso compartilhado. Abra o Queep novamente."
+            return
+        }
+        #endif
         listener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             Task { @MainActor [weak self] in self?.userID = user?.uid }
         }
@@ -56,7 +84,8 @@ final class Session {
             configurationError = "Esta versão ainda não está configurada para conexão com a nuvem."
             return
         }
-        FirebaseApp.configure(options: options)
+        // The system can reuse a Share Extension process for another presentation.
+        if FirebaseApp.app() == nil { FirebaseApp.configure(options: options) }
         apiURL = url
     }
 
@@ -74,16 +103,21 @@ final class Session {
         userID = nil
     }
 
-    func token() async throws -> String {
-        guard let user = Auth.auth().currentUser else { throw QueepError.unauthorized }
+    func token(for owner: String) async throws -> String {
+        guard let user = Auth.auth().currentUser, user.uid == owner else { throw QueepError.unauthorized }
+        if let group = Auth.auth().userAccessGroup {
+            guard try Auth.auth().getStoredUser(forAccessGroup: group)?.uid == owner else {
+                throw QueepError.unauthorized
+            }
+        }
         return try await user.getIDToken()
     }
 
     func client() -> APIClient? {
-        guard let apiURL else { return nil }
+        guard let apiURL, let owner = userID else { return nil }
         return APIClient(baseURL: apiURL) { [weak self] in
             guard let self else { throw QueepError.unauthorized }
-            return try await self.token()
+            return try await self.token(for: owner)
         }
     }
 }

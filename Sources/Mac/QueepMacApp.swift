@@ -4,29 +4,15 @@ import ServiceManagement
 @main
 struct QueepMacApp: App {
     @NSApplicationDelegateAdaptor(MacDelegate.self) private var delegate
-    @State private var session = Session()
-    @State private var library = LibraryStore()
+    @State private var capture = MacCapture.shared
 
     var body: some Scene {
         Window("Queep", id: "library") {
-            MacRootView().environment(session).environment(library)
+            RootView().environment(capture.session).environment(capture.library)
                 .frame(minWidth: 660, minHeight: 500)
         }.defaultSize(width: 1040, height: 720)
         MenuBarExtra("Queep", systemImage: "bookmark.fill") {
-            QueepMenu().environment(session).environment(library)
-        }
-    }
-}
-
-private struct MacRootView: View {
-    @Environment(\.openWindow) private var openWindow
-    @Environment(LibraryStore.self) private var library
-    @Environment(Session.self) private var session
-    var body: some View {
-        RootView().onReceive(NotificationCenter.default.publisher(for: .queepQuickCapture)) { _ in
-            openWindow(id: "library")
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            if session.userID != nil { library.presentation = .capture(UUID()) }
+            QueepMenu().environment(capture.session).environment(capture.library).environment(capture)
         }
     }
 }
@@ -35,11 +21,16 @@ private struct QueepMenu: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(LibraryStore.self) private var library
     @Environment(Session.self) private var session
+    @Environment(MacCapture.self) private var capture
     @State private var loginError: String?
 
     var body: some View {
         Button("Abrir biblioteca") { showLibrary() }
-        Button("Adicionar referência") { showLibrary(); library.presentation = .capture(UUID()) }.disabled(session.userID == nil)
+        Button("Captura rápida · ⌘⇧Espaço") { capture.show() }
+        Button("Colar e salvar") { capture.paste() }.disabled(session.userID == nil)
+        Button("Capturar tela · ⌘⇧7") { capture.captureScreen() }.disabled(session.userID == nil)
+        Toggle("Área de envio no topo", isOn: Binding(get: { capture.shelfEnabled }, set: { capture.shelfEnabled = $0 }))
+        ForEach(capture.shortcutIssues, id: \.self) { Text($0) }
         Divider()
         Toggle("Iniciar com o Mac", isOn: Binding(
             get: { SMAppService.mainApp.status == .enabled },

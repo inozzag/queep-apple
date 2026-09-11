@@ -20,6 +20,8 @@
 	<string>1</string>
 	<key>QueepAPIURL</key>
 	<string>$(QUEEP_API_URL)</string>
+	<key>QueepAuthGroup</key>
+	<string>$(AppIdentifierPrefix)$(QUEEP_AUTH_GROUP)</string>
 	<key>QueepFirebaseProjectID</key>
 	<string>$(QUEEP_FIREBASE_PROJECT_ID)</string>
 </dict>

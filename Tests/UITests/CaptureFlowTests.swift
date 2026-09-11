@@ -2,7 +2,10 @@ import XCTest
 
 @MainActor
 final class CaptureFlowTests: XCTestCase {
-    func testSaveAndReopenNote() async throws {
+    private func authenticatedApp() async throws -> XCUIApplication {
+        #if QUEEP_CLOUD
+        throw XCTSkip("Capture fixtures run only against the local emulators.")
+        #else
         // Auth is a fixture for this capture test, avoiding OS password-manager dialogs.
         // The app obtains and refreshes a real Firebase emulator token through the SDK.
         let email = "preview@queep.test"
@@ -23,6 +26,13 @@ final class CaptureFlowTests: XCTestCase {
         app.launch()
         let add = app.buttons["library.add"]
         XCTAssertTrue(add.waitForExistence(timeout: 15), app.debugDescription)
+        return app
+        #endif
+    }
+
+    func testSaveAndReopenNote() async throws {
+        let app = try await authenticatedApp()
+        let add = app.buttons["library.add"]
         add.tap()
         let title = app.textFields["capture.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5), app.debugDescription)
@@ -43,5 +53,36 @@ final class CaptureFlowTests: XCTestCase {
         screenshot.name = "Nota salva e recuperada"
         screenshot.lifetime = .keepAlways
         self.add(screenshot)
+    }
+
+    func testSignOutRevokesSharingAndSurvivesRelaunch() async throws {
+        #if QUEEP_CLOUD
+        throw XCTSkip("This test changes only the emulator account.")
+        #else
+        let app = try await authenticatedApp()
+        app.buttons["Conta"].tap()
+        app.buttons["Sair da conta"].tap()
+        XCTAssertTrue(app.textFields["auth.email"].waitForExistence(timeout: 5))
+        app.terminate()
+        app.launchArguments = []
+        app.launchEnvironment = [:]
+        app.launch()
+        XCTAssertTrue(app.textFields["auth.email"].waitForExistence(timeout: 10))
+        // Open https://example.com in Safari on this simulator before running.
+        let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
+        safari.terminate()
+        safari.launch()
+        let more = safari.buttons["MoreMenuButton"]
+        XCTAssertTrue(more.waitForExistence(timeout: 10))
+        more.tap()
+        safari.buttons["ShareButton"].tap()
+        let queep = safari.cells["Queep"]
+        XCTAssertTrue(queep.waitForExistence(timeout: 10))
+        queep.images["activityImageView"].tap()
+        let notice = safari.staticTexts["Abra o Queep e entre na sua conta. Depois compartilhe novamente."]
+        XCTAssertTrue(notice.waitForExistence(timeout: 10), safari.debugDescription)
+        XCTAssertFalse(safari.buttons["share.save"].isEnabled)
+        safari.buttons["Fechar"].tap()
+        #endif
     }
 }

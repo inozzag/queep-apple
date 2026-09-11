@@ -13,7 +13,7 @@ struct ImportedImage: Transferable, Sendable {
         }
     }
 
-    static func prepare(url: URL) throws -> ImportedImage {
+    static func prepare(url: URL, maxPixels: Int = 4096) throws -> ImportedImage {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
@@ -29,11 +29,29 @@ struct ImportedImage: Transferable, Sendable {
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: 4096,
+                kCGImageSourceThumbnailMaxPixelSize: maxPixels,
                 kCGImageSourceShouldCacheImmediately: true
               ] as CFDictionary) else {
             throw QueepError.server("Escolha uma imagem estática JPEG, PNG ou HEIC.")
         }
+        return try encode(image)
+    }
+
+    static func prepare(data: Data) throws -> ImportedImage {
+        guard !data.isEmpty, data.count <= 32 * 1024 * 1024,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) == 1,
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: 4096
+              ] as CFDictionary) else {
+            throw QueepError.server("Não foi possível ler a imagem copiada.")
+        }
+        return try encode(image)
+    }
+
+    static func encode(_ image: CGImage) throws -> ImportedImage {
         let alpha = [.first, .last, .premultipliedFirst, .premultipliedLast].contains(image.alphaInfo)
         let destinationType = alpha ? UTType.png : UTType.jpeg
         let data = NSMutableData()

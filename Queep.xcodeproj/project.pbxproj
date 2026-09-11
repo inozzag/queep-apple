@@ -7,18 +7,29 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		01EF845F807B78FD51C42F90 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0561B8E204ED34B1D47FE99F /* QueepCore */; };
+		1039CC5CEB1857A90863D1D6 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 70FB7F20F84669C0D56036C3 /* QueepCore */; };
+		159AD3F959B5E4F6BADAC07A /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4D35BA562A69DBA8C0AD000E /* FirebaseAuth */; };
+		1646C9AF3721E4FF85FE630A /* IncomingReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FCC66E4D155E455FEEB017 /* IncomingReference.swift */; };
 		2B11EE24943CB84FDDFAF46E /* CaptureFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB2450314ED132A7828F8730 /* CaptureFlowTests.swift */; };
+		2B28F1D37553AF8EB8F37B58 /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
 		2D06B9CB53C58E3AB2A495F9 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */; };
 		37924549595BEB977C806E32 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF335AB16EFA9D60B3E49962 /* LibraryView.swift */; };
 		384644BDABC1A6636D57C472 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C43FA84B7768BB69F55080 /* RootView.swift */; };
 		39011E90E0C137C2BE0DE20D /* QueepMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6C6461CEA92A238D3E64FFA /* QueepMacApp.swift */; };
+		4E4465315225B39E2B70A033 /* MacCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE3EC29C819B440A82AB3595 /* MacCapture.swift */; };
+		501F90400089000CDD303C66 /* IncomingReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FCC66E4D155E455FEEB017 /* IncomingReference.swift */; };
 		5221A3E01F1F0813C0C5AAD1 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */; };
 		53FAAA8A7E9653EAA1821FFA /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF400C89CE0A73581FB4FFBB /* CaptureView.swift */; };
 		63BF0AFBBD76CB21975B3D7E /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7204B7FD55FC25256854F095 /* Session.swift */; };
 		63D7F519853E5C53C449222D /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7204B7FD55FC25256854F095 /* Session.swift */; };
+		6B80ECD478746A3AF06AC53E /* CloudShareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B2E01C5CB6E1489B7A89607 /* CloudShareTests.swift */; };
+		6CBA2064CBD92A89CC8D918B /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7204B7FD55FC25256854F095 /* Session.swift */; };
 		6CF50A01298B13950E9C0EB8 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = A83A335ED5F8CE966A4CB76B /* QueepCore */; };
 		72862B11E52F19794B5E76F4 /* QueepiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E15BE1356E67A48F8B24FB6D /* QueepiOSApp.swift */; };
+		84EF50E7F0D78F2323685F5A /* IncomingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C884AB1D62891FBCDA93B83F /* IncomingTests.swift */; };
 		86C87CA4AF9BE15FB1CC3FB6 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 9309C2F0B1E82167BA6BE0E2 /* FirebaseAuth */; };
+		8B00E55AB16F33F240721861 /* ScreenCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259B81A4876BC372ECB2E2E0 /* ScreenCapture.swift */; };
 		910B030B8B554269E0BF2619 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 542E89D179A6A1FD2BB2B0E0 /* QueepCore */; };
 		922C2A4A7FC30A5612C1E9C5 /* GlobalShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91246D1B12DC2DEBD9F44C7A /* GlobalShortcut.swift */; };
 		94E8917F4CDF140F5313CFF3 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF400C89CE0A73581FB4FFBB /* CaptureView.swift */; };
@@ -27,14 +38,27 @@
 		B05597C3071D416F5763975D /* ImageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */; };
 		B48814EBE3192ABA210DFFCA /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF335AB16EFA9D60B3E49962 /* LibraryView.swift */; };
 		B4ABC642AF160A03A36F1377 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C43FA84B7768BB69F55080 /* RootView.swift */; };
+		B75ACBC6954A5C90CC69EBC9 /* IncomingReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FCC66E4D155E455FEEB017 /* IncomingReference.swift */; };
 		B9135461F523B4D98E1EB85B /* AnalysisView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199F14B28CC882C0FF83A29C /* AnalysisView.swift */; };
+		C713DFAE4400275284E907A1 /* ShortcutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAE69E5E9F1233A6C2509B1 /* ShortcutTests.swift */; };
+		D171D7345892DC00167FD700 /* IncomingReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FCC66E4D155E455FEEB017 /* IncomingReference.swift */; };
 		D36B61D13131A00D06E32B6C /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
+		DA37A5F519AF2E2FE627B9FA /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
+		E232346E9AE8CF9696B5D962 /* QueepShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 96D7F12B5BBB1AB4CC310E2F /* QueepShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E867783DC81E3FC6B816D676 /* ImageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */; };
 		EFE14BF78C6513E7C87F0BFC /* CloudSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED0F006731E0A73E315B86EE /* CloudSearchTests.swift */; };
+		F2EDB272C9D0985BAE3AE2B3 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 448A171EFDE10BD4B0D93D7B /* ShareViewController.swift */; };
 		F5916405D574C2053446FEAF /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		068357979E10007B7C39B631 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AFC3059E640BC4458D8A8918 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1129ACCE8C74492A0C8E7E56;
+			remoteInfo = QueepMac;
+		};
 		34FEB3138ED464BBC733A5C0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AFC3059E640BC4458D8A8918 /* Project object */;
@@ -42,20 +66,50 @@
 			remoteGlobalIDString = C6EA8F8C60BB827654D0A828;
 			remoteInfo = QueepiOS;
 		};
+		6B03D9479E7773E5CB03BD1C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AFC3059E640BC4458D8A8918 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1F9568E54F0B119F54D8EC0B;
+			remoteInfo = QueepShare;
+		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		62C69CBC781275CD985DF7B5 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E232346E9AE8CF9696B5D962 /* QueepShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		01513BA4E07B9470279B8DC7 /* QueepCaptureTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QueepCaptureTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		199F14B28CC882C0FF83A29C /* AnalysisView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisView.swift; sourceTree = "<group>"; };
 		1B933BB3853BDB934552380F /* QueepCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = QueepCore; path = Packages/QueepCore; sourceTree = SOURCE_ROOT; };
+		259B81A4876BC372ECB2E2E0 /* ScreenCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCapture.swift; sourceTree = "<group>"; };
+		2B2E01C5CB6E1489B7A89607 /* CloudShareTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudShareTests.swift; sourceTree = "<group>"; };
+		448A171EFDE10BD4B0D93D7B /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		4A209CB032567C65928FAABB /* QueepiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QueepiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViews.swift; sourceTree = "<group>"; };
 		53EEC78FC45562FEAB6B0EC9 /* QueepiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = QueepiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6A33A39E95DEB3D3A486E8C3 /* CloudDevelopment.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = CloudDevelopment.xcconfig; sourceTree = "<group>"; };
+		71FCC66E4D155E455FEEB017 /* IncomingReference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingReference.swift; sourceTree = "<group>"; };
 		7204B7FD55FC25256854F095 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
 		7BD4065FE9552201BF6CFE6F /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		81C43FA84B7768BB69F55080 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		91246D1B12DC2DEBD9F44C7A /* GlobalShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalShortcut.swift; sourceTree = "<group>"; };
+		96D7F12B5BBB1AB4CC310E2F /* QueepShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = QueepShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9CE34B866AE958971C4D6CA3 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		BE3EC29C819B440A82AB3595 /* MacCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacCapture.swift; sourceTree = "<group>"; };
+		C884AB1D62891FBCDA93B83F /* IncomingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingTests.swift; sourceTree = "<group>"; };
+		CAAE69E5E9F1233A6C2509B1 /* ShortcutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutTests.swift; sourceTree = "<group>"; };
 		D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
 		E1395287258F14C65D8424EE /* ImportedImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedImage.swift; sourceTree = "<group>"; };
 		E15BE1356E67A48F8B24FB6D /* QueepiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueepiOSApp.swift; sourceTree = "<group>"; };
@@ -63,17 +117,35 @@
 		EB2450314ED132A7828F8730 /* CaptureFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlowTests.swift; sourceTree = "<group>"; };
 		ED0F006731E0A73E315B86EE /* CloudSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSearchTests.swift; sourceTree = "<group>"; };
 		EF335AB16EFA9D60B3E49962 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		F5248E32C4C74CAF8EC35CBD /* QueepMacUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QueepMacUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB7580BFE06134B21872DC1A /* QueepMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QueepMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF400C89CE0A73581FB4FFBB /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		06288CE663533C8DC69552D8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1039CC5CEB1857A90863D1D6 /* QueepCore in Frameworks */,
+				159AD3F959B5E4F6BADAC07A /* FirebaseAuth in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		293E5FE9DEA47B4642B3E551 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				910B030B8B554269E0BF2619 /* QueepCore in Frameworks */,
 				86C87CA4AF9BE15FB1CC3FB6 /* FirebaseAuth in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CB47AC2EFCB1F0190AD29DDA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				01EF845F807B78FD51C42F90 /* QueepCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -89,11 +161,31 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0CF362B3A09D1CA88FD65CD3 /* MacUITests */ = {
+			isa = PBXGroup;
+			children = (
+				CAAE69E5E9F1233A6C2509B1 /* ShortcutTests.swift */,
+			);
+			name = MacUITests;
+			path = Tests/MacUITests;
+			sourceTree = "<group>";
+		};
+		16ECE5716C827D68E509D315 /* CaptureTests */ = {
+			isa = PBXGroup;
+			children = (
+				C884AB1D62891FBCDA93B83F /* IncomingTests.swift */,
+			);
+			name = CaptureTests;
+			path = Tests/CaptureTests;
+			sourceTree = "<group>";
+		};
 		2D6A25DAB51ED02E02CEF556 /* Mac */ = {
 			isa = PBXGroup;
 			children = (
 				91246D1B12DC2DEBD9F44C7A /* GlobalShortcut.swift */,
+				BE3EC29C819B440A82AB3595 /* MacCapture.swift */,
 				E6C6461CEA92A238D3E64FFA /* QueepMacApp.swift */,
+				259B81A4876BC372ECB2E2E0 /* ScreenCapture.swift */,
 			);
 			name = Mac;
 			path = Sources/Mac;
@@ -102,9 +194,12 @@
 		3526604EA5A2F3637D280648 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				01513BA4E07B9470279B8DC7 /* QueepCaptureTests.xctest */,
 				4A209CB032567C65928FAABB /* QueepiOS.app */,
 				53EEC78FC45562FEAB6B0EC9 /* QueepiOSUITests.xctest */,
 				FB7580BFE06134B21872DC1A /* QueepMac.app */,
+				F5248E32C4C74CAF8EC35CBD /* QueepMacUITests.xctest */,
+				96D7F12B5BBB1AB4CC310E2F /* QueepShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -112,10 +207,13 @@
 		37B53E112E92424D10CF5912 = {
 			isa = PBXGroup;
 			children = (
+				16ECE5716C827D68E509D315 /* CaptureTests */,
 				9D6B4E7BD25F5C320A59E0B7 /* Config */,
 				5F5D5ECDA620D2E3B6233D12 /* iOS */,
 				2D6A25DAB51ED02E02CEF556 /* Mac */,
+				0CF362B3A09D1CA88FD65CD3 /* MacUITests */,
 				510A4BFD8031EE5C7ABB9466 /* Packages */,
+				C3098DCD612C602CAA7BC465 /* Share */,
 				94B3F89C3F36C8FD9867959E /* Shared */,
 				6A5DE55C71F4565B16482F2F /* UITests */,
 				3526604EA5A2F3637D280648 /* Products */,
@@ -144,6 +242,7 @@
 			children = (
 				EB2450314ED132A7828F8730 /* CaptureFlowTests.swift */,
 				ED0F006731E0A73E315B86EE /* CloudSearchTests.swift */,
+				2B2E01C5CB6E1489B7A89607 /* CloudShareTests.swift */,
 			);
 			name = UITests;
 			path = Tests/UITests;
@@ -156,6 +255,7 @@
 				FF400C89CE0A73581FB4FFBB /* CaptureView.swift */,
 				4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */,
 				E1395287258F14C65D8424EE /* ImportedImage.swift */,
+				71FCC66E4D155E455FEEB017 /* IncomingReference.swift */,
 				D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */,
 				EF335AB16EFA9D60B3E49962 /* LibraryView.swift */,
 				81C43FA84B7768BB69F55080 /* RootView.swift */,
@@ -173,6 +273,15 @@
 				7BD4065FE9552201BF6CFE6F /* Release.xcconfig */,
 			);
 			path = Config;
+			sourceTree = "<group>";
+		};
+		C3098DCD612C602CAA7BC465 /* Share */ = {
+			isa = PBXGroup;
+			children = (
+				448A171EFDE10BD4B0D93D7B /* ShareViewController.swift */,
+			);
+			name = Share;
+			path = Sources/Share;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -196,6 +305,24 @@
 			productReference = 53EEC78FC45562FEAB6B0EC9 /* QueepiOSUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		08CE07FE43BCA67790CE466A /* QueepMacUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 258D47BCCA49D3E805596833 /* Build configuration list for PBXNativeTarget "QueepMacUITests" */;
+			buildPhases = (
+				36C658860AC8374410F2AB29 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				378CA1A976F8F55236185062 /* PBXTargetDependency */,
+			);
+			name = QueepMacUITests;
+			packageProductDependencies = (
+			);
+			productName = QueepMacUITests;
+			productReference = F5248E32C4C74CAF8EC35CBD /* QueepMacUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		1129ACCE8C74492A0C8E7E56 /* QueepMac */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 910E325DE8E9DCD231564C48 /* Build configuration list for PBXNativeTarget "QueepMac" */;
@@ -217,17 +344,59 @@
 			productReference = FB7580BFE06134B21872DC1A /* QueepMac.app */;
 			productType = "com.apple.product-type.application";
 		};
+		1F9568E54F0B119F54D8EC0B /* QueepShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EEA6C9A1B21D2669BD0EAC4A /* Build configuration list for PBXNativeTarget "QueepShare" */;
+			buildPhases = (
+				27DAF825858B922DEA92DE78 /* Sources */,
+				06288CE663533C8DC69552D8 /* Frameworks */,
+				6A8ACA1630E36E25B2C473D1 /* Select Firebase environment */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QueepShare;
+			packageProductDependencies = (
+				70FB7F20F84669C0D56036C3 /* QueepCore */,
+				4D35BA562A69DBA8C0AD000E /* FirebaseAuth */,
+			);
+			productName = QueepShare;
+			productReference = 96D7F12B5BBB1AB4CC310E2F /* QueepShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		2E560D18FBCC2C4D7DE10094 /* QueepCaptureTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 11613072689E439366181A73 /* Build configuration list for PBXNativeTarget "QueepCaptureTests" */;
+			buildPhases = (
+				A722CF777F373F1C3A31FF47 /* Sources */,
+				CB47AC2EFCB1F0190AD29DDA /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QueepCaptureTests;
+			packageProductDependencies = (
+				0561B8E204ED34B1D47FE99F /* QueepCore */,
+			);
+			productName = QueepCaptureTests;
+			productReference = 01513BA4E07B9470279B8DC7 /* QueepCaptureTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		C6EA8F8C60BB827654D0A828 /* QueepiOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 03B1432F3A98D8ACF057014A /* Build configuration list for PBXNativeTarget "QueepiOS" */;
 			buildPhases = (
 				926EFFD421B3EBA69D7E717D /* Sources */,
 				293E5FE9DEA47B4642B3E551 /* Frameworks */,
+				62C69CBC781275CD985DF7B5 /* Embed Foundation Extensions */,
 				5980C05A5673C3106041D969 /* Select Firebase environment */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				4831A2423BC07799E7AFD7B1 /* PBXTargetDependency */,
 			);
 			name = QueepiOS;
 			packageProductDependencies = (
@@ -251,7 +420,17 @@
 						ProvisioningStyle = Automatic;
 						TestTargetID = C6EA8F8C60BB827654D0A828;
 					};
+					08CE07FE43BCA67790CE466A = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = 1129ACCE8C74492A0C8E7E56;
+					};
 					1129ACCE8C74492A0C8E7E56 = {
+						ProvisioningStyle = Automatic;
+					};
+					1F9568E54F0B119F54D8EC0B = {
+						ProvisioningStyle = Automatic;
+					};
+					2E560D18FBCC2C4D7DE10094 = {
 						ProvisioningStyle = Automatic;
 					};
 					C6EA8F8C60BB827654D0A828 = {
@@ -279,6 +458,9 @@
 			targets = (
 				1129ACCE8C74492A0C8E7E56 /* QueepMac */,
 				C6EA8F8C60BB827654D0A828 /* QueepiOS */,
+				1F9568E54F0B119F54D8EC0B /* QueepShare */,
+				08CE07FE43BCA67790CE466A /* QueepMacUITests */,
+				2E560D18FBCC2C4D7DE10094 /* QueepCaptureTests */,
 				0558D14E111EFDF59BF575DC /* QueepiOSUITests */,
 			);
 		};
@@ -327,15 +509,56 @@
 			shellPath = /bin/sh;
 			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
 		};
+		6A8ACA1630E36E25B2C473D1 /* Select Firebase environment */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)",
+			);
+			name = "Select Firebase environment";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		27DAF825858B922DEA92DE78 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B28F1D37553AF8EB8F37B58 /* ImportedImage.swift in Sources */,
+				B75ACBC6954A5C90CC69EBC9 /* IncomingReference.swift in Sources */,
+				6CBA2064CBD92A89CC8D918B /* Session.swift in Sources */,
+				F2EDB272C9D0985BAE3AE2B3 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		36C658860AC8374410F2AB29 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C713DFAE4400275284E907A1 /* ShortcutTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6BF2D84DBD553D8B3AFAD6E3 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				2B11EE24943CB84FDDFAF46E /* CaptureFlowTests.swift in Sources */,
 				EFE14BF78C6513E7C87F0BFC /* CloudSearchTests.swift in Sources */,
+				6B80ECD478746A3AF06AC53E /* CloudShareTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -347,6 +570,7 @@
 				94E8917F4CDF140F5313CFF3 /* CaptureView.swift in Sources */,
 				B05597C3071D416F5763975D /* ImageViews.swift in Sources */,
 				D36B61D13131A00D06E32B6C /* ImportedImage.swift in Sources */,
+				1646C9AF3721E4FF85FE630A /* IncomingReference.swift in Sources */,
 				2D06B9CB53C58E3AB2A495F9 /* LibraryStore.swift in Sources */,
 				37924549595BEB977C806E32 /* LibraryView.swift in Sources */,
 				72862B11E52F19794B5E76F4 /* QueepiOSApp.swift in Sources */,
@@ -364,17 +588,40 @@
 				922C2A4A7FC30A5612C1E9C5 /* GlobalShortcut.swift in Sources */,
 				E867783DC81E3FC6B816D676 /* ImageViews.swift in Sources */,
 				F5916405D574C2053446FEAF /* ImportedImage.swift in Sources */,
+				D171D7345892DC00167FD700 /* IncomingReference.swift in Sources */,
 				5221A3E01F1F0813C0C5AAD1 /* LibraryStore.swift in Sources */,
 				B48814EBE3192ABA210DFFCA /* LibraryView.swift in Sources */,
+				4E4465315225B39E2B70A033 /* MacCapture.swift in Sources */,
 				39011E90E0C137C2BE0DE20D /* QueepMacApp.swift in Sources */,
 				384644BDABC1A6636D57C472 /* RootView.swift in Sources */,
+				8B00E55AB16F33F240721861 /* ScreenCapture.swift in Sources */,
 				63D7F519853E5C53C449222D /* Session.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A722CF777F373F1C3A31FF47 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA37A5F519AF2E2FE627B9FA /* ImportedImage.swift in Sources */,
+				501F90400089000CDD303C66 /* IncomingReference.swift in Sources */,
+				84EF50E7F0D78F2323685F5A /* IncomingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		378CA1A976F8F55236185062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1129ACCE8C74492A0C8E7E56 /* QueepMac */;
+			targetProxy = 068357979E10007B7C39B631 /* PBXContainerItemProxy */;
+		};
+		4831A2423BC07799E7AFD7B1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1F9568E54F0B119F54D8EC0B /* QueepShare */;
+			targetProxy = 6B03D9479E7773E5CB03BD1C /* PBXContainerItemProxy */;
+		};
 		FF77F4810702BF42EBE92657 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C6EA8F8C60BB827654D0A828 /* QueepiOS */;
@@ -404,6 +651,37 @@
 			};
 			name = CloudDevelopment;
 		};
+		11BBA974059AB1C7CA350C9A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.mac.uitests;
+				SDKROOT = macosx;
+				TEST_TARGET_NAME = QueepMac;
+			};
+			name = Release;
+		};
+		12B8744C516340E691DBD4BE /* CloudDevelopment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.capture.tests;
+				SDKROOT = macosx;
+			};
+			name = CloudDevelopment;
+		};
 		2129EE0D6BF0B53604EE7926 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -419,6 +697,24 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.dev;
 				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		3F580F35FA04AC9A0A45187C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/iOS.entitlements;
+				INFOPLIST_FILE = "Config/Generated/Share-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.dev.share;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -459,6 +755,22 @@
 			};
 			name = Debug;
 		};
+		5DA80612BDBCE8581B00E1CB /* CloudDevelopment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.mac.uitests;
+				SDKROOT = macosx;
+				TEST_TARGET_NAME = QueepMac;
+			};
+			name = CloudDevelopment;
+		};
 		5E58413C7E073BEB9E98944D /* CloudDevelopment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -497,6 +809,40 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
+		};
+		76BCDA78BA6AA573BB4527DE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.capture.tests;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		81A88C591D43E9C5AA5CECD4 /* CloudDevelopment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/iOS.entitlements;
+				INFOPLIST_FILE = "Config/Generated/Share-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.dev.share;
+				QUEEP_FIREBASE_CONFIG = "Config/Firebase/Development/Share/GoogleService-Info.plist";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = CloudDevelopment;
 		};
 		94A30F18AAEC08794D31C9B5 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -571,9 +917,44 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				QUEEP_AUTH_GROUP = app.queep.auth;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		B48FB45FEA29057FA9FEE002 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.mac.uitests;
+				SDKROOT = macosx;
+				TEST_TARGET_NAME = QueepMac;
+			};
+			name = Debug;
+		};
+		B96733E44929621E3EC8C700 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/iOS.entitlements;
+				INFOPLIST_FILE = "Config/Generated/Share-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.share;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -641,11 +1022,27 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				QUEEP_AUTH_GROUP = app.queep.auth.dev;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
+		};
+		DD1604E5A0D7CAAD6EBED7B3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.capture.tests;
+				SDKROOT = macosx;
+			};
+			name = Release;
 		};
 		F45D03AFD478AF4EB54C77E5 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -731,6 +1128,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				QUEEP_AUTH_GROUP = app.queep.auth.dev;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG QUEEP_CLOUD";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
@@ -766,12 +1164,32 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = CloudDevelopment;
 		};
+		11613072689E439366181A73 /* Build configuration list for PBXNativeTarget "QueepCaptureTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				12B8744C516340E691DBD4BE /* CloudDevelopment */,
+				76BCDA78BA6AA573BB4527DE /* Debug */,
+				DD1604E5A0D7CAAD6EBED7B3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = CloudDevelopment;
+		};
 		22DDC5E5B3393779340C9135 /* Build configuration list for PBXNativeTarget "QueepiOSUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FE45F1302D7A207B38F1485C /* CloudDevelopment */,
 				94A30F18AAEC08794D31C9B5 /* Debug */,
 				538594833B9C10C46F0C4ECC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = CloudDevelopment;
+		};
+		258D47BCCA49D3E805596833 /* Build configuration list for PBXNativeTarget "QueepMacUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DA80612BDBCE8581B00E1CB /* CloudDevelopment */,
+				B48FB45FEA29057FA9FEE002 /* Debug */,
+				11BBA974059AB1C7CA350C9A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = CloudDevelopment;
@@ -792,6 +1210,16 @@
 				05663FB114792F91822C122F /* CloudDevelopment */,
 				5706284958C446562744EE48 /* Debug */,
 				F45D03AFD478AF4EB54C77E5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = CloudDevelopment;
+		};
+		EEA6C9A1B21D2669BD0EAC4A /* Build configuration list for PBXNativeTarget "QueepShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				81A88C591D43E9C5AA5CECD4 /* CloudDevelopment */,
+				3F580F35FA04AC9A0A45187C /* Debug */,
+				B96733E44929621E3EC8C700 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = CloudDevelopment;
@@ -817,7 +1245,20 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		0561B8E204ED34B1D47FE99F /* QueepCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = QueepCore;
+		};
+		4D35BA562A69DBA8C0AD000E /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 701B533620ADC849B7B0BBEF /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
 		542E89D179A6A1FD2BB2B0E0 /* QueepCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = QueepCore;
+		};
+		70FB7F20F84669C0D56036C3 /* QueepCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = QueepCore;
 		};
