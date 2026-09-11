@@ -58,7 +58,7 @@ struct CaptureView: View {
                         .disabled(busy || attempted)
                         .accessibilityIdentifier("capture.text")
                 } }
-                if let reference { Text(reference.statusLabel).font(.caption).foregroundStyle(.secondary) }
+                if let reference { Section("Sobre esta referência") { AnalysisView(reference: reference) } }
                 if busy && reference == nil { Text(kind == "image" ? "Enviando imagem…" : "Salvando…").font(.caption) }
                 if let error { Text(error).foregroundStyle(.red) }
                 if attempted {
@@ -107,6 +107,7 @@ struct CaptureView: View {
                 _ = try await api.uploadImage(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), data: image.data)
             } else { _ = try await api.create(id: requestID, capture: capture) }
             guard session.userID == uid else { return }
+            if let reference { store.discardSearchReference(reference.id) }
             await store.refresh(api, account: uid)
             dismiss()
         } catch { self.error = error.localizedDescription; attempted = true }
@@ -119,6 +120,7 @@ struct CaptureView: View {
         do {
             try await api.delete(reference)
             guard session.userID == uid else { return }
+            store.discardSearchReference(reference.id)
             await store.refresh(api, account: uid)
             dismiss()
         } catch { self.error = error.localizedDescription }

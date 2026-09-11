@@ -123,7 +123,7 @@ struct ImageDetailView: View {
                                    height: geometry.size.height * (zoomed ? 2 : 1))
                     }
                 }
-                Text(reference.statusLabel).font(.caption).foregroundStyle(.secondary)
+                ScrollView { AnalysisView(reference: reference) }.frame(maxHeight: 150)
                 if let error { Text(error).font(.callout).foregroundStyle(.red) }
                 Button("Excluir imagem", role: .destructive) { confirmDelete = true }
                     .disabled(busy).accessibilityIdentifier("image.delete")
@@ -159,6 +159,7 @@ struct ImageDetailView: View {
         do {
             try await api.delete(reference)
             guard session.userID == uid else { return }
+            store.discardSearchReference(reference.id)
             await store.refresh(api, account: uid)
             dismiss()
         } catch { self.error = error.localizedDescription }

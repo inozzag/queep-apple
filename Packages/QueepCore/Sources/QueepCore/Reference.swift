@@ -57,6 +57,12 @@ public struct LibraryPage: Codable, Sendable {
     public let nextCursor: String?
 }
 
+public struct SearchResults: Codable, Sendable {
+    public let items: [Reference]
+    public let hasPending: Bool
+    public let candidateLimit: Int
+}
+
 public struct Capture: Encodable, Sendable {
     public let kind: String
     public let title: String

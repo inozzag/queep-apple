@@ -4,15 +4,10 @@ import QueepCore
 struct LibraryView: View {
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
-    @State private var query = ""
     @State private var logoutError: String?
 
     private var filtered: [Reference] {
-        let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        if term.isEmpty { return store.items }
-        return store.items.filter {
-            [$0.title, $0.text, $0.url ?? ""].joined(separator: " ").localizedStandardContains(term)
-        }
+        store.searchItems ?? store.items
     }
 
     var body: some View {
@@ -20,7 +15,7 @@ struct LibraryView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 if session.isLocal {
-                    Text("Versão de desenvolvimento · busca textual nos itens carregados")
+                    Text("Versão de desenvolvimento local")
                         .font(.caption).foregroundStyle(.secondary).padding(.vertical, 8)
                 }
                 if let error = store.error {
@@ -30,17 +25,43 @@ struct LibraryView: View {
                         Button("Tentar novamente") { Task { await refresh() } }
                     }.padding().background(.quaternary)
                 }
-                if store.items.isEmpty && store.loading {
+                if !store.query.isEmpty {
+                    HStack {
+                        Text(store.searchItems == nil ? "Busque pelo assunto, pela aparência ou pelo que você lembra."
+                             : "Referências mais relevantes do seu acervo · até 10 por busca")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button(store.searchItems == nil ? "Buscar" : "Buscar novamente") {
+                            Task { await search() }
+                        }.disabled(store.searching)
+                        Button("Limpar") { store.query = "" }
+                    }.padding(.horizontal).padding(.vertical, 8)
+                }
+                if store.hasPending {
+                    Text("Algumas referências ainda aguardam análise ou precisam de uma nova tentativa.")
+                        .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
+                }
+                if let error = store.searchError {
+                    Label(error, systemImage: "exclamationmark.magnifyingglass")
+                        .font(.callout).foregroundStyle(.secondary).padding()
+                }
+                if store.searching {
+                    ProgressView("Buscando nas suas referências…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if store.searchError != nil {
+                    ContentUnavailableView("Não foi possível buscar", systemImage: "magnifyingglass",
+                                           description: Text("Tente novamente em instantes. Suas referências continuam salvas."))
+                } else if store.items.isEmpty && store.loading {
                     ProgressView("Carregando suas referências…").frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if filtered.isEmpty {
                     ContentUnavailableView {
-                        Label(query.isEmpty ? "Seu espaço para lembrar" : "Nenhuma referência encontrada",
-                              systemImage: query.isEmpty ? "bookmark" : "magnifyingglass")
+                        Label(store.searchItems == nil ? "Seu espaço para lembrar" : "Nenhuma referência encontrada",
+                              systemImage: store.searchItems == nil ? "bookmark" : "magnifyingglass")
                     } description: {
-                        Text(query.isEmpty ? "Guarde uma imagem, um link ou uma nota. Eles aparecem nos seus dispositivos."
-                             : "Tente outro título ou trecho do texto.")
+                        Text(store.searchItems == nil ? "Guarde uma imagem, um link ou uma nota. Eles aparecem nos seus dispositivos."
+                             : "Nenhuma correspondência entre os candidatos analisados. Tente descrever de outro jeito.")
                     } actions: {
-                        if query.isEmpty { Button("Adicionar referência") { store.presentation = .capture(UUID()) }.buttonStyle(.borderedProminent) }
+                        if store.searchItems == nil { Button("Adicionar referência") { store.presentation = .capture(UUID()) }.buttonStyle(.borderedProminent) }
                     }
                 } else {
                     ScrollView {
@@ -53,7 +74,7 @@ struct LibraryView: View {
                                     .accessibilityHint("Abrir \(reference.kindLabel.lowercased())")
                             }
                         }.padding()
-                        if store.nextCursor != nil {
+                        if store.searchItems == nil && store.nextCursor != nil {
                             Button("Carregar mais") {
                                 Task {
                                     guard let api = session.client(), let uid = session.userID else { return }
@@ -65,7 +86,8 @@ struct LibraryView: View {
                 }
             }
             .navigationTitle("Biblioteca")
-            .searchable(text: $query, prompt: "Buscar por título ou texto")
+            .searchable(text: $store.query, prompt: "Encontre pelo que você lembra")
+            .onSubmit(of: .search) { Task { await search() } }
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button { Task { await refresh() } } label: { Label("Atualizar", systemImage: "arrow.clockwise") }
@@ -97,6 +119,11 @@ struct LibraryView: View {
     private func refresh() async {
         guard let api = session.client(), let uid = session.userID else { return }
         await store.refresh(api, account: uid)
+    }
+
+    private func search() async {
+        guard let api = session.client(), let uid = session.userID else { return }
+        await store.search(api, account: uid)
     }
 }
 

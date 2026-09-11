@@ -22,11 +22,11 @@ credenciais de usuário, tokens e chaves de service account não fazem parte del
 
 ## O que funciona nesta entrega
 
-Conta, notas/links/imagens, galeria com miniaturas, visualização/edição de texto, abertura da fonte, exclusão, atualização a cada quatro segundos enquanto ativo e busca textual nos itens carregados. O Mac usa barra de menu sem Dock, atalho global `⌘⇧Espaço` e opção de iniciar no login. Se o atalho estiver ocupado, o menu continua disponível.
+Conta, notas/links/imagens, galeria, edição, exclusão e busca semântica. A busca só envia uma consulta ao confirmar pelo teclado ou botão; considera o acervo processado da conta, não apenas a página carregada. Mostra até 10 referências conferidas por IA, estados de análise e nova tentativa. O Mac usa barra de menu sem Dock, atalho global `⌘⇧Espaço` e opção de iniciar no login.
 
 Imagens podem ser escolhidas em arquivos no Mac/iPhone e em Fotos no iPhone. JPEG, PNG e HEIC estáticos de até 32 MiB são otimizados (até 4096 px), com prévia, envio, reenvio sem duplicação e visualizador com ampliação/exclusão. A galeria preserva a proporção das imagens em uma grade adaptativa.
 
-IA, áudio/vídeo, screenshots, notch e Share Extension são próximas entregas. As referências indicam que aguardam análise; a busca atual é textual, por título/texto carregado. Acessibilidade assistiva completa e refinamento da galeria continuam pendentes.
+Na nuvem, notas e imagens são interpretadas automaticamente; links têm análise parcial com indicação do conteúdo disponível. A biblioteca atualiza a primeira página a cada quatro segundos enquanto ativa, sem repetir consultas pagas; o detalhe acompanha a análise. No ambiente local a IA vem desabilitada por padrão. Áudio/vídeo, extração de sites, screenshots, notch, Share Extension e validação completa de acessibilidade continuam pendentes.
 
 ## Verificar
 
@@ -54,5 +54,11 @@ O teste de interface usa `preview@queep.test` / `queep-preview-only`, exclusivam
 Com API/emuladores abertos, execute o teste de interface pelo esquema `QueepiOS` no Xcode. Ele salva e reabre uma nota com título único. A mesma conta local pode ser usada no Mac para verificar a sincronização.
 
 Ainda precisam de validação manual: VoiceOver, tamanhos máximos de texto, múltiplas telas, funcionamento contínuo do atalho ao fechar a janela e início no login em app assinado. Compilar em sandbox não equivale à aprovação na Mac App Store.
+
+Busca cloud verificada no Mac e no iPhone: nota sintética criada no Mac, interpretada
+em segundo plano, encontrada pelo assunto e aberta no iPhone. O teste opt-in
+`CloudSearchTests/testSearchAcrossDevices` usa `CloudDevelopment` e uma sessão
+previamente autenticada com a nota indicada no teste; não cria nem troca contas.
+Em Debug local ele é ignorado. Limpar a nota sintética pela API após a rodada.
 
 Validado na nuvem: PNG de Fotos no iPhone → aberto/excluído no Mac; HEIC do Mac → aberto/excluído no iPhone. Uploads usam a mesma API autenticada das notas. A conta usada no teste manual foi preservada com a imagem adicionada durante o teste; credenciais locais ficam em `.local/`, ignorado pelo Git, sem tokens exportados.

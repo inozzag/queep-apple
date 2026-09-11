@@ -33,6 +33,25 @@ public struct APIClient: Sendable {
         return try await decoded("v1/references", query: query)
     }
 
+    public func get(id: String) async throws -> Reference {
+        try await decoded("v1/references/\(id)")
+    }
+
+    public func search(_ query: String) async throws -> SearchResults {
+        let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (2...500).contains(term.count) else {
+            throw QueepError.server("Escreva uma busca de 2 a 500 caracteres.")
+        }
+        let data = try await request("v1/search", method: "POST",
+                                     body: JSONEncoder().encode(["query": term]), timeout: 90)
+        return try Self.decoder().decode(SearchResults.self, from: data)
+    }
+
+    public func retryAnalysis(_ reference: Reference) async throws -> Reference {
+        try await decoded("v1/references/\(reference.id)/retry", method: "POST",
+                          body: JSONEncoder().encode(["revision": reference.revision]))
+    }
+
     public func create(id: UUID, capture: Capture) async throws -> Reference {
         guard capture.isValid else { throw QueepError.invalidCapture }
         return try await decoded("v1/references/\(id.uuidString.lowercased())", method: "PUT",
@@ -103,6 +122,10 @@ public struct APIClient: Sendable {
         case 415: throw QueepError.server("Não foi possível ler esta imagem. Escolha outra imagem.")
         case 422: throw QueepError.invalidCapture
         case 404: throw QueepError.server("Essa referência não está mais disponível.")
+        case 429, 503:
+            struct Failure: Decodable { let detail: String }
+            let failure = try? JSONDecoder().decode(Failure.self, from: data)
+            throw QueepError.server(failure?.detail ?? "Serviço temporariamente indisponível. Tente novamente.")
         default: throw QueepError.unavailable
         }
     }
