@@ -14,9 +14,10 @@ Debug usa `127.0.0.1` e `demo-queep`. Dispositivo físico precisa de ambiente HT
 
 Os esquemas `QueepMacCloud` e `QueepiOSCloud` usam a configuração `CloudDevelopment`,
 com Firebase `queep-dev-hstlx` e API HTTPS de desenvolvimento. O build inclui apenas
-o plist do respectivo app e valida projeto/bundle ID antes de conectar. A liberação
-da API para os apps ainda depende da política da organização, registrada em
-`../queep-api/infra/CLOUD.md`. Os identificadores públicos Firebase estão versionados;
+o plist do respectivo app e valida projeto/bundle ID antes de conectar. A API está
+liberada para os apps com login Firebase; sincronização e edição Mac/iPhone foram
+verificadas na nuvem. Configuração em `../queep-api/infra/CLOUD.md`.
+Os identificadores públicos Firebase estão versionados;
 credenciais de usuário, tokens e chaves de service account não fazem parte deles.
 
 ## O que funciona nesta entrega
