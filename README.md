@@ -69,6 +69,8 @@ da página quando disponível. `CloudSourceTests/testSearchAndReadExtractedPage`
 preparar o link público HTTPX com o título indicado no teste, sem contexto adicional.
 Funciona com conta cloud existente ou `preview@queep.test` nos emuladores; não executa
 busca paga sem encontrar a referência de teste. Limpar essa referência após a rodada.
-A publicação cloud desta funcionalidade aguarda renovação da sessão Google Cloud.
+Funcionalidade publicada na nuvem de desenvolvimento. O teste passou nos emuladores
+e no iPhone cloud; leitura/expansão também verificadas no Mac. As referências de teste
+foram removidas, mantendo a conta e os conteúdos anteriores.
 
 Validado na nuvem: PNG de Fotos no iPhone → aberto/excluído no Mac; HEIC do Mac → aberto/excluído no iPhone. Uploads usam a mesma API autenticada das notas. A conta usada no teste manual foi preservada com a imagem adicionada durante o teste; credenciais locais ficam em `.local/`, ignorado pelo Git, sem tokens exportados.

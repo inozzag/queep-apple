@@ -21,6 +21,8 @@ final class CloudSourceTests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 20))
         search.tap()
         search.typeText("bibliotecas Python para HTTP assíncrono\n")
+        XCTAssertTrue(app.staticTexts["Referências mais relevantes do seu acervo · até 10 por busca"]
+            .waitForExistence(timeout: 90), app.debugDescription)
         XCTAssertTrue(card.waitForExistence(timeout: 90), app.debugDescription)
         card.tap()
         XCTAssertTrue(app.textFields["capture.url"].waitForExistence(timeout: 10))

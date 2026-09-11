@@ -55,7 +55,8 @@ struct CaptureView: View {
                 if kind == "image" {
                     ImagePickerSection(image: $image, preparing: $preparing, disabled: busy || attempted)
                 } else { Section(kind == "note" ? "Sua nota" : "Contexto (opcional)") {
-                    TextEditor(text: $text).frame(minHeight: 220).accessibilityLabel("Texto da referência")
+                    TextEditor(text: $text).frame(minHeight: kind == "note" ? 220 : 80)
+                        .accessibilityLabel("Texto da referência")
                         .disabled(busy || attempted)
                         .accessibilityIdentifier("capture.text")
                 } }
