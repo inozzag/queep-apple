@@ -11,12 +11,17 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
     public let createdAt: Date
     public let updatedAt: Date
     public let analysis: Interpretation?
+    public let image: ImageInfo?
 
     public var displayTitle: String {
         if !title.isEmpty { return title }
+        if kind == "image" { return "Imagem" }
         if kind == "link", let url, let host = URL(string: url)?.host { return host }
         return String(text.split(separator: "\n").first.map(String.init)?.prefix(100) ?? "Nota")
     }
+
+    public var kindLabel: String { kind == "image" ? "Imagem" : kind == "link" ? "Link" : "Nota" }
+    public var kindSymbol: String { kind == "image" ? "photo" : kind == "link" ? "link" : "note.text" }
 
     public var statusLabel: String {
         switch status {
@@ -27,6 +32,14 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
         default: "Salvo"
         }
     }
+}
+
+public struct ImageInfo: Codable, Sendable, Equatable {
+    public let sha256: String
+    public let contentType: String
+    public let width: Int
+    public let height: Int
+    public let byteCount: Int
 }
 
 public struct Interpretation: Codable, Sendable, Equatable {
@@ -76,7 +89,7 @@ public enum QueepError: LocalizedError {
         case .invalidCapture: "Preencha uma nota ou um link HTTP válido."
         case .unauthorized: "Sua sessão expirou. Entre novamente."
         case .conflict: "Essa referência mudou em outro dispositivo. Atualize antes de salvar."
-        case .unavailable: "Não foi possível conectar. Seu texto continua aqui para tentar novamente."
+        case .unavailable: "Não foi possível conectar. Tente novamente."
         case .server(let message): message
         }
     }

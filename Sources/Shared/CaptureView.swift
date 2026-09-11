@@ -16,6 +16,8 @@ struct CaptureView: View {
     @State private var confirmDelete = false
     @State private var requestID = UUID()
     @State private var attempted = false
+    @State private var image: ImportedImage?
+    @State private var preparing = false
 
     init(reference: Reference?) {
         self.reference = reference
@@ -33,9 +35,11 @@ struct CaptureView: View {
         NavigationStack {
             Form {
                 if reference == nil {
-                    Picker("Tipo", selection: $kind) { Text("Nota").tag("note"); Text("Link").tag("link") }
+                    Picker("Tipo", selection: $kind) {
+                        Text("Nota").tag("note"); Text("Link").tag("link"); Text("Imagem").tag("image")
+                    }
                         .pickerStyle(.segmented)
-                        .disabled(busy || attempted)
+                        .disabled(busy || attempted || preparing)
                 }
                 TextField("Título (opcional)", text: $title).disabled(busy || attempted)
                     .accessibilityIdentifier("capture.title")
@@ -47,12 +51,15 @@ struct CaptureView: View {
                         Button("Abrir site original") { openURL(destination) }
                     }
                 }
-                Section(kind == "note" ? "Sua nota" : "Contexto (opcional)") {
+                if kind == "image" {
+                    ImagePickerSection(image: $image, preparing: $preparing, disabled: busy || attempted)
+                } else { Section(kind == "note" ? "Sua nota" : "Contexto (opcional)") {
                     TextEditor(text: $text).frame(minHeight: 220).accessibilityLabel("Texto da referência")
                         .disabled(busy || attempted)
                         .accessibilityIdentifier("capture.text")
-                }
+                } }
                 if let reference { Text(reference.statusLabel).font(.caption).foregroundStyle(.secondary) }
+                if busy && reference == nil { Text(kind == "image" ? "Enviando imagem…" : "Salvando…").font(.caption) }
                 if let error { Text(error).foregroundStyle(.red) }
                 if attempted {
                     Text("Envio não confirmado. Tente novamente com o mesmo conteúdo para evitar duplicação.")
@@ -66,7 +73,7 @@ struct CaptureView: View {
             .navigationTitle(reference == nil ? "Adicionar referência" : "Referência")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Fechar") { dismiss() }.disabled(busy)
+                    Button("Fechar") { dismiss() }.disabled(busy || preparing)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -74,7 +81,8 @@ struct CaptureView: View {
                     } label: {
                         if busy { ProgressView().controlSize(.small) }
                         else { Text(error == nil ? "Salvar" : "Tentar novamente") }
-                    }.disabled(busy || !capture.isValid).keyboardShortcut(.return, modifiers: .command)
+                    }.disabled(busy || preparing || (kind == "image" ? image == nil || title.count > 200 : !capture.isValid))
+                        .keyboardShortcut(.return, modifiers: .command)
                         .accessibilityIdentifier("capture.save")
                 }
             }
@@ -83,7 +91,7 @@ struct CaptureView: View {
                 Button("Excluir", role: .destructive) { Task { await remove() } }
             }
         }
-        .interactiveDismissDisabled(busy)
+        .interactiveDismissDisabled(busy || preparing)
         #if os(macOS)
         .frame(minWidth: 480, idealWidth: 580, minHeight: 500)
         #endif
@@ -95,7 +103,9 @@ struct CaptureView: View {
         defer { busy = false }
         do {
             if let reference { _ = try await api.edit(reference, capture: capture, mutationID: requestID) }
-            else { _ = try await api.create(id: requestID, capture: capture) }
+            else if kind == "image", let image {
+                _ = try await api.uploadImage(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), data: image.data)
+            } else { _ = try await api.create(id: requestID, capture: capture) }
             guard session.userID == uid else { return }
             await store.refresh(api, account: uid)
             dismiss()

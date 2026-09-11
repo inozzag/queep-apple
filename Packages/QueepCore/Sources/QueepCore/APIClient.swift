@@ -54,6 +54,22 @@ public struct APIClient: Sendable {
                               query: [.init(name: "revision", value: String(reference.revision))])
     }
 
+    public func uploadImage(id: UUID, title: String, data: Data) async throws -> Reference {
+        guard !data.isEmpty, data.count <= 12 * 1024 * 1024, title.count <= 200 else {
+            throw QueepError.server("Escolha uma imagem de até 12 MB e um título de até 200 caracteres.")
+        }
+        let result = try await request("v1/references/\(id.uuidString.lowercased())/image", method: "PUT",
+                                       query: [.init(name: "title", value: title)], body: data,
+                                       contentType: "application/octet-stream", timeout: 120)
+        return try Self.decoder().decode(Reference.self, from: result)
+    }
+
+    public func imageData(_ reference: Reference, thumbnail: Bool = false) async throws -> Data {
+        try await request("v1/references/\(reference.id)/image", method: "GET",
+                          query: [.init(name: "thumbnail", value: thumbnail ? "true" : "false")],
+                          timeout: 60)
+    }
+
     private func decoded<T: Decodable>(_ path: String, method: String = "GET",
                                        query: [URLQueryItem] = [], body: Data? = nil) async throws -> T {
         let data = try await request(path, method: method, query: query, body: body)
@@ -61,16 +77,18 @@ public struct APIClient: Sendable {
     }
 
     private func request(_ path: String, method: String, query: [URLQueryItem] = [],
-                         body: Data? = nil) async throws -> Data {
+                         body: Data? = nil, contentType: String = "application/json",
+                         timeout: TimeInterval = 20) async throws -> Data {
         var components = URLComponents(url: baseURL.appendingPathComponent(path),
                                        resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
         var request = URLRequest(url: components.url!)
         request.httpMethod = method
         request.httpBody = body
-        request.timeoutInterval = 20
+        request.timeoutInterval = timeout
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer \(try await token())", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         let data: Data
         let response: URLResponse
         do { (data, response) = try await session.data(for: request) }
@@ -81,6 +99,8 @@ public struct APIClient: Sendable {
         case 200..<300: return data
         case 401: throw QueepError.unauthorized
         case 409: throw QueepError.conflict
+        case 413: throw QueepError.server("A imagem é muito grande. Escolha outra ou reduza a resolução.")
+        case 415: throw QueepError.server("Não foi possível ler esta imagem. Escolha outra imagem.")
         case 422: throw QueepError.invalidCapture
         case 404: throw QueepError.server("Essa referência não está mais disponível.")
         default: throw QueepError.unavailable

@@ -23,8 +23,12 @@
 		922C2A4A7FC30A5612C1E9C5 /* GlobalShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91246D1B12DC2DEBD9F44C7A /* GlobalShortcut.swift */; };
 		94E8917F4CDF140F5313CFF3 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF400C89CE0A73581FB4FFBB /* CaptureView.swift */; };
 		9F18373556C1D27A6CECBE74 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 8750AF34361F6CBA2F436EAB /* FirebaseAuth */; };
+		B05597C3071D416F5763975D /* ImageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */; };
 		B48814EBE3192ABA210DFFCA /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF335AB16EFA9D60B3E49962 /* LibraryView.swift */; };
 		B4ABC642AF160A03A36F1377 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C43FA84B7768BB69F55080 /* RootView.swift */; };
+		D36B61D13131A00D06E32B6C /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
+		E867783DC81E3FC6B816D676 /* ImageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */; };
+		F5916405D574C2053446FEAF /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -40,6 +44,7 @@
 /* Begin PBXFileReference section */
 		1B933BB3853BDB934552380F /* QueepCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = QueepCore; path = Packages/QueepCore; sourceTree = SOURCE_ROOT; };
 		4A209CB032567C65928FAABB /* QueepiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QueepiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViews.swift; sourceTree = "<group>"; };
 		53EEC78FC45562FEAB6B0EC9 /* QueepiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = QueepiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6A33A39E95DEB3D3A486E8C3 /* CloudDevelopment.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = CloudDevelopment.xcconfig; sourceTree = "<group>"; };
 		7204B7FD55FC25256854F095 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
@@ -48,6 +53,7 @@
 		91246D1B12DC2DEBD9F44C7A /* GlobalShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalShortcut.swift; sourceTree = "<group>"; };
 		9CE34B866AE958971C4D6CA3 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
+		E1395287258F14C65D8424EE /* ImportedImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedImage.swift; sourceTree = "<group>"; };
 		E15BE1356E67A48F8B24FB6D /* QueepiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueepiOSApp.swift; sourceTree = "<group>"; };
 		E6C6461CEA92A238D3E64FFA /* QueepMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueepMacApp.swift; sourceTree = "<group>"; };
 		EB2450314ED132A7828F8730 /* CaptureFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlowTests.swift; sourceTree = "<group>"; };
@@ -141,6 +147,8 @@
 			isa = PBXGroup;
 			children = (
 				FF400C89CE0A73581FB4FFBB /* CaptureView.swift */,
+				4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */,
+				E1395287258F14C65D8424EE /* ImportedImage.swift */,
 				D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */,
 				EF335AB16EFA9D60B3E49962 /* LibraryView.swift */,
 				81C43FA84B7768BB69F55080 /* RootView.swift */,
@@ -328,6 +336,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				94E8917F4CDF140F5313CFF3 /* CaptureView.swift in Sources */,
+				B05597C3071D416F5763975D /* ImageViews.swift in Sources */,
+				D36B61D13131A00D06E32B6C /* ImportedImage.swift in Sources */,
 				2D06B9CB53C58E3AB2A495F9 /* LibraryStore.swift in Sources */,
 				37924549595BEB977C806E32 /* LibraryView.swift in Sources */,
 				72862B11E52F19794B5E76F4 /* QueepiOSApp.swift in Sources */,
@@ -342,6 +352,8 @@
 			files = (
 				53FAAA8A7E9653EAA1821FFA /* CaptureView.swift in Sources */,
 				922C2A4A7FC30A5612C1E9C5 /* GlobalShortcut.swift in Sources */,
+				E867783DC81E3FC6B816D676 /* ImageViews.swift in Sources */,
+				F5916405D574C2053446FEAF /* ImportedImage.swift in Sources */,
 				5221A3E01F1F0813C0C5AAD1 /* LibraryStore.swift in Sources */,
 				B48814EBE3192ABA210DFFCA /* LibraryView.swift in Sources */,
 				39011E90E0C137C2BE0DE20D /* QueepMacApp.swift in Sources */,

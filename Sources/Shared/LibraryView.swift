@@ -37,7 +37,7 @@ struct LibraryView: View {
                         Label(query.isEmpty ? "Seu espaço para lembrar" : "Nenhuma referência encontrada",
                               systemImage: query.isEmpty ? "bookmark" : "magnifyingglass")
                     } description: {
-                        Text(query.isEmpty ? "Guarde um link ou uma nota. Eles aparecem nos seus dispositivos."
+                        Text(query.isEmpty ? "Guarde uma imagem, um link ou uma nota. Eles aparecem nos seus dispositivos."
                              : "Tente outro título ou trecho do texto.")
                     } actions: {
                         if query.isEmpty { Button("Adicionar referência") { store.presentation = .capture(UUID()) }.buttonStyle(.borderedProminent) }
@@ -50,7 +50,7 @@ struct LibraryView: View {
                                 Button { store.presentation = .reference(reference) } label: { ReferenceCard(reference: reference) }
                                     .buttonStyle(.plain)
                                     .accessibilityLabel(reference.displayTitle)
-                                    .accessibilityHint("Abrir \(reference.kind == "link" ? "link" : "nota")")
+                                    .accessibilityHint("Abrir \(reference.kindLabel.lowercased())")
                             }
                         }.padding()
                         if store.nextCursor != nil {
@@ -83,7 +83,9 @@ struct LibraryView: View {
             .sheet(item: $store.presentation) { presentation in
                 switch presentation {
                 case .capture: CaptureView(reference: nil)
-                case .reference(let reference): CaptureView(reference: reference)
+                case .reference(let reference):
+                    if reference.kind == "image" { ImageDetailView(reference: reference) }
+                    else { CaptureView(reference: reference) }
                 }
             }
             .alert("Não foi possível sair", isPresented: Binding(get: { logoutError != nil }, set: { if !$0 { logoutError = nil } })) {
@@ -102,7 +104,14 @@ private struct ReferenceCard: View {
     let reference: Reference
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label(reference.kind == "link" ? "Link" : "Nota", systemImage: reference.kind == "link" ? "link" : "note.text")
+            if let image = reference.image {
+                RemoteImage(reference: reference, thumbnail: true)
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(CGFloat(image.width) / CGFloat(image.height), contentMode: .fit)
+                    .frame(maxHeight: 360).clipped()
+                    .accessibilityHidden(true)
+            }
+            Label(reference.kindLabel, systemImage: reference.kindSymbol)
                 .font(.caption).foregroundStyle(.secondary)
             Text(reference.displayTitle).font(.headline).lineLimit(3)
             if !reference.text.isEmpty {
