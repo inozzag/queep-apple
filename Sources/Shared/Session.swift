@@ -13,8 +13,8 @@ final class Session {
     private var listener: AuthStateDidChangeListenerHandle?
 
     init() {
-        #if DEBUG
-        if ProcessInfo.processInfo.environment["QUEEP_USE_CLOUD"] != "1" {
+        #if DEBUG && !QUEEP_CLOUD
+        do {
             let options = FirebaseOptions(googleAppID: "1:123456789:ios:0123456789abcdef01234567",
                                           gcmSenderID: "123456789")
             options.projectID = "demo-queep"
@@ -26,7 +26,7 @@ final class Session {
             }
             apiURL = URL(string: "http://127.0.0.1:8000")
             isLocal = true
-        } else { configureCloud() }
+        }
         #else
         configureCloud()
         #endif
@@ -47,12 +47,16 @@ final class Session {
 
     private func configureCloud() {
         guard let urlString = Bundle.main.object(forInfoDictionaryKey: "QueepAPIURL") as? String,
-              let url = URL(string: urlString), url.scheme == "https",
-              Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil else {
+              let url = URL(string: urlString), url.scheme == "https", url.host != nil,
+              let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+              let options = FirebaseOptions(contentsOfFile: path),
+              let expectedProject = Bundle.main.object(forInfoDictionaryKey: "QueepFirebaseProjectID") as? String,
+              options.projectID == expectedProject,
+              options.bundleID == Bundle.main.bundleIdentifier else {
             configurationError = "Esta versão ainda não está configurada para conexão com a nuvem."
             return
         }
-        FirebaseApp.configure()
+        FirebaseApp.configure(options: options)
         apiURL = url
     }
 

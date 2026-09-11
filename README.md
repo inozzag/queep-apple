@@ -12,6 +12,13 @@ Um projeto Xcode, apps separados para macOS 14+ e iOS 17+, núcleo Swift comum e
 
 Debug usa `127.0.0.1` e `demo-queep`. Dispositivo físico precisa de ambiente HTTPS, configuração Firebase e assinatura; não aponta para o computador por localhost.
 
+Os esquemas `QueepMacCloud` e `QueepiOSCloud` usam a configuração `CloudDevelopment`,
+com Firebase `queep-dev-hstlx` e API HTTPS de desenvolvimento. O build inclui apenas
+o plist do respectivo app e valida projeto/bundle ID antes de conectar. A liberação
+da API para os apps ainda depende da política da organização, registrada em
+`../queep-api/infra/CLOUD.md`. Os identificadores públicos Firebase estão versionados;
+credenciais de usuário, tokens e chaves de service account não fazem parte deles.
+
 ## O que funciona nesta entrega
 
 Conta, notas/links, galeria, visualização/edição, abertura da fonte, exclusão, atualização a cada quatro segundos enquanto ativo e busca textual nos itens carregados. O Mac usa barra de menu sem Dock, atalho global `⌘⇧Espaço` e opção de iniciar no login. Se o atalho estiver ocupado, o menu continua disponível.
@@ -33,7 +40,11 @@ xcodebuild -project Queep.xcodeproj -scheme QueepMac -configuration Debug -deriv
 
 ## Nuvem e publicação
 
-Debug usa identificadores `.dev`, separados dos apps de produção. Configurar arquivos Firebase distintos por app/ambiente, `QueepAPIURL` HTTPS e assinatura da equipe. Release **não usa emuladores como fallback**: configuração ausente bloqueia conexão. Firebase SDK está fixado em 12.19.1. RevenueCat/IAP entra antes do beta público; o UID Firebase será o App User ID.
+Debug e CloudDevelopment usam identificadores `.dev`, separados dos apps de produção.
+Release exclui os arquivos Firebase de desenvolvimento e **não usa emuladores como fallback**:
+configuração ausente bloqueia conexão. Firebase de produção e assinatura de distribuição
+serão configurados antes do beta. Firebase SDK está fixado em 12.19.1. RevenueCat/IAP
+entra antes do beta público; o UID Firebase será o App User ID.
 
 O teste de interface usa `preview@queep.test` / `queep-preview-only`, exclusivamente no emulador. A sessão é iniciada pelo SDK Firebase antes de exercitar a captura, evitando diálogos do gerenciador de senhas. `--ui-testing` e essas variáveis são aceitos apenas em Debug local. Nenhum token é simulado e o backend continua validando a identidade.
 

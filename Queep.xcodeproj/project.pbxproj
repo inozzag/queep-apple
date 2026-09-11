@@ -41,6 +41,7 @@
 		1B933BB3853BDB934552380F /* QueepCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = QueepCore; path = Packages/QueepCore; sourceTree = SOURCE_ROOT; };
 		4A209CB032567C65928FAABB /* QueepiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QueepiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		53EEC78FC45562FEAB6B0EC9 /* QueepiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = QueepiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6A33A39E95DEB3D3A486E8C3 /* CloudDevelopment.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = CloudDevelopment.xcconfig; sourceTree = "<group>"; };
 		7204B7FD55FC25256854F095 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
 		7BD4065FE9552201BF6CFE6F /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		81C43FA84B7768BB69F55080 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -152,6 +153,7 @@
 		9D6B4E7BD25F5C320A59E0B7 /* Config */ = {
 			isa = PBXGroup;
 			children = (
+				6A33A39E95DEB3D3A486E8C3 /* CloudDevelopment.xcconfig */,
 				9CE34B866AE958971C4D6CA3 /* Debug.xcconfig */,
 				7BD4065FE9552201BF6CFE6F /* Release.xcconfig */,
 			);
@@ -185,6 +187,7 @@
 			buildPhases = (
 				A4A13567143B726F3C1045C7 /* Sources */,
 				FA350145145718663C2C36B2 /* Frameworks */,
+				33AE75D4F44230DB7AF7F98B /* Select Firebase environment */,
 			);
 			buildRules = (
 			);
@@ -205,6 +208,7 @@
 			buildPhases = (
 				926EFFD421B3EBA69D7E717D /* Sources */,
 				293E5FE9DEA47B4642B3E551 /* Frameworks */,
+				5980C05A5673C3106041D969 /* Select Firebase environment */,
 			);
 			buildRules = (
 			);
@@ -265,6 +269,51 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		33AE75D4F44230DB7AF7F98B /* Select Firebase environment */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)",
+			);
+			name = "Select Firebase environment";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
+		};
+		5980C05A5673C3106041D969 /* Select Firebase environment */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)",
+			);
+			name = "Select Firebase environment";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		6BF2D84DBD553D8B3AFAD6E3 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -312,12 +361,34 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		05663FB114792F91822C122F /* CloudDevelopment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/Mac.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = "Config/Generated/Mac-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_LSUIElement = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.mac.dev;
+				QUEEP_FIREBASE_CONFIG = "Config/Firebase/Development/Mac/GoogleService-Info.plist";
+				SDKROOT = macosx;
+			};
+			name = CloudDevelopment;
+		};
 		2129EE0D6BF0B53604EE7926 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Config/iOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = "Config/Generated/iOS-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -354,6 +425,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = "Config/Generated/Mac-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -365,12 +437,33 @@
 			};
 			name = Debug;
 		};
+		5E58413C7E073BEB9E98944D /* CloudDevelopment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/iOS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = "Config/Generated/iOS-Info.plist";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.dev;
+				QUEEP_FIREBASE_CONFIG = "Config/Firebase/Development/iOS/GoogleService-Info.plist";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = CloudDevelopment;
+		};
 		75D4B3822D1EB5B7CB90407C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Config/iOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = "Config/Generated/iOS-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -540,6 +633,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = "Config/Generated/Mac-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -551,44 +645,134 @@
 			};
 			name = Release;
 		};
+		F869E022242A46D72341818D /* CloudDevelopment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6A33A39E95DEB3D3A486E8C3 /* CloudDevelopment.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Queep;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG QUEEP_CLOUD";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = CloudDevelopment;
+		};
+		FE45F1302D7A207B38F1485C /* CloudDevelopment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = QueepiOS;
+			};
+			name = CloudDevelopment;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
 		03B1432F3A98D8ACF057014A /* Build configuration list for PBXNativeTarget "QueepiOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
+				5E58413C7E073BEB9E98944D /* CloudDevelopment */,
 				2129EE0D6BF0B53604EE7926 /* Debug */,
 				75D4B3822D1EB5B7CB90407C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
+			defaultConfigurationName = CloudDevelopment;
 		};
 		22DDC5E5B3393779340C9135 /* Build configuration list for PBXNativeTarget "QueepiOSUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
+				FE45F1302D7A207B38F1485C /* CloudDevelopment */,
 				94A30F18AAEC08794D31C9B5 /* Debug */,
 				538594833B9C10C46F0C4ECC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
+			defaultConfigurationName = CloudDevelopment;
 		};
 		57C419635EDDD16DE5C74626 /* Build configuration list for PBXProject "Queep" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
+				F869E022242A46D72341818D /* CloudDevelopment */,
 				D47A488C8E17CE9412469F90 /* Debug */,
 				A939CF9A221233D860D73FC4 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
+			defaultConfigurationName = CloudDevelopment;
 		};
 		910E325DE8E9DCD231564C48 /* Build configuration list for PBXNativeTarget "QueepMac" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
+				05663FB114792F91822C122F /* CloudDevelopment */,
 				5706284958C446562744EE48 /* Debug */,
 				F45D03AFD478AF4EB54C77E5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
+			defaultConfigurationName = CloudDevelopment;
 		};
 /* End XCConfigurationList section */
 

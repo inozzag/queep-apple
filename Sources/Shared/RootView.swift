@@ -70,7 +70,7 @@ private struct SignInView: View {
                             } catch {
                                 #if DEBUG
                                 let failure = error as NSError
-                                self.error = "Falha local de autenticação (\(failure.domain):\(failure.code))."
+                                self.error = "Falha de autenticação (\(failure.domain):\(failure.code))."
                                 #else
                                 self.error = "Não foi possível entrar. Confira e-mail, senha e conexão."
                                 #endif

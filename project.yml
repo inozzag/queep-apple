@@ -1,6 +1,11 @@
 name: Queep
+configs:
+  Debug: debug
+  CloudDevelopment: debug
+  Release: release
 configFiles:
   Debug: Config/Debug.xcconfig
+  CloudDevelopment: Config/CloudDevelopment.xcconfig
   Release: Config/Release.xcconfig
 options:
   bundleIdPrefix: app.queep
@@ -16,6 +21,9 @@ settings:
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_CFBundleDisplayName: Queep
     ENABLE_USER_SCRIPT_SANDBOXING: YES
+  configs:
+    CloudDevelopment:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG QUEEP_CLOUD"
 packages:
   QueepCore:
     path: Packages/QueepCore
@@ -26,7 +34,18 @@ targets:
   QueepMac:
     type: application
     platform: macOS
+    info:
+      path: Config/Generated/Mac-Info.plist
+      properties:
+        QueepAPIURL: $(QUEEP_API_URL)
+        QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
     sources: [Sources/Shared, Sources/Mac]
+    postBuildScripts:
+      - path: Scripts/copy-firebase-config.sh
+        name: Select Firebase environment
+        basedOnDependencyAnalysis: false
+        inputFiles: ["$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)"]
+        outputFiles: ["$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist"]
     dependencies:
       - package: QueepCore
       - package: Firebase
@@ -42,10 +61,24 @@ targets:
       configs:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: app.queep.mac.dev
+        CloudDevelopment:
+          PRODUCT_BUNDLE_IDENTIFIER: app.queep.mac.dev
+          QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/Mac/GoogleService-Info.plist
   QueepiOS:
     type: application
     platform: iOS
+    info:
+      path: Config/Generated/iOS-Info.plist
+      properties:
+        QueepAPIURL: $(QUEEP_API_URL)
+        QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
     sources: [Sources/Shared, Sources/iOS]
+    postBuildScripts:
+      - path: Scripts/copy-firebase-config.sh
+        name: Select Firebase environment
+        basedOnDependencyAnalysis: false
+        inputFiles: ["$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)"]
+        outputFiles: ["$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist"]
     dependencies:
       - package: QueepCore
       - package: Firebase
@@ -60,6 +93,9 @@ targets:
       configs:
         Debug:
           PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev
+        CloudDevelopment:
+          PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev
+          QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/iOS/GoogleService-Info.plist
   QueepiOSUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -81,3 +117,15 @@ schemes:
         QueepiOS: all
     test:
       targets: [QueepiOSUITests]
+  QueepMacCloud:
+    build:
+      targets:
+        QueepMac: all
+    run:
+      config: CloudDevelopment
+  QueepiOSCloud:
+    build:
+      targets:
+        QueepiOS: all
+    run:
+      config: CloudDevelopment
