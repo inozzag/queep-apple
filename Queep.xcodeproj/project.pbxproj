@@ -29,6 +29,7 @@
 		6B80ECD478746A3AF06AC53E /* CloudShareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B2E01C5CB6E1489B7A89607 /* CloudShareTests.swift */; };
 		6CBA2064CBD92A89CC8D918B /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7204B7FD55FC25256854F095 /* Session.swift */; };
 		6CF50A01298B13950E9C0EB8 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = ED8EFCBC4554E34C190E82A5 /* RevenueCat */; };
+		716253DD8952BD4D56500432 /* RevenueCatCrossDeviceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE4A8C78F8D235C019E5B60 /* RevenueCatCrossDeviceTests.swift */; };
 		72862B11E52F19794B5E76F4 /* QueepiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E15BE1356E67A48F8B24FB6D /* QueepiOSApp.swift */; };
 		84EF50E7F0D78F2323685F5A /* IncomingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C884AB1D62891FBCDA93B83F /* IncomingTests.swift */; };
 		86C87CA4AF9BE15FB1CC3FB6 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 542E89D179A6A1FD2BB2B0E0 /* QueepCore */; };
@@ -40,6 +41,7 @@
 		9E43D657290AB0E8E52F9085 /* AnalysisView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199F14B28CC882C0FF83A29C /* AnalysisView.swift */; };
 		9F18373556C1D27A6CECBE74 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = A83A335ED5F8CE966A4CB76B /* QueepCore */; };
 		A33A0CCFBEAFAEC528E2465E /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DD8C45948F2A04A479DAE9 /* SubscriptionView.swift */; };
+		A9D01D4AB91DD1E1D2A40FEA /* RevenueCatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E521BF9EB40A1C9DF6F485D /* RevenueCatTests.swift */; };
 		B05597C3071D416F5763975D /* ImageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */; };
 		B48814EBE3192ABA210DFFCA /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF335AB16EFA9D60B3E49962 /* LibraryView.swift */; };
 		B4ABC642AF160A03A36F1377 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81C43FA84B7768BB69F55080 /* RootView.swift */; };
@@ -110,6 +112,7 @@
 		4D8DD2B33C0013545C7F814B /* SubscriptionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionStore.swift; sourceTree = "<group>"; };
 		53EEC78FC45562FEAB6B0EC9 /* QueepiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = QueepiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		576E6A89CBF22D4D562CEACD /* SubscriptionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionTests.swift; sourceTree = "<group>"; };
+		5E521BF9EB40A1C9DF6F485D /* RevenueCatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevenueCatTests.swift; sourceTree = "<group>"; };
 		6A33A39E95DEB3D3A486E8C3 /* CloudDevelopment.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = CloudDevelopment.xcconfig; sourceTree = "<group>"; };
 		71FCC66E4D155E455FEEB017 /* IncomingReference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingReference.swift; sourceTree = "<group>"; };
 		7204B7FD55FC25256854F095 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
@@ -126,6 +129,7 @@
 		E15BE1356E67A48F8B24FB6D /* QueepiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueepiOSApp.swift; sourceTree = "<group>"; };
 		E6C6461CEA92A238D3E64FFA /* QueepMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueepMacApp.swift; sourceTree = "<group>"; };
 		EB2450314ED132A7828F8730 /* CaptureFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureFlowTests.swift; sourceTree = "<group>"; };
+		EBE4A8C78F8D235C019E5B60 /* RevenueCatCrossDeviceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevenueCatCrossDeviceTests.swift; sourceTree = "<group>"; };
 		ED0F006731E0A73E315B86EE /* CloudSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSearchTests.swift; sourceTree = "<group>"; };
 		EF202B3DD4FB6EF9770BF9BD /* CloudSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSourceTests.swift; sourceTree = "<group>"; };
 		EF335AB16EFA9D60B3E49962 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
@@ -178,6 +182,7 @@
 		0CF362B3A09D1CA88FD65CD3 /* MacUITests */ = {
 			isa = PBXGroup;
 			children = (
+				EBE4A8C78F8D235C019E5B60 /* RevenueCatCrossDeviceTests.swift */,
 				CAAE69E5E9F1233A6C2509B1 /* ShortcutTests.swift */,
 			);
 			name = MacUITests;
@@ -258,6 +263,7 @@
 				ED0F006731E0A73E315B86EE /* CloudSearchTests.swift */,
 				2B2E01C5CB6E1489B7A89607 /* CloudShareTests.swift */,
 				EF202B3DD4FB6EF9770BF9BD /* CloudSourceTests.swift */,
+				5E521BF9EB40A1C9DF6F485D /* RevenueCatTests.swift */,
 				576E6A89CBF22D4D562CEACD /* SubscriptionTests.swift */,
 			);
 			name = UITests;
@@ -611,6 +617,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				716253DD8952BD4D56500432 /* RevenueCatCrossDeviceTests.swift in Sources */,
 				C713DFAE4400275284E907A1 /* ShortcutTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -623,6 +630,7 @@
 				EFE14BF78C6513E7C87F0BFC /* CloudSearchTests.swift in Sources */,
 				6B80ECD478746A3AF06AC53E /* CloudShareTests.swift in Sources */,
 				1E52D38AD26B18FB5C72D227 /* CloudSourceTests.swift in Sources */,
+				A9D01D4AB91DD1E1D2A40FEA /* RevenueCatTests.swift in Sources */,
 				9BD2862017B36BA3F833A706 /* SubscriptionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -765,7 +773,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.local;
 				QUEEP_REVENUECAT_PUBLIC_KEY = "$(QUEEP_REVENUECAT_IOS_KEY)";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -783,7 +791,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.dev.share;
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.local.share;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -821,7 +829,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = app.queep.mac.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.mac.local;
 				QUEEP_REVENUECAT_PUBLIC_KEY = "$(QUEEP_REVENUECAT_MAC_KEY)";
 				SDKROOT = macosx;
 			};
@@ -1096,7 +1104,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				QUEEP_AUTH_GROUP = app.queep.auth.dev;
+				QUEEP_AUTH_GROUP = app.queep.auth.local;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;

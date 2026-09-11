@@ -24,7 +24,7 @@ settings:
     QUEEP_AUTH_GROUP: app.queep.auth
   configs:
     Debug:
-      QUEEP_AUTH_GROUP: app.queep.auth.dev
+      QUEEP_AUTH_GROUP: app.queep.auth.local
     CloudDevelopment:
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG QUEEP_CLOUD"
       QUEEP_AUTH_GROUP: app.queep.auth.dev
@@ -80,7 +80,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Config/Mac.entitlements
       configs:
         Debug:
-          PRODUCT_BUNDLE_IDENTIFIER: app.queep.mac.dev
+          PRODUCT_BUNDLE_IDENTIFIER: app.queep.mac.local
         CloudDevelopment:
           PRODUCT_BUNDLE_IDENTIFIER: app.queep.mac.dev
           QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/Mac/GoogleService-Info.plist
@@ -128,7 +128,7 @@ targets:
         TARGETED_DEVICE_FAMILY: '1,2'
       configs:
         Debug:
-          PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev
+          PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.local
         CloudDevelopment:
           PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev
           QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/iOS/GoogleService-Info.plist
@@ -174,7 +174,7 @@ targets:
         TARGETED_DEVICE_FAMILY: '1,2'
       configs:
         Debug:
-          PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev.share
+          PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.local.share
         CloudDevelopment:
           PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev.share
           QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/Share/GoogleService-Info.plist

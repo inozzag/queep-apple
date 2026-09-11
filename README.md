@@ -45,11 +45,14 @@ xcodebuild -project Queep.xcodeproj -scheme QueepMac -configuration Debug -deriv
 
 ## Nuvem e publicação
 
-Debug e CloudDevelopment usam identificadores `.dev`, separados dos apps de produção.
+Debug usa identificadores/grupo de autenticação `.local`; CloudDevelopment usa `.dev`.
+Assim os testes nos emuladores não substituem a instalação nem o login cloud.
 Release exclui os arquivos Firebase de desenvolvimento e **não usa emuladores como fallback**:
 configuração ausente bloqueia conexão. Firebase de produção e assinatura de distribuição
-serão configurados antes do beta. Firebase SDK está fixado em 12.19.1. RevenueCat/IAP
-entra antes do beta público; o UID Firebase será o App User ID.
+serão configurados antes do beta. Firebase SDK está fixado em 12.19.1. RevenueCat 5.89.0
+usa o UID Firebase como App User ID; compra/restauração Test Store e reconhecimento
+Mac/iPhone foram validados. Produtos Apple/publicação seguem pendentes.
+Configuração, testes opt-in e evidências: [BILLING.md](../queep-api/infra/BILLING.md).
 
 O teste de interface usa `preview@queep.test` / `queep-preview-only`, exclusivamente no emulador. A sessão é iniciada pelo SDK Firebase antes de exercitar a captura, evitando diálogos do gerenciador de senhas. `--ui-testing` e essas variáveis são aceitos apenas em Debug local. Nenhum token é simulado e o backend continua validando a identidade.
 

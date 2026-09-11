@@ -18,7 +18,7 @@ Implementada em 11/09/2026. Usa a API existente; nenhuma chave de IA fica nos ap
 ## Configuração e verificação
 
 - `QueepShare` é embutida em `QueepiOS`. Firebase de desenvolvimento da extensão: `app.queep.ios.dev.share`, no mesmo projeto e com a mesma API key pública do app.
-- App/extension precisam da mesma equipe e grupo de Keychain: `$(AppIdentifierPrefix)app.queep.auth.dev`. Release usa `app.queep.auth` e requer seus próprios plists/perfis antes da distribuição.
+- App/extension precisam da mesma equipe e grupo de Keychain. CloudDevelopment usa `$(AppIdentifierPrefix)app.queep.auth.dev`; Debug local usa `app.queep.auth.local` e bundles `app.queep.mac.local`, `app.queep.ios.local` e `app.queep.ios.local.share`. Isso mantém login e instalação locais separados da nuvem. Release usa `app.queep.auth` e requer seus próprios plists/perfis antes da distribuição.
 - `QueepCaptureTests`: 5 testes de classificação, tipos inválidos, imagem temporária/otimização e URL com prévia. `QueepCore`: 2 testes existentes.
 - `ShortcutTests`: abrir pelo atalho fora do app, com biblioteca fechada, e fechar por Escape.
 - `CloudShareTests`: sessão cloud existente; Safari aberto em `https://example.com/queep-native-share` e fixture sintética `../queep-api/evaluation/fixtures/001.png` importada por último em Fotos. Rodar apenas no simulador de QA. Testes salvam e abrem as referências no app; remover depois os itens sintéticos exatos, preservando conteúdo do usuário.
