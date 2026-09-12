@@ -5,6 +5,7 @@ struct LibraryView: View {
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
     @State private var logoutError: String?
+    @AppStorage("queep.firstSearchHint.dismissed") private var searchHintDismissed = false
 
     private var filtered: [Reference] {
         store.searchItems ?? store.items
@@ -41,6 +42,17 @@ struct LibraryView: View {
                     Text("Algumas referências ainda aguardam análise ou precisam de uma nova tentativa.")
                         .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
                 }
+                if store.items.count == 1 && store.searchItems == nil && !searchHintDismissed {
+                    HStack(alignment: .top) {
+                        Label("Referência salva. Use a busca da biblioteca para encontrá-la pelo nome ou, depois da análise, pelo assunto e pela aparência.", systemImage: "magnifyingglass")
+                            .font(.callout).accessibilityIdentifier("onboarding.searchHint")
+                        Spacer()
+                        Button { searchHintDismissed = true } label: {
+                            Image(systemName: "xmark")
+                        }.buttonStyle(.plain).accessibilityLabel("Dispensar dica de busca")
+                            .accessibilityIdentifier("onboarding.dismissHint")
+                    }.padding().background(.quaternary)
+                }
                 if let error = store.searchError {
                     Label(error, systemImage: "exclamationmark.magnifyingglass")
                         .font(.callout).foregroundStyle(.secondary).padding()
@@ -51,8 +63,13 @@ struct LibraryView: View {
                 } else if store.searchError != nil {
                     ContentUnavailableView("Não foi possível buscar", systemImage: "magnifyingglass",
                                            description: Text("Tente novamente em instantes. Suas referências continuam salvas."))
-                } else if store.items.isEmpty && store.loading {
+                } else if store.items.isEmpty && store.loading && !store.hasLoaded {
                     ProgressView("Carregando suas referências…").frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if store.items.isEmpty && store.error != nil && store.searchItems == nil {
+                    ContentUnavailableView("Não foi possível carregar a biblioteca", systemImage: "wifi.exclamationmark",
+                        description: Text("Toque em Tentar novamente para recuperar suas referências."))
+                } else if store.items.isEmpty && store.searchItems == nil && store.error == nil {
+                    FirstUseView()
                 } else if filtered.isEmpty {
                     ContentUnavailableView {
                         Label(store.searchItems == nil ? "Seu espaço para lembrar" : "Nenhuma referência encontrada",
@@ -61,7 +78,7 @@ struct LibraryView: View {
                         Text(store.searchItems == nil ? "Guarde uma imagem, um link ou uma nota. Eles aparecem nos seus dispositivos."
                              : "Nenhuma correspondência entre os candidatos analisados. Tente descrever de outro jeito.")
                     } actions: {
-                        if store.searchItems == nil { Button("Adicionar referência") { store.presentation = .capture(UUID()) }.buttonStyle(.borderedProminent) }
+                        if store.searchItems == nil { Button("Adicionar referência") { store.startCapture() }.buttonStyle(.borderedProminent) }
                     }
                 } else {
                     ScrollView {
@@ -92,10 +109,12 @@ struct LibraryView: View {
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button { Task { await refresh() } } label: { Label("Atualizar", systemImage: "arrow.clockwise") }
                         .disabled(store.loading).keyboardShortcut("r")
-                    Button { store.presentation = .capture(UUID()) } label: { Label("Adicionar", systemImage: "plus") }
+                    Button { store.startCapture() } label: { Label("Adicionar", systemImage: "plus") }
                         .keyboardShortcut("n")
                         .accessibilityIdentifier("library.add")
                     Menu {
+                        Button("Como usar o Queep") { store.presentation = .help }
+                            .accessibilityIdentifier("account.help")
                         Button("Assinatura") { store.presentation = .subscription }
                             .accessibilityIdentifier("account.subscription")
                         Button("Sair da conta") {
@@ -109,9 +128,10 @@ struct LibraryView: View {
             }
             .sheet(item: $store.presentation) { presentation in
                 switch presentation {
+                case .help: HelpView()
                 case .deleteAccount: DeleteAccountView()
                 case .subscription: SubscriptionView()
-                case .capture: CaptureView(reference: nil)
+                case .capture: CaptureView(reference: nil, initialKind: store.captureKind)
                 case .reference(let reference):
                     if reference.kind == "image" { ImageDetailView(reference: reference) }
                     else { CaptureView(reference: reference) }

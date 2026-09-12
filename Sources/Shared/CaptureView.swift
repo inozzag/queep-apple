@@ -19,9 +19,9 @@ struct CaptureView: View {
     @State private var image: ImportedImage?
     @State private var preparing = false
 
-    init(reference: Reference?) {
+    init(reference: Reference?, initialKind: String = "note") {
         self.reference = reference
-        _kind = State(initialValue: reference?.kind ?? "note")
+        _kind = State(initialValue: reference?.kind ?? initialKind)
         _title = State(initialValue: reference?.title ?? "")
         _text = State(initialValue: reference?.text ?? "")
         _url = State(initialValue: reference?.url ?? "")

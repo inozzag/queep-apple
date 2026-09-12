@@ -3,6 +3,7 @@ import QueepCore
 import Foundation
 
 enum LibraryPresentation: Identifiable {
+    case help
     case deleteAccount
     case subscription
     case capture(UUID)
@@ -10,6 +11,7 @@ enum LibraryPresentation: Identifiable {
 
     var id: String {
         switch self {
+        case .help: "help"
         case .deleteAccount: "delete-account"
         case .subscription: "subscription"
         case .capture(let id): "capture-\(id)"
@@ -24,6 +26,8 @@ final class LibraryStore {
     var nextCursor: String?
     var error: String?
     var loading = false
+    var hasLoaded = false
+    var captureKind = "note"
     var presentation: LibraryPresentation?
     var query = "" {
         didSet { if query != oldValue { clearSearch() } }
@@ -36,6 +40,11 @@ final class LibraryStore {
     private var accountID: String?
     private var generation = 0
 
+    func startCapture(kind: String = "note") {
+        captureKind = kind
+        presentation = .capture(UUID())
+    }
+
     func reset(for account: String?) {
         // Reopening a window must not cancel the capture that opened it.
         guard account != accountID else { return }
@@ -45,6 +54,7 @@ final class LibraryStore {
         nextCursor = nil
         error = nil
         loading = false
+        hasLoaded = false
         presentation = nil
         query = ""
         clearSearch()
@@ -94,6 +104,7 @@ final class LibraryStore {
                 items += page.items.filter { !known.contains($0.id) }
             } else { items = page.items }
             nextCursor = page.nextCursor
+            hasLoaded = true
             if let matches = searchItems {
                 let fresh = Dictionary(uniqueKeysWithValues: page.items.map { ($0.id, $0) })
                 searchItems = matches.compactMap { previous in

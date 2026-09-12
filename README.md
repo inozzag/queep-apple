@@ -24,6 +24,14 @@ credenciais de usuário, tokens e chaves de service account não fazem parte del
 
 Conta, notas/links/imagens, galeria, edição, exclusão e busca semântica. A busca só envia uma consulta ao confirmar pelo teclado ou botão; considera o acervo processado da conta, não apenas a página carregada. Mostra até 10 referências conferidas por IA, estados de análise e nova tentativa. O Mac usa barra de menu sem Dock e opção de iniciar no login.
 
+Primeiro uso: a biblioteca vazia oferece captura direta de nota, link ou imagem e
+explica captura, processamento e busca. Após salvar o primeiro item, aparece uma
+dica dispensável; **Conta → Como usar o Queep** mantém as instruções disponíveis.
+A atualização em segundo plano preserva a tela vazia e seus controles. Erros de
+carregamento têm estado próprio. Não há conteúdo de exemplo inserido na conta.
+`FirstUseTests` verifica captura e reabertura da ajuda nos emuladores; no Mac também
+confere o conteúdo da primeira nota diretamente na API. Usa contas descartáveis.
+
 Captura Mac: `⌘⇧Espaço` abre uma janela independente da biblioteca; `⌘⇧7` seleciona uma área da tela. Também aceita colar texto/link/imagem e arrastar para a área opcional sob o notch (ou no topo da tela sem notch). O menu oferece as mesmas ações. No iPhone, a opção Queep no compartilhamento salva um link, texto ou imagem usando a conta do app. [Funcionamento e limites](NATIVE-CAPTURE.md).
 
 Imagens podem ser escolhidas em arquivos no Mac/iPhone e em Fotos no iPhone. JPEG, PNG e HEIC estáticos de até 32 MiB são otimizados (até 4096 px), com prévia, envio, reenvio sem duplicação e visualizador com ampliação/exclusão. A galeria preserva a proporção das imagens em uma grade adaptativa.
