@@ -187,6 +187,7 @@ targets:
     sources:
       - Tests/MacUITests
       - Tests/UITests/MediaFlowTests.swift
+      - Tests/UITests/ImageEditTests.swift
       - Tests/Support
       - path: Tests/Fixtures
         buildPhase: resources

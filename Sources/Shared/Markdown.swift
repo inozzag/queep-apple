@@ -256,6 +256,71 @@ struct MarkdownToolbar: View {
     }
 }
 
+/// Large, borderless title used by every reference document.
+struct DocumentTitleField: View {
+    @Binding var title: String
+    var disabled = false
+    var identifier = "capture.title"
+
+    var body: some View {
+        TextField("Título", text: $title, axis: .vertical)
+            .textFieldStyle(.plain).font(.title.weight(.bold)).lineLimit(1...3)
+            .disabled(disabled)
+            .accessibilityLabel("Título (opcional)")
+            .accessibilityIdentifier(identifier)
+    }
+}
+
+/// Editor plus its formatting bar; on the Mac the bar sits above the text, on iPhone it rides
+/// above the keyboard through `markdownToolbarBar`.
+struct MarkdownEditorBlock: View {
+    @Binding var text: String
+    let controller: MarkdownEditorController
+    var placeholder = "Escreva…"
+    var disabled = false
+    var minHeight: CGFloat = 200
+    var identifier = "capture.text"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            #if os(macOS)
+            MarkdownToolbar(controller: controller, disabled: disabled)
+            #endif
+            MarkdownEditor(text: $text, controller: controller, placeholder: placeholder,
+                           disabled: disabled, identifier: identifier, minHeight: minHeight)
+        }
+    }
+}
+
+struct MarkdownToolbarBar: ViewModifier {
+    let controller: MarkdownEditorController
+    var shown = true
+    var disabled = false
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        content.safeAreaInset(edge: .bottom) {
+            if shown {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    MarkdownToolbar(controller: controller, disabled: disabled).padding(.horizontal, 12)
+                }
+                .frame(height: 44).frame(maxWidth: .infinity)
+                .background(.bar)
+                .overlay(alignment: .top) { Divider() }
+            }
+        }
+        #else
+        content
+        #endif
+    }
+}
+
+extension View {
+    func markdownToolbarBar(_ controller: MarkdownEditorController, shown: Bool = true, disabled: Bool = false) -> some View {
+        modifier(MarkdownToolbarBar(controller: controller, shown: shown, disabled: disabled))
+    }
+}
+
 /// Auto-growing editor with live Markdown styling; the outer scroll view owns scrolling.
 struct MarkdownEditor: View {
     @Binding var text: String

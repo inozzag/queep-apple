@@ -1,6 +1,8 @@
 import SwiftUI
 #if os(macOS)
 import AppKit
+#else
+import UIKit
 #endif
 
 /// Shared visual language: quiet canvas, soft cards, one restrained gradient reserved for AI.
@@ -102,8 +104,10 @@ struct StatusPill: View {
     var body: some View {
         switch status {
         case "queued", "processing":
-            HStack(spacing: 5) {
-                ProgressView().controlSize(.mini)
+            // No ProgressView here: inside a styled Button on macOS it would take over the
+            // accessibility role of the whole card.
+            HStack(spacing: 6) {
+                PulseDot()
                 Text(status == "queued" ? "Na fila para análise" : "Analisando").font(.caption.weight(.medium))
             }.foregroundStyle(Color.muted)
         case "error":
@@ -147,5 +151,59 @@ struct KindTile: View {
             .frame(width: size, height: size)
             .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
             .accessibilityHidden(true)
+    }
+}
+
+/// Small native pasteboard helpers shared by menus.
+enum Clipboard {
+    static func copy(_ text: String) {
+        #if os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #else
+        UIPasteboard.general.string = text
+        #endif
+    }
+
+    static func copy(imageData: Data) {
+        #if os(macOS)
+        guard let image = NSImage(data: imageData) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([image])
+        #else
+        UIPasteboard.general.image = UIImage(data: imageData)
+        #endif
+    }
+}
+
+/// A SwiftUI image built from encoded bytes, for sharing and previews.
+func platformImage(_ data: Data) -> Image? {
+    #if os(macOS)
+    NSImage(data: data).map { Image(nsImage: $0) }
+    #else
+    UIImage(data: data).map { Image(uiImage: $0) }
+    #endif
+}
+
+/// A quiet breathing dot for work in progress.
+struct PulseDot: View {
+    var body: some View {
+        Circle().fill(Theme.aiGradient).frame(width: 7, height: 7)
+            .phaseAnimator([0.35, 1.0]) { view, phase in view.opacity(phase).scaleEffect(0.8 + phase * 0.2) }
+                animation: { _ in .easeInOut(duration: 0.9) }
+            .accessibilityHidden(true)
+    }
+}
+
+/// Mac sheets show only cancel and confirm in their bar, so other document actions live in a
+/// small header row on the Mac and in the toolbar on iPhone.
+struct DocumentActions<Content: View>: View {
+    @ViewBuilder let content: Content
+    var body: some View {
+        #if os(macOS)
+        HStack(spacing: 8) { Spacer(); content }.controlSize(.small)
+        #else
+        EmptyView()
+        #endif
     }
 }

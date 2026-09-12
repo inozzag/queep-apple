@@ -50,6 +50,7 @@ struct CaptureView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    if reference != nil { DocumentActions { moreMenu } }
                     if reference == nil {
                         Group {
                             if typeSize.isAccessibilitySize { kindPicker.pickerStyle(.menu) }
@@ -101,16 +102,9 @@ struct CaptureView: View {
                         .labelStyle(.iconOnly)
                         #endif
                 }
-                if let reference {
-                    ToolbarItem(placement: .secondaryAction) {
-                        Menu {
-                            if let source = reference.url, let destination = URL(string: source) {
-                                Button("Abrir site original", systemImage: "safari") { openURL(destination) }
-                            }
-                            Button("Excluir referência", systemImage: "trash", role: .destructive) { confirmDelete = true }.disabled(busy)
-                        } label: { Label("Mais", systemImage: "ellipsis.circle") }
-                    }
-                }
+                #if os(iOS)
+                if reference != nil { ToolbarItem(placement: .primaryAction) { moreMenu } }
+                #endif
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
                         Task { await save() }
@@ -131,18 +125,7 @@ struct CaptureView: View {
                         .accessibilityLabel(busy ? "Salvando referência" : error == nil ? "Salvar" : "Tentar novamente")
                 }
             }
-            #if os(iOS)
-            .safeAreaInset(edge: .bottom) {
-                if kind == "note" || kind == "link" {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        MarkdownToolbar(controller: editor, disabled: locked).padding(.horizontal, 12)
-                    }
-                    .frame(height: 44).frame(maxWidth: .infinity)
-                    .background(.bar)
-                    .overlay(alignment: .top) { Divider() }
-                }
-            }
-            #endif
+            .markdownToolbarBar(editor, shown: kind == "note" || kind == "link", disabled: locked)
             .confirmationDialog("Excluir esta referência dos seus dispositivos?", isPresented: $confirmDelete,
                                 titleVisibility: .visible) {
                 Button("Excluir", role: .destructive) { Task { await remove() } }
@@ -153,6 +136,24 @@ struct CaptureView: View {
         #if os(macOS)
         .frame(minWidth: 520, idealWidth: 680, minHeight: 520, idealHeight: 640)
         #endif
+    }
+
+    @ViewBuilder private var moreMenu: some View {
+        if let reference {
+            Menu {
+                if let source = reference.url, let destination = URL(string: source) {
+                    Button("Abrir site original", systemImage: "safari") { openURL(destination) }
+                    Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
+                }
+                if !reference.text.isEmpty {
+                    Button("Copiar texto", systemImage: "doc.on.doc") { Clipboard.copy(reference.text) }
+                }
+                Divider()
+                Button("Excluir referência", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                    .disabled(busy).accessibilityIdentifier("reference.delete")
+            } label: { Label("Mais", systemImage: "ellipsis.circle") }
+                .accessibilityIdentifier("reference.more")
+        }
     }
 
     private var kindPicker: some View {
@@ -192,12 +193,7 @@ struct CaptureView: View {
     }
 
     private func editorBlock(minHeight: CGFloat, placeholder: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            #if os(macOS)
-            MarkdownToolbar(controller: editor, disabled: locked)
-            #endif
-            MarkdownEditor(text: $text, controller: editor, placeholder: placeholder, disabled: locked, minHeight: minHeight)
-        }
+        MarkdownEditorBlock(text: $text, controller: editor, placeholder: placeholder, disabled: locked, minHeight: minHeight)
     }
 
     private func save() async {

@@ -6,6 +6,8 @@ struct LibraryView: View {
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
     @State private var logoutError: String?
+    @State private var actionError: String?
+    @State private var pendingDelete: Reference?
     @AppStorage("queep.firstSearchHint.dismissed") private var searchHintDismissed = false
 
     private var filtered: [Reference] { store.searchItems ?? store.items }
@@ -70,6 +72,9 @@ struct LibraryView: View {
                                 Button { store.presentation = .reference(reference) } label: {
                                     ReferenceCard(reference: reference, showsAnalysis: searching)
                                         .frame(maxHeight: .infinity, alignment: .top)
+                                        .contextMenu { cardMenu(reference) }
+                                        // The button speaks for the card; its children must not redefine its role.
+                                        .accessibilityElement(children: .ignore)
                                 }
                                 .buttonStyle(CardButtonStyle())
                                 .accessibilityLabel(reference.displayTitle)
@@ -134,7 +139,34 @@ struct LibraryView: View {
             .alert("Não foi possível sair", isPresented: Binding(get: { logoutError != nil }, set: { if !$0 { logoutError = nil } })) {
                 Button("OK") { logoutError = nil }
             } message: { Text(logoutError ?? "") }
+            .alert("Não foi possível excluir", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
+                Button("OK") { actionError = nil }
+            } message: { Text(actionError ?? "") }
+            .confirmationDialog("Excluir esta referência dos seus dispositivos?",
+                                isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+                                titleVisibility: .visible, presenting: pendingDelete) { reference in
+                Button("Excluir \(reference.kindLabel.lowercased())", role: .destructive) { Task { await remove(reference) } }
+            } message: { reference in Text(reference.displayTitle) }
         }
+    }
+
+    /// Right-click on the Mac, long-press on iPhone: the basics without opening the item.
+    @ViewBuilder private func cardMenu(_ reference: Reference) -> some View {
+        Button("Abrir", systemImage: "arrow.up.right.square") { store.presentation = .reference(reference) }
+        if let url = reference.url { Button("Copiar link", systemImage: "link") { Clipboard.copy(url) } }
+        if !reference.text.isEmpty { Button("Copiar texto", systemImage: "doc.on.doc") { Clipboard.copy(reference.text) } }
+        Divider()
+        Button("Excluir…", systemImage: "trash", role: .destructive) { pendingDelete = reference }
+    }
+
+    private func remove(_ reference: Reference) async {
+        guard let api = session.client(), let uid = session.userID else { return }
+        do {
+            try await api.delete(reference)
+            guard session.userID == uid else { return }
+            store.discardSearchReference(reference.id)
+            await store.refresh(api, account: uid)
+        } catch { actionError = error.localizedDescription }
     }
 
     private var columns: [GridItem] {
@@ -273,7 +305,7 @@ private struct ReferenceCard: View {
                     if !analysis.topics.isEmpty {
                         HStack(spacing: 6) { ForEach(analysis.topics.prefix(3), id: \.self) { Chip(text: $0) } }
                     }
-                } else if reference.kind == "note" || reference.kind == "link", !excerpt.isEmpty, excerpt != reference.displayTitle {
+                } else if !excerpt.isEmpty, excerpt != reference.displayTitle {
                     Text(excerpt).font(.callout).foregroundStyle(Color.muted).lineLimit(hasPicture ? 2 : 5)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if reference.kind == "link", let source = reference.source, !source.title.isEmpty, source.title != reference.displayTitle {

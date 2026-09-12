@@ -40,3 +40,5 @@ esta rodada; não registrar isso como teste físico completo.
 RevenueCat e App Store Connect permanecem adiados por decisão do usuário.
 
 `RedesignSnapshotTests` (Mac e iPhone) é opt-in com `TEST_RUNNER_QUEEP_SNAPSHOTS=1`: em uma biblioteca já conectada, captura biblioteca, busca digitada sem enviar (Mac), um detalhe aberto (Mac) e um rascunho Markdown sem salvar. Não cria, não altera e não busca; serve para conferir a interface com dados reais.
+
+`ImageEditTests` (Mac e iPhone, emuladores): envia um JPEG sintético para uma conta descartável, renomeia e anota a imagem pelo documento, confirma revisão 2 na API, reabre e exclui pelo menu "Mais" com confirmação. `MediaFlowTests`, `FirstUseTests`, `QualityTests` (Mac) e `CaptureFlowTests` (iPhone) continuaram passando após a mudança dos detalhes de imagem e mídia. Observação de acessibilidade no macOS: um `ProgressView` dentro de um `Button` com estilo customizado faz o botão ser exposto como indicador de atividade; os cards usam um ponto pulsante e `accessibilityElement(children: .ignore)`.

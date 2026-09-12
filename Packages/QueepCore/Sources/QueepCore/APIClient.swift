@@ -93,6 +93,23 @@ public struct APIClient: Sendable {
                                  body: JSONSerialization.data(withJSONObject: object))
     }
 
+    /// Changes the title and notes of an uploaded image or media file; the file itself stays.
+    public func editMetadata(_ reference: Reference, title: String, text: String,
+                             mutationID: UUID) async throws -> Reference {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard ["image", "audio", "video"].contains(reference.kind),
+              cleanTitle.count <= 200, text.count <= 30_000 else { throw QueepError.invalidCapture }
+        let object: [String: Any] = ["kind": reference.kind, "title": cleanTitle, "text": text,
+                                     "revision": reference.revision,
+                                     "mutation_id": mutationID.uuidString.lowercased()]
+        do {
+            return try await decoded("v1/references/\(reference.id)", method: "PATCH",
+                                     body: JSONSerialization.data(withJSONObject: object))
+        } catch QueepError.invalidCapture {
+            throw QueepError.server("Este servidor ainda não aceita editar título e anotações de imagens e mídias.")
+        }
+    }
+
     public func delete(_ reference: Reference) async throws {
         _ = try await request("v1/references/\(reference.id)", method: "DELETE",
                               query: [.init(name: "revision", value: String(reference.revision))])

@@ -89,7 +89,7 @@ struct RemoteImage: View {
                     if !thumbnail { Button("Tentar novamente") { attempt += 1 } }
                 }.font(.caption).foregroundStyle(.secondary).padding()
             } else {
-                if thumbnail { Color.primary.opacity(0.04).overlay { ProgressView().controlSize(.small) } }
+                if thumbnail { Color.primary.opacity(0.05) }
                 else { ProgressView("Carregando imagem…").controlSize(.small).padding() }
             }
         }
@@ -107,53 +107,167 @@ struct RemoteImage: View {
     }
 }
 
+/// An image reads like a document too: the picture, a title, your notes, then the analysis.
 struct ImageDetailView: View {
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     let reference: Reference
+    @State private var title: String
+    @State private var text: String
+    @State private var data: Data?
+    @State private var loadError: String?
+    @State private var attempt = 0
     @State private var confirmDelete = false
     @State private var busy = false
     @State private var error: String?
     @State private var zoomed = false
+    @State private var editor = MarkdownEditorController()
+    @State private var mutationID = UUID()
+
+    init(reference: Reference) {
+        self.reference = reference
+        _title = State(initialValue: reference.title)
+        _text = State(initialValue: reference.text)
+    }
+
+    private var changed: Bool {
+        title.trimmingCharacters(in: .whitespacesAndNewlines) != reference.title || text != reference.text
+    }
+    private var canSave: Bool { changed && !busy && title.count <= 200 && text.count <= 30_000 }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                GeometryReader { geometry in
-                    ScrollView([.horizontal, .vertical]) {
-                        RemoteImage(reference: reference)
-                            .frame(width: geometry.size.width * (zoomed ? 2 : 1),
-                                   height: geometry.size.height * (zoomed ? 2 : 1))
-                    }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    DocumentActions { zoomButton; moreMenu }
+                    picture
+                    DocumentTitleField(title: $title, disabled: busy, identifier: "image.title")
+                    MarkdownEditorBlock(text: $text, controller: editor,
+                                        placeholder: "Anotações sobre esta imagem: onde viu, por que guardou, o que lembrar.",
+                                        disabled: busy, minHeight: 120, identifier: "image.text")
+                    AnalysisView(reference: reference)
+                    if let error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red) }
                 }
-                ScrollView { AnalysisView(reference: reference) }.frame(maxHeight: 150)
-                if let error { Text(error).font(.callout).foregroundStyle(.red) }
-                Button("Excluir imagem", role: .destructive) { confirmDelete = true }
-                    .disabled(busy).accessibilityIdentifier("image.delete")
-            }.padding()
-            .navigationTitle(reference.displayTitle)
+                .padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 40)
+                .frame(maxWidth: 760).frame(maxWidth: .infinity)
+            }
+            .background(Color.card)
+            .navigationTitle("Imagem")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Fechar") { dismiss() }.disabled(busy)
+                    Button("Fechar", systemImage: "xmark") { dismiss() }.disabled(busy)
+                        .keyboardShortcut(.cancelAction)
+                        #if os(iOS)
+                        .labelStyle(.iconOnly)
+                        #endif
                 }
-                ToolbarItemGroup(placement: .primaryAction) {
-                    Button { zoomed.toggle() } label: {
-                        Label(zoomed ? "Ajustar imagem" : "Ampliar imagem",
-                              systemImage: zoomed ? "minus.magnifyingglass" : "plus.magnifyingglass")
-                    }
+                #if os(iOS)
+                ToolbarItemGroup(placement: .primaryAction) { zoomButton; moreMenu }
+                #endif
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        Task { await save() }
+                    } label: {
+                        if busy { ProgressView().controlSize(.small) }
+                        else {
+                            #if os(iOS)
+                            Label("Salvar", systemImage: "checkmark").labelStyle(.iconOnly)
+                            #else
+                            Text("Salvar")
+                            #endif
+                        }
+                    }.disabled(!canSave)
+                        .keyboardShortcut(.return, modifiers: .command)
+                        .accessibilityIdentifier("image.save")
+                        .accessibilityLabel(busy ? "Salvando" : "Salvar")
                 }
             }
+            .markdownToolbarBar(editor, disabled: busy)
             .confirmationDialog("Excluir esta imagem dos seus dispositivos?", isPresented: $confirmDelete,
                                 titleVisibility: .visible) {
                 Button("Excluir", role: .destructive) { Task { await remove() } }
             }
-            .overlay { if busy { ProgressView("Excluindo…").padding().background(.regularMaterial) } }
         }
         .interactiveDismissDisabled(busy)
+        .task(id: "\(session.userID ?? "")/\(reference.id)/\(attempt)") {
+            data = nil; loadError = nil
+            guard let api = session.client(), let uid = session.userID else { return }
+            do {
+                let bytes = try await api.imageData(reference)
+                guard !Task.isCancelled, uid == session.userID else { return }
+                data = bytes
+            } catch is CancellationError { }
+            catch { if !Task.isCancelled { loadError = error.localizedDescription } }
+        }
         #if os(macOS)
-        .frame(minWidth: 600, idealWidth: 800, minHeight: 500, idealHeight: 650)
+        .frame(minWidth: 600, idealWidth: 760, minHeight: 560, idealHeight: 720)
         #endif
+    }
+
+    private var zoomButton: some View {
+        Button { zoomed.toggle() } label: {
+            Label(zoomed ? "Ajustar imagem" : "Ampliar imagem",
+                  systemImage: zoomed ? "minus.magnifyingglass" : "plus.magnifyingglass")
+        }.disabled(data == nil)
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            if let data, let image = platformImage(data) {
+                ShareLink(item: image, preview: SharePreview(reference.displayTitle, image: image)) {
+                    Label("Compartilhar", systemImage: "square.and.arrow.up")
+                }
+                Button("Copiar imagem", systemImage: "doc.on.doc") { Clipboard.copy(imageData: data) }
+            }
+            Divider()
+            Button("Excluir imagem", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                .disabled(busy).accessibilityIdentifier("image.delete")
+        } label: { Label("Mais", systemImage: "ellipsis.circle") }
+            .accessibilityIdentifier("reference.more")
+    }
+
+    @ViewBuilder private var picture: some View {
+        if let data {
+            if zoomed {
+                ScrollView([.horizontal, .vertical]) {
+                    ImagePixels(data: data)
+                        .frame(width: CGFloat(reference.image?.width ?? 1200) / 2,
+                               height: CGFloat(reference.image?.height ?? 800) / 2)
+                }
+                .frame(height: 480)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .accessibilityLabel("\(reference.displayTitle), ampliada")
+            } else {
+                ImagePixels(data: data)
+                    .frame(maxWidth: .infinity).frame(maxHeight: 460)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .accessibilityLabel(reference.displayTitle)
+            }
+        } else if let loadError {
+            VStack(spacing: 8) {
+                Label(loadError, systemImage: "photo.badge.exclamationmark")
+                Button("Tentar novamente") { attempt += 1 }
+            }.font(.callout).foregroundStyle(Color.muted).frame(maxWidth: .infinity).padding(.vertical, 40)
+        } else {
+            ProgressView("Carregando imagem…").controlSize(.small).frame(maxWidth: .infinity).padding(.vertical, 60)
+        }
+    }
+
+    private func save() async {
+        guard let api = session.client(), let uid = session.userID else { return }
+        busy = true; error = nil
+        defer { busy = false }
+        do {
+            _ = try await api.editMetadata(reference, title: title, text: text, mutationID: mutationID)
+            guard session.userID == uid else { return }
+            store.discardSearchReference(reference.id)
+            await store.refresh(api, account: uid)
+            dismiss()
+        } catch { self.error = error.localizedDescription }
     }
 
     private func remove() async {

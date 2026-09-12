@@ -49,6 +49,25 @@ struct DeletionFixture {
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
     }
 
+    func uploadImage(_ file: URL, title: String = "") async throws {
+        var components = URLComponents(string: "http://127.0.0.1:8000/v1/references/\(UUID().uuidString.lowercased())/image")!
+        if !title.isEmpty { components.queryItems = [URLQueryItem(name: "title", value: title)] }
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        let (_, response) = try await URLSession.shared.upload(for: request, fromFile: file)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+    }
+
+    /// The first (newest) reference of this disposable account, as the API returns it.
+    func firstReference() async throws -> [String: Any]? {
+        let (data, status) = try await Self.send("http://127.0.0.1:8000/v1/references", method: "GET", token: token)
+        guard status == 200 else { return nil }
+        let page = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        return (page?["items"] as? [[String: Any]])?.first
+    }
+
     func containsSavedNote(text: String) async throws -> Bool {
         let (data, status) = try await Self.send("http://127.0.0.1:8000/v1/references", method: "GET", token: token)
         guard status == 200 else { return false }

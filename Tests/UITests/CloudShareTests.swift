@@ -29,6 +29,8 @@ final class CloudShareTests: XCTestCase {
         let card = app.buttons["Imagem"].firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 15), app.debugDescription)
         card.tap()
+        XCTAssertTrue(app.textFields["image.title"].waitForExistence(timeout: 10))
+        app.buttons["reference.more"].tap()
         XCTAssertTrue(app.buttons["image.delete"].waitForExistence(timeout: 10))
         #else
         throw XCTSkip("Requires CloudDevelopment and a synthetic photo imported to the simulator.")
