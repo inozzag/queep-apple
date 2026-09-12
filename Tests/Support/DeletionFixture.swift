@@ -39,6 +39,16 @@ struct DeletionFixture {
         try await Self.send("http://127.0.0.1:8000/v1/references", method: "GET", token: token).1
     }
 
+    func uploadMedia(_ file: URL) async throws {
+        let url = URL(string: "http://127.0.0.1:8000/v1/references/\(UUID().uuidString.lowercased())/media")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        let (_, response) = try await URLSession.shared.upload(for: request, fromFile: file)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+    }
+
     func containsSavedNote(text: String) async throws -> Bool {
         let (data, status) = try await Self.send("http://127.0.0.1:8000/v1/references", method: "GET", token: token)
         guard status == 200 else { return false }

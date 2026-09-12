@@ -17,6 +17,7 @@ struct CaptureView: View {
     @State private var requestID = UUID()
     @State private var attempted = false
     @State private var image: ImportedImage?
+    @State private var media: ImportedMedia?
     @State private var preparing = false
 
     init(reference: Reference?, initialKind: String = "note") {
@@ -37,6 +38,7 @@ struct CaptureView: View {
                 if reference == nil {
                     Picker("Tipo", selection: $kind) {
                         Text("Nota").tag("note"); Text("Link").tag("link"); Text("Imagem").tag("image")
+                        Text("Áudio/Vídeo").tag("media")
                     }
                         .pickerStyle(.segmented)
                         .disabled(busy || attempted || preparing)
@@ -52,7 +54,9 @@ struct CaptureView: View {
                         Button("Abrir site original") { openURL(destination) }
                     }
                 }
-                if kind == "image" {
+                if kind == "media" {
+                    MediaPickerSection(media: $media, preparing: $preparing, disabled: busy || attempted)
+                } else if kind == "image" {
                     ImagePickerSection(image: $image, preparing: $preparing, disabled: busy || attempted)
                 } else { Section(kind == "note" ? "Sua nota" : "Contexto (opcional)") {
                     TextEditor(text: $text).frame(minHeight: kind == "note" ? 220 : 80)
@@ -83,7 +87,8 @@ struct CaptureView: View {
                     } label: {
                         if busy { ProgressView().controlSize(.small) }
                         else { Text(error == nil ? "Salvar" : "Tentar novamente") }
-                    }.disabled(busy || preparing || (kind == "image" ? image == nil || title.count > 200 : !capture.isValid))
+                    }.disabled(busy || preparing || title.count > 200 ||
+                               (kind == "media" ? media == nil : kind == "image" ? image == nil : !capture.isValid))
                         .keyboardShortcut(.return, modifiers: .command)
                         .accessibilityIdentifier("capture.save")
                 }
@@ -105,6 +110,9 @@ struct CaptureView: View {
         defer { busy = false }
         do {
             if let reference { _ = try await api.edit(reference, capture: capture, mutationID: requestID) }
+            else if kind == "media", let media {
+                _ = try await api.uploadMedia(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), file: media.file.url)
+            }
             else if kind == "image", let image {
                 _ = try await api.uploadImage(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), data: image.data)
             } else { _ = try await api.create(id: requestID, capture: capture) }

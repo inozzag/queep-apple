@@ -20,6 +20,7 @@ struct FirstUseView: View {
                         captureButton("Anotar uma ideia", symbol: "square.and.pencil", kind: "note")
                         captureButton("Salvar um link", symbol: "link", kind: "link")
                         captureButton("Guardar uma imagem", symbol: "photo", kind: "image")
+                        captureButton("Salvar áudio ou vídeo", symbol: "play.rectangle", kind: "media")
                     }
                 }
                 VStack(alignment: .leading, spacing: 18) {
@@ -32,7 +33,7 @@ struct FirstUseView: View {
                         text: "⌘⇧Espaço abre a captura rápida. ⌘⇧7 recorta a tela. Essas ações também estão no menu do Queep, na barra superior do Mac.")
                     #else
                     tip("Salve sem sair de outro app", symbol: "square.and.arrow.up",
-                        text: "Toque em Compartilhar e escolha Queep para enviar um link, texto ou imagem. Entre na sua conta no Queep antes do primeiro envio.")
+                        text: "Toque em Compartilhar e escolha Queep para enviar um link, texto, imagem, áudio ou vídeo. Entre na sua conta no Queep antes do primeiro envio.")
                     #endif
                 }
             }.padding(28).frame(maxWidth: 560)

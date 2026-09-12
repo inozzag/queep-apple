@@ -94,7 +94,8 @@ struct RemoteImage: View {
             data = nil; error = nil
             guard let api = session.client(), let uid = session.userID else { return }
             do {
-                let bytes = try await api.imageData(reference, thumbnail: thumbnail)
+                let bytes = try await (reference.media == nil ? api.imageData(reference, thumbnail: thumbnail)
+                                      : api.mediaData(reference, thumbnail: thumbnail))
                 guard !Task.isCancelled, uid == session.userID else { return }
                 data = bytes
             } catch is CancellationError { }

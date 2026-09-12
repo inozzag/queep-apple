@@ -150,10 +150,13 @@ targets:
               NSExtensionActivationSupportsText: true
               NSExtensionActivationSupportsWebURLWithMaxCount: 1
               NSExtensionActivationSupportsImageWithMaxCount: 1
+              NSExtensionActivationSupportsMovieWithMaxCount: 1
+              NSExtensionActivationSupportsFileWithMaxCount: 1
     sources:
       - Sources/Share
       - Sources/Shared/Session.swift
       - Sources/Shared/ImportedImage.swift
+      - Sources/Shared/ImportedMedia.swift
       - Sources/Shared/IncomingReference.swift
     postBuildScripts:
       - path: Scripts/copy-firebase-config.sh
@@ -181,7 +184,12 @@ targets:
   QueepMacUITests:
     type: bundle.ui-testing
     platform: macOS
-    sources: [Tests/MacUITests, Tests/Support]
+    sources:
+      - Tests/MacUITests
+      - Tests/UITests/MediaFlowTests.swift
+      - Tests/Support
+      - path: Tests/Fixtures
+        buildPhase: resources
     dependencies:
       - target: QueepMac
     settings:
@@ -195,6 +203,9 @@ targets:
       - Tests/CaptureTests
       - Sources/Shared/IncomingReference.swift
       - Sources/Shared/ImportedImage.swift
+      - Sources/Shared/ImportedMedia.swift
+      - path: Tests/Fixtures
+        buildPhase: resources
     dependencies:
       - package: QueepCore
     settings:
@@ -203,7 +214,11 @@ targets:
   QueepiOSUITests:
     type: bundle.ui-testing
     platform: iOS
-    sources: [Tests/UITests, Tests/Support]
+    sources:
+      - Tests/UITests
+      - Tests/Support
+      - path: Tests/Fixtures
+        buildPhase: resources
     dependencies:
       - target: QueepiOS
     settings:

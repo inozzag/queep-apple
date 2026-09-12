@@ -8,6 +8,7 @@ struct IncomingReference: Sendable {
     let text: String
     let url: String?
     let image: Data?
+    var media: ImportedMedia? = nil
 
     static func text(_ raw: String) throws -> Self {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -22,6 +23,7 @@ struct IncomingReference: Sendable {
     }
 
     func save(using client: APIClient) async throws -> Reference {
+        if let media { return try await client.uploadMedia(id: id, title: title, file: media.file.url) }
         if let image { return try await client.uploadImage(id: id, title: title, data: image) }
         return try await client.create(id: id, capture: Capture(
             kind: url == nil ? "note" : "link", title: title, text: text, url: url))
@@ -36,8 +38,12 @@ enum IncomingLoader {
         var files: [URL] = []
         var texts = context.isEmpty ? [] : [context]
         var images: [NSItemProvider] = []
+        var media: [NSItemProvider] = []
         for provider in providers {
-            if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
+            if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier)
+                || provider.hasItemConformingToTypeIdentifier(UTType.audio.identifier) {
+                media.append(provider)
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                 let url = try await loadURL(provider)
                 if url.isFileURL { files.append(url) } else { links.append(url.absoluteString) }
             } else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
@@ -45,11 +51,11 @@ enum IncomingLoader {
             } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
                 texts.append(try await loadText(provider))
             } else {
-                throw QueepError.server("Este formato ainda não é suportado. Compartilhe um link, texto ou imagem.")
+                throw QueepError.server("Compartilhe um link, texto, imagem, áudio ou vídeo.")
             }
         }
         links = Array(Set(links))
-        guard links.count <= 1, files.count + images.count <= 1 else {
+        guard links.count <= 1, files.count + images.count + media.count <= 1 else {
             throw QueepError.server("Compartilhe uma referência por vez.")
         }
         if let link = links.first {
@@ -61,8 +67,17 @@ enum IncomingLoader {
             return IncomingReference(text: text, url: link, image: nil)
         }
         if let file = files.first {
+            if let type = UTType(filenameExtension: file.pathExtension),
+               type.conforms(to: .movie) || type.conforms(to: .audio) {
+                return IncomingReference(text: "", url: nil, image: nil,
+                    media: try await ImportedMedia.prepare(url: file))
+            }
             let image = try await Task.detached { try ImportedImage.prepare(url: file, maxPixels: 2048) }.value
             return IncomingReference(text: "", url: nil, image: image.data)
+        }
+        if let provider = media.first {
+            return IncomingReference(text: "", url: nil, image: nil,
+                                     media: try await loadMedia(provider))
         }
         if let provider = images.first {
             let image = try await loadImage(provider)
@@ -108,5 +123,19 @@ enum IncomingLoader {
                 } catch { continuation.resume(throwing: error) }
             }
         }
+    }
+
+    private static func loadMedia(_ provider: NSItemProvider) async throws -> ImportedMedia {
+        let type = provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) ? UTType.movie : .audio
+        let copy: TemporaryMediaFile = try await withCheckedThrowingContinuation { continuation in
+            provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, error in
+                do {
+                    if let error { throw error }
+                    guard let url else { throw QueepError.invalidCapture }
+                    continuation.resume(returning: try ImportedMedia.copy(url: url))
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+        return try await ImportedMedia.prepare(copy: copy)
     }
 }

@@ -110,6 +110,22 @@ public struct APIClient: Sendable {
                           timeout: 60)
     }
 
+    public func uploadMedia(id: UUID, title: String, file: URL) async throws -> Reference {
+        let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+        guard file.isFileURL, size > 0, size <= 25 * 1024 * 1024, title.count <= 200 else {
+            throw QueepError.server("Escolha um áudio ou vídeo de até 25 MB.")
+        }
+        let data = try await request("v1/references/\(id.uuidString.lowercased())/media", method: "PUT",
+                                     query: [.init(name: "title", value: title)],
+                                     contentType: "application/octet-stream", timeout: 150, file: file)
+        return try Self.decoder().decode(Reference.self, from: data)
+    }
+
+    public func mediaData(_ reference: Reference, thumbnail: Bool = false) async throws -> Data {
+        try await request("v1/references/\(reference.id)/media", method: "GET",
+                          query: [.init(name: "thumbnail", value: thumbnail ? "true" : "false")], timeout: 90)
+    }
+
     private func decoded<T: Decodable>(_ path: String, method: String = "GET",
                                        query: [URLQueryItem] = [], body: Data? = nil) async throws -> T {
         let data = try await request(path, method: method, query: query, body: body)
@@ -118,7 +134,7 @@ public struct APIClient: Sendable {
 
     private func request(_ path: String, method: String, query: [URLQueryItem] = [],
                          body: Data? = nil, contentType: String = "application/json",
-                         timeout: TimeInterval = 20) async throws -> Data {
+                         timeout: TimeInterval = 20, file: URL? = nil) async throws -> Data {
         var components = URLComponents(url: baseURL.appendingPathComponent(path),
                                        resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
@@ -131,7 +147,10 @@ public struct APIClient: Sendable {
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         let data: Data
         let response: URLResponse
-        do { (data, response) = try await session.data(for: request) }
+        do {
+            if let file { (data, response) = try await session.upload(for: request, fromFile: file) }
+            else { (data, response) = try await session.data(for: request) }
+        }
         catch is CancellationError { throw CancellationError() }
         catch {
             if Task.isCancelled { throw CancellationError() }
@@ -144,11 +163,9 @@ public struct APIClient: Sendable {
             await onUnauthorized()
             throw QueepError.unauthorized
         case 409: throw QueepError.conflict
-        case 413: throw QueepError.server("A imagem é muito grande. Escolha outra ou reduza a resolução.")
-        case 415: throw QueepError.server("Não foi possível ler esta imagem. Escolha outra imagem.")
         case 422: throw QueepError.invalidCapture
         case 404: throw QueepError.server("Essa referência não está mais disponível.")
-        case 402, 403, 429, 503:
+        case 402, 403, 413, 415, 429, 503:
             struct Failure: Decodable { let detail: String }
             let failure = try? JSONDecoder().decode(Failure.self, from: data)
             throw QueepError.server(failure?.detail ?? "Serviço temporariamente indisponível. Tente novamente.")

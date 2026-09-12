@@ -13,17 +13,27 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
     public let analysis: Interpretation?
     public let image: ImageInfo?
     public let source: SourceContent?
+    public let media: MediaInfo?
+    public let transcript: String?
 
     public var displayTitle: String {
         if !title.isEmpty { return title }
         if kind == "image" { return "Imagem" }
+        if kind == "audio" { return "Áudio" }
+        if kind == "video" { return "Vídeo" }
         if kind == "link", let source, !source.title.isEmpty { return source.title }
         if kind == "link", let url, let host = URL(string: url)?.host { return host }
         return String(text.split(separator: "\n").first.map(String.init)?.prefix(100) ?? "Nota")
     }
 
-    public var kindLabel: String { kind == "image" ? "Imagem" : kind == "link" ? "Link" : "Nota" }
-    public var kindSymbol: String { kind == "image" ? "photo" : kind == "link" ? "link" : "note.text" }
+    public var kindLabel: String {
+        switch kind { case "image": "Imagem"; case "link": "Link"; case "audio": "Áudio"
+        case "video": "Vídeo"; default: "Nota" }
+    }
+    public var kindSymbol: String {
+        switch kind { case "image": "photo"; case "link": "link"; case "audio": "waveform"
+        case "video": "play.rectangle"; default: "note.text" }
+    }
 
     public var statusLabel: String {
         switch status {
@@ -36,7 +46,22 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
     }
 }
 
+public struct MediaInfo: Codable, Sendable, Equatable {
+    public let sha256: String
+    public let contentType: String
+    public let durationSeconds: Double
+    public let byteCount: Int
+    public let hasAudio: Bool
+    public let width: Int?
+    public let height: Int?
+    public var durationLabel: String {
+        let total = Int(durationSeconds.rounded())
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}
+
 public struct SourceContent: Codable, Sendable, Equatable {
+    public let contentKind: String?
     public let state: String
     public let url: String
     public let title: String

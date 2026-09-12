@@ -134,6 +134,7 @@ struct LibraryView: View {
                 case .capture: CaptureView(reference: nil, initialKind: store.captureKind)
                 case .reference(let reference):
                     if reference.kind == "image" { ImageDetailView(reference: reference) }
+                    else if reference.media != nil { MediaDetailView(reference: reference) }
                     else { CaptureView(reference: reference) }
                 }
             }
@@ -165,9 +166,18 @@ private struct ReferenceCard: View {
                     .frame(maxHeight: 360).clipped()
                     .accessibilityHidden(true)
             }
+            if reference.kind == "video", let media = reference.media {
+                RemoteImage(reference: reference, thumbnail: true)
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(CGFloat(media.width ?? 16) / CGFloat(max(1, media.height ?? 9)), contentMode: .fit)
+                    .frame(maxHeight: 360).clipped()
+                    .overlay { Image(systemName: "play.circle.fill").font(.largeTitle).foregroundStyle(.white) }
+                    .accessibilityHidden(true)
+            }
             Label(reference.kindLabel, systemImage: reference.kindSymbol)
                 .font(.caption).foregroundStyle(.secondary)
             Text(reference.displayTitle).font(.headline).lineLimit(3)
+            if let media = reference.media { Text(media.durationLabel).font(.caption).foregroundStyle(.secondary) }
             if !reference.text.isEmpty {
                 Text(reference.text).font(.body).foregroundStyle(.secondary).lineLimit(7)
             }

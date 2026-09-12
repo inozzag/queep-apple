@@ -20,7 +20,7 @@ struct AnalysisView: View {
                 }
             }
             if let source = current.source {
-                Label(source.state == "read" ? "Texto da página lido" : "Página indisponível",
+                Label(source.state == "read" ? (source.contentKind == "metadata" ? "Informações públicas lidas" : "Texto da página lido") : "Página indisponível",
                       systemImage: source.state == "read" ? "doc.text" : "exclamationmark.circle")
                     .font(.caption)
                     .accessibilityIdentifier("source.status")
@@ -39,6 +39,12 @@ struct AnalysisView: View {
                    ["https", "http"].contains(url.scheme ?? "") {
                     Link("Abrir página de destino", destination: url).font(.caption)
                 }
+            }
+            if current.media != nil, let transcript = current.transcript, !transcript.isEmpty {
+                DisclosureGroup("Transcrição automática") {
+                    Text(transcript).font(.callout).textSelection(.enabled)
+                        .accessibilityIdentifier("media.transcript")
+                }.accessibilityIdentifier("media.showTranscript")
             }
             if current.status == "error" {
                 Button("Tentar análise novamente") {

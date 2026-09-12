@@ -43,6 +43,12 @@ private struct ShareView: View {
                         Label("Abra o Queep e entre na sua conta. Depois compartilhe novamente.", systemImage: "person.crop.circle")
                     }
                     if let incoming {
+                        if let media = incoming.media {
+                            Label(media.kind == "video" ? "Vídeo preparado" : "Áudio preparado",
+                                  systemImage: media.kind == "video" ? "play.rectangle" : "waveform")
+                            Text("\(Int(media.duration.rounded())) segundos · pronto para enviar")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                         if let bytes = incoming.image, let image = UIImage(data: bytes) {
                             Image(uiImage: image).resizable().scaledToFit().frame(maxHeight: 280)
                                 .accessibilityLabel("Imagem compartilhada")

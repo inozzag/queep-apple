@@ -232,7 +232,7 @@ private struct CaptureShelf: View {
         }.buttonStyle(.plain)
         .accessibilityLabel("Captura rápida do Queep")
         .accessibilityHint("Clique para adicionar ou solte uma imagem, um link ou texto")
-        .onDrop(of: [UTType.url, .image, .plainText], isTargeted: $targeted) { providers in
+        .onDrop(of: [UTType.url, .image, .plainText, .movie, .audio], isTargeted: $targeted) { providers in
             capture.receive(providers); return true
         }
     }
