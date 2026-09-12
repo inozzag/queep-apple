@@ -2,6 +2,7 @@ import SwiftUI
 import QueepCore
 
 struct CaptureView: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -36,15 +37,18 @@ struct CaptureView: View {
         NavigationStack {
             Form {
                 if reference == nil {
-                    Picker("Tipo", selection: $kind) {
-                        Text("Nota").tag("note"); Text("Link").tag("link"); Text("Imagem").tag("image")
-                        Text("Áudio/Vídeo").tag("media")
-                    }
-                        .pickerStyle(.segmented)
-                        .disabled(busy || attempted || preparing)
+                    Section {
+                        Group {
+                            if typeSize.isAccessibilitySize { kindPicker.pickerStyle(.menu) }
+                            else { kindPicker.pickerStyle(.segmented) }
+                        }.disabled(busy || attempted || preparing)
+                    } header: { sectionTitle("Tipo de referência") }
                 }
-                TextField("Título (opcional)", text: $title).disabled(busy || attempted)
-                    .accessibilityIdentifier("capture.title")
+                Section {
+                    TextField("", text: $title, axis: .vertical).disabled(busy || attempted)
+                        .accessibilityLabel("Título (opcional)")
+                        .accessibilityIdentifier("capture.title")
+                } header: { sectionTitle("Título (opcional)") }
                 if kind == "link" {
                     TextField("https://…", text: $url).autocorrectionDisabled()
                         .accessibilityLabel("Endereço do link")
@@ -58,12 +62,12 @@ struct CaptureView: View {
                     MediaPickerSection(media: $media, preparing: $preparing, disabled: busy || attempted)
                 } else if kind == "image" {
                     ImagePickerSection(image: $image, preparing: $preparing, disabled: busy || attempted)
-                } else { Section(kind == "note" ? "Sua nota" : "Contexto (opcional)") {
+                } else { Section {
                     TextEditor(text: $text).frame(minHeight: kind == "note" ? 220 : 80)
                         .accessibilityLabel("Texto da referência")
                         .disabled(busy || attempted)
                         .accessibilityIdentifier("capture.text")
-                } }
+                } header: { sectionTitle(kind == "note" ? "Sua nota" : "Contexto (opcional)") } }
                 if let reference { Section("Sobre esta referência") { AnalysisView(reference: reference) } }
                 if busy && reference == nil { Text(kind == "image" ? "Enviando imagem…" : "Salvando…").font(.caption) }
                 if let error { Text(error).foregroundStyle(.red) }
@@ -77,20 +81,36 @@ struct CaptureView: View {
             }
             .formStyle(.grouped)
             .navigationTitle(reference == nil ? "Adicionar referência" : "Referência")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Fechar") { dismiss() }.disabled(busy || preparing)
+                    Button("Fechar", systemImage: "xmark") { dismiss() }.disabled(busy || preparing)
+                        .keyboardShortcut(.cancelAction)
+                        #if os(iOS)
+                        .labelStyle(.iconOnly)
+                        #endif
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
                         Task { await save() }
                     } label: {
                         if busy { ProgressView().controlSize(.small) }
-                        else { Text(error == nil ? "Salvar" : "Tentar novamente") }
+                        else {
+                            #if os(iOS)
+                            Label(error == nil ? "Salvar" : "Tentar novamente",
+                                  systemImage: error == nil ? "checkmark" : "arrow.clockwise")
+                                .labelStyle(.iconOnly)
+                            #else
+                            Text(error == nil ? "Salvar" : "Tentar novamente")
+                            #endif
+                        }
                     }.disabled(busy || preparing || title.count > 200 ||
                                (kind == "media" ? media == nil : kind == "image" ? image == nil : !capture.isValid))
                         .keyboardShortcut(.return, modifiers: .command)
                         .accessibilityIdentifier("capture.save")
+                        .accessibilityLabel(busy ? "Salvando referência" : error == nil ? "Salvar" : "Tentar novamente")
                 }
             }
             .confirmationDialog("Excluir esta referência dos seus dispositivos?", isPresented: $confirmDelete,
@@ -102,6 +122,21 @@ struct CaptureView: View {
         #if os(macOS)
         .frame(minWidth: 480, idealWidth: 580, minHeight: 500)
         #endif
+    }
+
+    private var kindPicker: some View {
+        Picker(selection: $kind) {
+            Text("Nota").tag("note"); Text("Link").tag("link"); Text("Imagem").tag("image")
+            Text("Áudio/Vídeo").tag("media")
+        } label: { Text("Tipo").fixedSize(horizontal: false, vertical: true).accessibilityHidden(true) }
+            .labelsHidden()
+            .accessibilityLabel("Tipo de referência")
+            .accessibilityIdentifier("capture.kind")
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title).foregroundStyle(Color.primary.opacity(0.8))
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func save() async {

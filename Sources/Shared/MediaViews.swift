@@ -114,7 +114,7 @@ struct MediaDetailView: View {
         .onDisappear { clear() }
         .onChange(of: phase) { _, value in if value != .active { player?.pause() } }
         #if os(macOS)
-        .frame(width: 680, height: 650)
+        .frame(minWidth: 480, idealWidth: 680, minHeight: 500, idealHeight: 650)
         #endif
     }
 

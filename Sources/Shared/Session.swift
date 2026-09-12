@@ -21,6 +21,7 @@ final class Session {
     private var listener: AuthStateDidChangeListenerHandle?
 
     init() {
+        TemporaryMediaFile.cleanOnce()
         #if DEBUG && !QUEEP_CLOUD
         do {
             let options = FirebaseOptions(googleAppID: "1:123456789:ios:0123456789abcdef01234567",

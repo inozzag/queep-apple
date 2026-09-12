@@ -5,12 +5,34 @@ import QueepCore
 import UniformTypeIdentifiers
 
 final class TemporaryMediaFile: @unchecked Sendable {
+    private static let startupCleanup: Void = removeAbandonedFiles()
     let url: URL
     init(extension suffix: String) {
+        Self.cleanOnce()
         url = FileManager.default.temporaryDirectory
             .appendingPathComponent("queep-media-\(UUID().uuidString).\(suffix)")
     }
     deinit { try? FileManager.default.removeItem(at: url) }
+
+    static func cleanOnce() { _ = startupCleanup }
+
+    /// Only our regular, UUID-named files; recent files may belong to an ongoing import.
+    static func removeAbandonedFiles(in directory: URL = FileManager.default.temporaryDirectory,
+                                     now: Date = Date()) {
+        let manager = FileManager.default
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey, .contentModificationDateKey]
+        guard let files = try? manager.contentsOfDirectory(at: directory,
+            includingPropertiesForKeys: Array(keys), options: [.skipsHiddenFiles]) else { return }
+        for file in files {
+            let stem = file.deletingPathExtension().lastPathComponent
+            guard stem.hasPrefix("queep-media-"), UUID(uuidString: String(stem.dropFirst(12))) != nil,
+                  let values = try? file.resourceValues(forKeys: keys),
+                  values.isRegularFile == true, values.isSymbolicLink != true,
+                  let modified = values.contentModificationDate,
+                  now.timeIntervalSince(modified) > 24 * 60 * 60 else { continue }
+            try? manager.removeItem(at: file)
+        }
+    }
 }
 
 struct ImportedMedia: Transferable, Sendable {

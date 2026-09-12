@@ -3,6 +3,7 @@ import QueepCore
 import Foundation
 
 enum LibraryPresentation: Identifiable {
+    case usage
     case help
     case deleteAccount
     case subscription
@@ -11,6 +12,7 @@ enum LibraryPresentation: Identifiable {
 
     var id: String {
         switch self {
+        case .usage: "usage"
         case .help: "help"
         case .deleteAccount: "delete-account"
         case .subscription: "subscription"

@@ -40,6 +40,10 @@ public struct APIClient: Sendable {
         try await decoded("v1/account")
     }
 
+    public func usage() async throws -> Usage {
+        try await decoded("v1/usage")
+    }
+
     public func changeAccountDeletion(version: Int, operationID: UUID,
                                       immediate: Bool = false, cancel: Bool = false) async throws -> AccountStatus {
         let body: [String: Any] = ["version": version,

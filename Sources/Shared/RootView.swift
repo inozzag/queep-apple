@@ -81,6 +81,9 @@ private struct SignInView: View {
                 VStack(spacing: 14) {
                     TextField("E-mail", text: $email).textContentType(.username)
                         .autocorrectionDisabled()
+                        #if os(iOS)
+                        .textInputAutocapitalization(.never).keyboardType(.emailAddress)
+                        #endif
                         .accessibilityIdentifier("auth.email")
                     SecureField("Senha", text: $password).textContentType(create ? .newPassword : .password)
                         .accessibilityIdentifier("auth.password")

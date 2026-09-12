@@ -4,6 +4,26 @@ import UniformTypeIdentifiers
 
 @MainActor
 final class MediaImportTests: XCTestCase {
+    func testCrashCleanupOnlyRemovesOldOwnedFiles() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try manager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: root) }
+        let old = root.appendingPathComponent("queep-media-\(UUID()).mp4")
+        let recent = root.appendingPathComponent("queep-media-\(UUID()).m4a")
+        let unrelated = root.appendingPathComponent("someone-else.mp4")
+        let symlink = root.appendingPathComponent("queep-media-\(UUID()).mp4")
+        for file in [old, recent, unrelated] { try Data([1, 2, 3]).write(to: file) }
+        let yesterday = Date().addingTimeInterval(-48 * 60 * 60)
+        for file in [old, unrelated] {
+            try manager.setAttributes([.modificationDate: yesterday], ofItemAtPath: file.path)
+        }
+        try manager.createSymbolicLink(at: symlink, withDestinationURL: unrelated)
+        TemporaryMediaFile.removeAbandonedFiles(in: root)
+        XCTAssertFalse(manager.fileExists(atPath: old.path))
+        for file in [recent, unrelated, symlink] { XCTAssertTrue(manager.fileExists(atPath: file.path)) }
+    }
+
     func testAudioAndVideoBecomePlayablePrivateFiles() async throws {
         for (name, suffix, kind) in [("sample-audio", "wav", "audio"), ("sample-video", "mp4", "video")] {
             let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: name, withExtension: suffix))
