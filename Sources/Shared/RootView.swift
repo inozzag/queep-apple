@@ -64,12 +64,14 @@ private struct SignInView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Image(systemName: "bookmark.square.fill")
-                    .font(.system(size: 48)).foregroundStyle(.tint).accessibilityHidden(true)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.aiGradient.opacity(0.16)).frame(width: 60, height: 60)
+                    Image(systemName: "bookmark.fill").font(.system(size: 26, weight: .semibold)).foregroundStyle(Theme.aiGradient)
+                }.accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Queep").font(.largeTitle.bold())
                     Text("Salve agora. Encontre depois do jeito que você lembra.")
-                        .font(.title3).foregroundStyle(.secondary)
+                        .font(.title3).foregroundStyle(Color.muted)
                 }
                 if session.isLocal {
                     Label("Desenvolvimento local · dados de teste", systemImage: "hammer")
@@ -114,8 +116,9 @@ private struct SignInView: View {
                     Button(create ? "Já tenho uma conta" : "Criar uma conta") {
                         create.toggle(); error = nil
                     }.buttonStyle(.plain).disabled(busy).accessibilityIdentifier("auth.toggle")
-                }.textFieldStyle(.roundedBorder)
-            }.padding(32).frame(maxWidth: 440)
-        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                }.textFieldStyle(.roundedBorder).card(padding: 20)
+            }.padding(32).frame(maxWidth: 460)
+            .frame(maxWidth: .infinity)
+        }.frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.canvas)
     }
 }

@@ -1,6 +1,7 @@
 import SwiftUI
 import QueepCore
 
+/// A reference reads like a document: title, content, then what the AI understood.
 struct CaptureView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(Session.self) private var session
@@ -20,6 +21,8 @@ struct CaptureView: View {
     @State private var image: ImportedImage?
     @State private var media: ImportedMedia?
     @State private var preparing = false
+    @State private var editor = MarkdownEditorController()
+    @FocusState private var titleFocused: Bool
 
     init(reference: Reference?, initialKind: String = "note") {
         self.reference = reference
@@ -32,55 +35,61 @@ struct CaptureView: View {
     private var capture: Capture {
         Capture(kind: kind, title: title, text: text, url: kind == "link" ? url : nil)
     }
+    private var locked: Bool { busy || attempted }
+    private var changed: Bool {
+        guard let reference else { return true }
+        return reference.title != title.trimmingCharacters(in: .whitespacesAndNewlines) || reference.text != text
+            || (kind == "link" && reference.url != url.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+    private var canSave: Bool {
+        !busy && !preparing && title.count <= 200 && changed
+            && (kind == "media" ? media != nil : kind == "image" ? image != nil : capture.isValid)
+    }
 
     var body: some View {
         NavigationStack {
-            Form {
-                if reference == nil {
-                    Section {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    if reference == nil {
                         Group {
                             if typeSize.isAccessibilitySize { kindPicker.pickerStyle(.menu) }
-                            else { kindPicker.pickerStyle(.segmented) }
-                        }.disabled(busy || attempted || preparing)
-                    } header: { sectionTitle("Tipo de referência") }
-                }
-                Section {
-                    TextField("", text: $title, axis: .vertical).disabled(busy || attempted)
+                            else { kindPicker.pickerStyle(.segmented).frame(maxWidth: 440) }
+                        }.disabled(locked || preparing)
+                    }
+                    TextField("Título", text: $title, axis: .vertical)
+                        .textFieldStyle(.plain).font(.title.weight(.bold)).lineLimit(1...3)
+                        .focused($titleFocused).disabled(locked)
                         .accessibilityLabel("Título (opcional)")
                         .accessibilityIdentifier("capture.title")
-                } header: { sectionTitle("Título (opcional)") }
-                if kind == "link" {
-                    TextField("https://…", text: $url).autocorrectionDisabled()
-                        .accessibilityLabel("Endereço do link")
-                        .accessibilityIdentifier("capture.url")
-                        .disabled(busy || attempted)
-                    if let source = reference?.url, let destination = URL(string: source) {
-                        Button("Abrir site original") { openURL(destination) }
+                    if title.count > 200 {
+                        Text("O título tem no máximo 200 caracteres.").font(.caption).foregroundStyle(.orange)
+                    }
+                    switch kind {
+                    case "link": linkFields
+                    case "image":
+                        ImagePickerSection(image: $image, preparing: $preparing, disabled: locked).card(padding: 16, elevated: false)
+                    case "media":
+                        MediaPickerSection(media: $media, preparing: $preparing, disabled: locked).card(padding: 16, elevated: false)
+                    default: noteEditor
+                    }
+                    if let reference {
+                        AnalysisView(reference: reference)
+                    }
+                    if busy && reference == nil {
+                        Label(kind == "image" ? "Enviando imagem…" : kind == "media" ? "Enviando mídia…" : "Salvando…", systemImage: "arrow.up.circle")
+                            .font(.callout).foregroundStyle(Color.muted)
+                    }
+                    if let error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red) }
+                    if attempted {
+                        Text("Envio não confirmado. Tente novamente com o mesmo conteúdo para evitar duplicação.")
+                            .font(.caption).foregroundStyle(Color.muted)
                     }
                 }
-                if kind == "media" {
-                    MediaPickerSection(media: $media, preparing: $preparing, disabled: busy || attempted)
-                } else if kind == "image" {
-                    ImagePickerSection(image: $image, preparing: $preparing, disabled: busy || attempted)
-                } else { Section {
-                    TextEditor(text: $text).frame(minHeight: kind == "note" ? 220 : 80)
-                        .accessibilityLabel("Texto da referência")
-                        .disabled(busy || attempted)
-                        .accessibilityIdentifier("capture.text")
-                } header: { sectionTitle(kind == "note" ? "Sua nota" : "Contexto (opcional)") } }
-                if let reference { Section("Sobre esta referência") { AnalysisView(reference: reference) } }
-                if busy && reference == nil { Text(kind == "image" ? "Enviando imagem…" : "Salvando…").font(.caption) }
-                if let error { Text(error).foregroundStyle(.red) }
-                if attempted {
-                    Text("Envio não confirmado. Tente novamente com o mesmo conteúdo para evitar duplicação.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                if reference != nil {
-                    Button("Excluir referência", role: .destructive) { confirmDelete = true }.disabled(busy)
-                }
+                .padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 40)
+                .frame(maxWidth: 760).frame(maxWidth: .infinity)
             }
-            .formStyle(.grouped)
-            .navigationTitle(reference == nil ? "Adicionar referência" : "Referência")
+            .background(Color.card)
+            .navigationTitle(reference == nil ? "Nova referência" : reference?.kindLabel ?? "Referência")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -91,6 +100,16 @@ struct CaptureView: View {
                         #if os(iOS)
                         .labelStyle(.iconOnly)
                         #endif
+                }
+                if let reference {
+                    ToolbarItem(placement: .secondaryAction) {
+                        Menu {
+                            if let source = reference.url, let destination = URL(string: source) {
+                                Button("Abrir site original", systemImage: "safari") { openURL(destination) }
+                            }
+                            Button("Excluir referência", systemImage: "trash", role: .destructive) { confirmDelete = true }.disabled(busy)
+                        } label: { Label("Mais", systemImage: "ellipsis.circle") }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -106,21 +125,33 @@ struct CaptureView: View {
                             Text(error == nil ? "Salvar" : "Tentar novamente")
                             #endif
                         }
-                    }.disabled(busy || preparing || title.count > 200 ||
-                               (kind == "media" ? media == nil : kind == "image" ? image == nil : !capture.isValid))
+                    }.disabled(!canSave)
                         .keyboardShortcut(.return, modifiers: .command)
                         .accessibilityIdentifier("capture.save")
                         .accessibilityLabel(busy ? "Salvando referência" : error == nil ? "Salvar" : "Tentar novamente")
                 }
             }
+            #if os(iOS)
+            .safeAreaInset(edge: .bottom) {
+                if kind == "note" || kind == "link" {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        MarkdownToolbar(controller: editor, disabled: locked).padding(.horizontal, 12)
+                    }
+                    .frame(height: 44).frame(maxWidth: .infinity)
+                    .background(.bar)
+                    .overlay(alignment: .top) { Divider() }
+                }
+            }
+            #endif
             .confirmationDialog("Excluir esta referência dos seus dispositivos?", isPresented: $confirmDelete,
                                 titleVisibility: .visible) {
                 Button("Excluir", role: .destructive) { Task { await remove() } }
             }
         }
         .interactiveDismissDisabled(busy || preparing)
+        .onAppear { if reference == nil { titleFocused = true } }
         #if os(macOS)
-        .frame(minWidth: 480, idealWidth: 580, minHeight: 500)
+        .frame(minWidth: 520, idealWidth: 680, minHeight: 520, idealHeight: 640)
         #endif
     }
 
@@ -134,9 +165,39 @@ struct CaptureView: View {
             .accessibilityIdentifier("capture.kind")
     }
 
-    private func sectionTitle(_ title: String) -> some View {
-        Text(title).foregroundStyle(Color.primary.opacity(0.8))
-            .fixedSize(horizontal: false, vertical: true)
+    private var linkFields: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 10) {
+                Image(systemName: "link").foregroundStyle(Color.muted)
+                TextField("https://…", text: $url).textFieldStyle(.plain).autocorrectionDisabled()
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never).keyboardType(.URL)
+                    #endif
+                    .accessibilityLabel("Endereço do link")
+                    .accessibilityIdentifier("capture.url")
+                    .disabled(locked)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Contexto (opcional)").sectionLabel()
+                editorBlock(minHeight: 120, placeholder: "Por que este link importa?")
+            }
+        }
+    }
+
+    private var noteEditor: some View {
+        editorBlock(minHeight: reference == nil ? 260 : 140,
+                    placeholder: "Escreva sua nota. Use # para títulos, - para listas e - [ ] para tarefas.")
+    }
+
+    private func editorBlock(minHeight: CGFloat, placeholder: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            #if os(macOS)
+            MarkdownToolbar(controller: editor, disabled: locked)
+            #endif
+            MarkdownEditor(text: $text, controller: editor, placeholder: placeholder, disabled: locked, minHeight: minHeight)
+        }
     }
 
     private func save() async {

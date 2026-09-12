@@ -38,3 +38,5 @@ em aparelho físico. O iPhone 16 pareado recebeu o app, mas estava bloqueado dur
 esta rodada; não registrar isso como teste físico completo.
 
 RevenueCat e App Store Connect permanecem adiados por decisão do usuário.
+
+`RedesignSnapshotTests` (Mac e iPhone) é opt-in com `TEST_RUNNER_QUEEP_SNAPSHOTS=1`: em uma biblioteca já conectada, captura biblioteca, busca digitada sem enviar (Mac), um detalhe aberto (Mac) e um rascunho Markdown sem salvar. Não cria, não altera e não busca; serve para conferir a interface com dados reais.

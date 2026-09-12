@@ -5,11 +5,12 @@ import UniformTypeIdentifiers
 
 struct ImagePixels: View {
     let data: Data
+    var fill = false
     var body: some View {
         #if os(macOS)
-        if let image = NSImage(data: data) { Image(nsImage: image).resizable().scaledToFit() }
+        if let image = NSImage(data: data) { Image(nsImage: image).resizable().aspectRatio(contentMode: fill ? .fill : .fit) }
         #else
-        if let image = UIImage(data: data) { Image(uiImage: image).resizable().scaledToFit() }
+        if let image = UIImage(data: data) { Image(uiImage: image).resizable().aspectRatio(contentMode: fill ? .fill : .fit) }
         #endif
     }
 }
@@ -73,6 +74,7 @@ struct RemoteImage: View {
     @Environment(Session.self) private var session
     let reference: Reference
     var thumbnail = false
+    var fill = false
     @State private var data: Data?
     @State private var error: String?
     @State private var attempt = 0
@@ -80,14 +82,15 @@ struct RemoteImage: View {
     var body: some View {
         Group {
             if let data {
-                ImagePixels(data: data).accessibilityLabel(reference.displayTitle)
+                ImagePixels(data: data, fill: fill).accessibilityLabel(reference.displayTitle)
             } else if let error {
                 VStack(spacing: 8) {
                     Label(thumbnail ? "Prévia indisponível" : error, systemImage: "photo.badge.exclamationmark")
                     if !thumbnail { Button("Tentar novamente") { attempt += 1 } }
                 }.font(.caption).foregroundStyle(.secondary).padding()
             } else {
-                ProgressView("Carregando imagem…").controlSize(.small).padding()
+                if thumbnail { Color.primary.opacity(0.04).overlay { ProgressView().controlSize(.small) } }
+                else { ProgressView("Carregando imagem…").controlSize(.small).padding() }
             }
         }
         .task(id: "\(session.userID ?? "")/\(reference.id)/\(attempt)") {
