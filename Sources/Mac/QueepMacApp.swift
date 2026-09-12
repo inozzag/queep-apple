@@ -10,10 +10,21 @@ struct QueepMacApp: App {
         Window("Queep", id: "library") {
             RootView().environment(capture.session).environment(capture.library)
                 .frame(minWidth: 660, minHeight: 500)
+                .background(LibraryOpener(capture: capture))
         }.defaultSize(width: 1040, height: 720)
         MenuBarExtra("Queep", systemImage: "bookmark.fill") {
             QueepMenu().environment(capture.session).environment(capture.library).environment(capture)
         }
+    }
+}
+
+/// Hands the scene's window opener to the capture controller so the island can reopen the library.
+private struct LibraryOpener: View {
+    @Environment(\.openWindow) private var openWindow
+    let capture: MacCapture
+    var body: some View {
+        Color.clear.frame(width: 0, height: 0)
+            .onAppear { capture.openLibrary = { openWindow(id: "library") } }
     }
 }
 
@@ -29,7 +40,7 @@ private struct QueepMenu: View {
         Button("Captura rápida · ⌘⇧Espaço") { capture.show() }
         Button("Colar e salvar") { capture.paste() }.disabled(session.userID == nil)
         Button("Capturar tela · ⌘⇧7") { capture.captureScreen() }.disabled(session.userID == nil)
-        Toggle("Área de envio no topo", isOn: Binding(get: { capture.shelfEnabled }, set: { capture.shelfEnabled = $0 }))
+        Toggle("Ilha de captura no topo da tela", isOn: Binding(get: { capture.islandEnabled }, set: { capture.islandEnabled = $0 }))
         ForEach(capture.shortcutIssues, id: \.self) { Text($0) }
         Divider()
         Toggle("Iniciar com o Mac", isOn: Binding(

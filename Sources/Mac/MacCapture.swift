@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 @Observable
 final class MacCapture {
     static let shared = MacCapture()
+    static let savedMessage = "Salvo · análise em segundo plano"
     let session = Session()
     let library = LibraryStore()
     var draft = ""
@@ -16,29 +17,34 @@ final class MacCapture {
     var error: String?
     var pending: IncomingReference?
     var shortcutIssues: [String] = []
-    var shelfEnabled = UserDefaults.standard.object(forKey: "queep.shelf.enabled") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(shelfEnabled, forKey: "queep.shelf.enabled"); updateShelf() }
+    /// Set by the library window so the island can reopen it through SwiftUI's scene.
+    var openLibrary: (() -> Void)?
+    var islandEnabled = UserDefaults.standard.object(forKey: "queep.shelf.enabled") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(islandEnabled, forKey: "queep.shelf.enabled"); island?.update(enabled: islandEnabled) }
     }
+    /// Island-initiated flows report progress in the island; failures still open the quick panel.
+    private var quiet = false
     private var owner: String?
     private var quick: NSPanel?
-    private var shelf: NSPanel?
+    private var island: NotchIsland?
     private var screenObserver: NSObjectProtocol?
     private let screenshot = ScreenCapture()
 
     init() {
         session.onAccountChange = { [weak self] in
             guard let self else { return }
-            draft = ""; pending = nil; owner = nil; error = nil; message = nil
+            draft = ""; pending = nil; owner = nil; error = nil; message = nil; quiet = false
             screenshot.cancel()
             library.reset(for: session.userID)
         }
     }
 
     func install() {
-        updateShelf()
+        island = NotchIsland(capture: self)
+        island?.update(enabled: islandEnabled)
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
-        ) { [weak self] _ in Task { @MainActor in self?.updateShelf() } }
+        ) { [weak self] _ in Task { @MainActor in self?.island?.update(enabled: self?.islandEnabled ?? false) } }
     }
 
     func show() {
@@ -62,37 +68,24 @@ final class MacCapture {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    func updateShelf() {
-        shelf?.orderOut(nil)
-        guard shelfEnabled, let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main else { return }
-        if shelf == nil {
-            let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-            panel.level = .floating
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
-            panel.hasShadow = false
-            panel.hidesOnDeactivate = false
-            panel.isReleasedWhenClosed = false
-            panel.contentView = NSHostingView(rootView: CaptureShelf().environment(self))
-            shelf = panel
-        }
-        let topInset = max(screen.safeAreaInsets.top, screen.frame.maxY - screen.visibleFrame.maxY)
-        shelf?.setFrame(.init(x: screen.frame.midX - 92, y: screen.frame.maxY - topInset - 34,
-                             width: 184, height: 30), display: true)
-        shelf?.orderFrontRegardless()
+    func showLibrary() {
+        if let openLibrary { openLibrary() }
+        else { NSApp.windows.first(where: { $0.identifier?.rawValue == "library" })?.makeKeyAndOrderFront(nil) }
+        NSApp.activate(ignoringOtherApps: true)
     }
 
-    func paste() {
+    func paste(quietly: Bool = false) {
         guard canStart() else { return }
+        quiet = quietly
         let board = NSPasteboard.general
         let account = session.userID
         do {
             if let files = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !files.isEmpty {
                 guard files.count == 1 else { throw QueepError.server("Cole uma imagem por vez.") }
-                receive([NSItemProvider(contentsOf: files[0])].compactMap { $0 })
+                receive([NSItemProvider(contentsOf: files[0])].compactMap { $0 }, quietly: quietly)
             } else if let data = board.data(forType: .png) ?? board.data(forType: .tiff) {
-                busy = true; show()
+                busy = true
+                if !quiet { show() }
                 Task {
                     do {
                         let image = try await Task.detached { try ImportedImage.prepare(data: data) }.value
@@ -108,10 +101,12 @@ final class MacCapture {
         } catch { fail(error) }
     }
 
-    func receive(_ providers: [NSItemProvider]) {
+    func receive(_ providers: [NSItemProvider], quietly: Bool = false) {
         guard canStart() else { return }
+        quiet = quietly
         let account = session.userID
-        busy = true; error = nil; message = "Preparando…"; show()
+        busy = true; error = nil; message = "Preparando…"
+        if !quiet { show() }
         Task {
             do {
                 let incoming = try await IncomingLoader.load(providers)
@@ -138,10 +133,11 @@ final class MacCapture {
         Task { await send(pending, account: account) }
     }
 
-    func discard() { guard !busy else { return }; pending = nil; owner = nil; message = nil; error = nil }
+    func discard() { guard !busy else { return }; pending = nil; owner = nil; message = nil; error = nil; quiet = false }
 
-    func captureScreen() {
+    func captureScreen(quietly: Bool = false) {
         guard canStart() else { return }
+        quiet = quietly
         let account = session.userID
         quick?.orderOut(nil)
         screenshot.start { [weak self] result in
@@ -168,17 +164,18 @@ final class MacCapture {
         guard let account, session.userID == account, let api = session.client() else {
             fail(QueepError.server("A conta mudou. Repita a captura na conta desejada.")); return
         }
-        pending = incoming; owner = account; busy = true; error = nil; message = "Salvando…"; show()
+        pending = incoming; owner = account; busy = true; error = nil; message = "Salvando…"
+        if !quiet { show() }
         do {
             _ = try await incoming.save(using: api)
-            guard session.userID == account else { pending = nil; busy = false; return }
-            pending = nil; owner = nil; busy = false; draft = ""; message = "Salvo · análise em segundo plano"
+            guard session.userID == account else { pending = nil; busy = false; quiet = false; return }
+            pending = nil; owner = nil; busy = false; quiet = false; draft = ""; message = Self.savedMessage
             library.reset(for: account)
             await library.refresh(api, account: account)
         } catch { fail(error) }
     }
 
-    private func fail(_ failure: Error) { busy = false; message = nil; error = failure.localizedDescription; show() }
+    private func fail(_ failure: Error) { busy = false; quiet = false; message = nil; error = failure.localizedDescription; show() }
 }
 
 private final class CapturePanel: NSPanel {
@@ -216,24 +213,5 @@ private struct QuickCaptureView: View {
             Text("⌘⇧Espaço abre esta janela · ⌘⇧7 captura a tela · Esc fecha")
                 .font(.caption2).foregroundStyle(.secondary)
         }.padding(18).frame(width: 420)
-    }
-}
-
-private struct CaptureShelf: View {
-    @Environment(MacCapture.self) private var capture
-    @State private var targeted = false
-    var body: some View {
-        Button { capture.show() } label: {
-            Label(targeted ? "Solte para salvar" : "Queep · solte aqui", systemImage: "tray.and.arrow.down")
-                .font(.caption).padding(.horizontal, 14).padding(.vertical, 6)
-                .frame(maxWidth: .infinity)
-                .background(.regularMaterial, in: Capsule())
-                .overlay(Capsule().stroke(targeted ? Color.accentColor : .secondary.opacity(0.25)))
-        }.buttonStyle(.plain)
-        .accessibilityLabel("Captura rápida do Queep")
-        .accessibilityHint("Clique para adicionar ou solte uma imagem, um link ou texto")
-        .onDrop(of: [UTType.url, .image, .plainText, .movie, .audio], isTargeted: $targeted) { providers in
-            capture.receive(providers); return true
-        }
     }
 }

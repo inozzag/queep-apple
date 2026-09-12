@@ -32,7 +32,7 @@ carregamento têm estado próprio. Não há conteúdo de exemplo inserido na con
 `FirstUseTests` verifica captura e reabertura da ajuda nos emuladores; no Mac também
 confere o conteúdo da primeira nota diretamente na API. Usa contas descartáveis.
 
-Captura Mac: `⌘⇧Espaço` abre uma janela independente da biblioteca; `⌘⇧7` seleciona uma área da tela. Também aceita colar texto/link/imagem e arrastar para a área opcional sob o notch (ou no topo da tela sem notch). O menu oferece as mesmas ações. No iPhone, a opção Queep no compartilhamento salva um link, texto ou imagem usando a conta do app. [Funcionamento e limites](NATIVE-CAPTURE.md).
+Captura Mac: `⌘⇧Espaço` abre uma janela independente da biblioteca; `⌘⇧7` seleciona uma área da tela. Também aceita colar texto/link/imagem e arrastar para a ilha opcional no notch: ela fica escondida atrás do notch, abre ao passar o mouse ou ao arrastar um arquivo, mostra a última referência e as ações de captura, e recolhe ao afastar o ponteiro (em telas sem notch, uma aba sob a barra de menus). O menu oferece as mesmas ações. No iPhone, a opção Queep no compartilhamento salva um link, texto ou imagem usando a conta do app. [Funcionamento e limites](NATIVE-CAPTURE.md).
 
 Imagens podem ser escolhidas em arquivos no Mac/iPhone e em Fotos no iPhone. JPEG, PNG e HEIC estáticos de até 32 MiB são otimizados (até 4096 px), com prévia, envio, reenvio sem duplicação e visualizador com ampliação/exclusão. A galeria preserva a proporção das imagens em uma grade adaptativa.
 
