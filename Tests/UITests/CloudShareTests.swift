@@ -16,9 +16,7 @@ final class CloudShareTests: XCTestCase {
         let share = photos.buttons["Share"]
         XCTAssertTrue(share.waitForExistence(timeout: 5), photos.debugDescription)
         share.tap()
-        let queep = photos.cells["Queep"]
-        XCTAssertTrue(queep.waitForExistence(timeout: 10), photos.debugDescription)
-        queep.tap()
+        photos.tapQueepShare()
         let save = photos.buttons["share.save"]
         XCTAssertTrue(save.waitForExistence(timeout: 10), photos.debugDescription)
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: save)
@@ -50,9 +48,7 @@ final class CloudShareTests: XCTestCase {
         XCTAssertTrue(more.waitForExistence(timeout: 10))
         more.tap()
         safari.buttons["ShareButton"].tap()
-        let queep = safari.cells["Queep"]
-        XCTAssertTrue(queep.waitForExistence(timeout: 10), safari.debugDescription)
-        queep.tap()
+        safari.tapQueepShare()
         let save = safari.buttons["share.save"]
         XCTAssertTrue(save.waitForExistence(timeout: 10), safari.debugDescription)
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: save)

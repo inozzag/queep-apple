@@ -34,6 +34,9 @@ final class CaptureFlowTests: XCTestCase {
         let app = try await authenticatedApp()
         let add = app.buttons["library.add"]
         add.tap()
+        let note = app.buttons["library.add.note"]
+        XCTAssertTrue(note.waitForExistence(timeout: 5), app.debugDescription)
+        note.tap()
         let title = app.textFields["capture.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5), app.debugDescription)
         title.tap()
@@ -76,9 +79,7 @@ final class CaptureFlowTests: XCTestCase {
         XCTAssertTrue(more.waitForExistence(timeout: 10))
         more.tap()
         safari.buttons["ShareButton"].tap()
-        let queep = safari.cells["Queep"]
-        XCTAssertTrue(queep.waitForExistence(timeout: 10))
-        queep.images["activityImageView"].tap()
+        safari.tapQueepShare()
         let notice = safari.staticTexts["Abra o Queep e entre na sua conta. Depois compartilhe novamente."]
         XCTAssertTrue(notice.waitForExistence(timeout: 10), safari.debugDescription)
         XCTAssertFalse(safari.buttons["share.save"].isEnabled)

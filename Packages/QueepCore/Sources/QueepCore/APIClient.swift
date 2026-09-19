@@ -40,6 +40,24 @@ public struct APIClient: Sendable {
         try await decoded("v1/account")
     }
 
+    public func uploadAvatar(_ data: Data) async throws -> ImageInfo {
+        guard !data.isEmpty, data.count <= 12 * 1024 * 1024 else {
+            throw QueepError.server("Escolha uma foto de até 12 MB.")
+        }
+        let result = try await request("v1/account/avatar", method: "PUT", body: data,
+                                       contentType: "application/octet-stream", timeout: 60)
+        return try Self.decoder().decode(ImageInfo.self, from: result)
+    }
+
+    public func avatarData(thumbnail: Bool = true) async throws -> Data {
+        try await request("v1/account/avatar", method: "GET",
+                          query: [.init(name: "thumbnail", value: thumbnail ? "true" : "false")])
+    }
+
+    public func deleteAvatar() async throws {
+        _ = try await request("v1/account/avatar", method: "DELETE")
+    }
+
     public func usage() async throws -> Usage {
         try await decoded("v1/usage")
     }
@@ -93,11 +111,11 @@ public struct APIClient: Sendable {
                                  body: JSONSerialization.data(withJSONObject: object))
     }
 
-    /// Changes the title and notes of an uploaded image or media file; the file itself stays.
+    /// Changes the title (and notes of an upload). Posts do not requeue analysis.
     public func editMetadata(_ reference: Reference, title: String, text: String,
                              mutationID: UUID) async throws -> Reference {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard ["image", "audio", "video"].contains(reference.kind),
+        guard ["image", "audio", "video", "link"].contains(reference.kind),
               cleanTitle.count <= 200, text.count <= 30_000 else { throw QueepError.invalidCapture }
         let object: [String: Any] = ["kind": reference.kind, "title": cleanTitle, "text": text,
                                      "revision": reference.revision,
@@ -125,9 +143,12 @@ public struct APIClient: Sendable {
         return try Self.decoder().decode(Reference.self, from: result)
     }
 
-    public func imageData(_ reference: Reference, thumbnail: Bool = false) async throws -> Data {
+    public func imageData(_ reference: Reference, thumbnail: Bool = false, index: Int = 0,
+                          role: String = "gallery") async throws -> Data {
         try await request("v1/references/\(reference.id)/image", method: "GET",
-                          query: [.init(name: "thumbnail", value: thumbnail ? "true" : "false")],
+                          query: [.init(name: "thumbnail", value: thumbnail ? "true" : "false"),
+                                  .init(name: "index", value: String(index)),
+                                  .init(name: "role", value: role)],
                           timeout: 60)
     }
 
@@ -185,7 +206,12 @@ public struct APIClient: Sendable {
             throw QueepError.unauthorized
         case 409: throw QueepError.conflict
         case 422: throw QueepError.invalidCapture
-        case 404: throw QueepError.server("Essa referência não está mais disponível.")
+        case 404:
+            struct Failure: Decodable { let detail: String }
+            if let failure = try? JSONDecoder().decode(Failure.self, from: data), !failure.detail.isEmpty {
+                throw QueepError.server(failure.detail)
+            }
+            throw QueepError.server("Essa referência não está mais disponível.")
         case 402, 403, 413, 415, 429, 503:
             struct Failure: Decodable { let detail: String }
             let failure = try? JSONDecoder().decode(Failure.self, from: data)

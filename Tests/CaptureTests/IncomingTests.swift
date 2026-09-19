@@ -26,6 +26,34 @@ final class IncomingTests: XCTestCase {
         XCTAssertNil(incoming.image)
     }
 
+    func testIgnoresUnknownAttachmentsAndKeepsTheLink() async throws {
+        let incoming = try await IncomingLoader.load([
+            NSItemProvider(object: URL(string: "https://instagram.com/reel/demo")! as NSURL),
+            NSItemProvider(item: Data() as NSData, typeIdentifier: UTType.pdf.identifier)
+        ])
+        XCTAssertEqual(incoming.url, "https://instagram.com/reel/demo")
+        XCTAssertNil(incoming.media)
+    }
+
+    func testVideoWinsOverPostURL() async throws {
+        let source = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "sample-video", withExtension: "mp4"))
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp4")
+        try FileManager.default.copyItem(at: source, to: temporary)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let video = NSItemProvider()
+        video.registerFileRepresentation(forTypeIdentifier: UTType.movie.identifier,
+                                         fileOptions: [], visibility: .all) { completion in
+            completion(temporary, false, nil)
+            return nil
+        }
+        let incoming = try await IncomingLoader.load([
+            NSItemProvider(object: URL(string: "https://x.com/user/status/1")! as NSURL),
+            video
+        ])
+        XCTAssertEqual(incoming.media?.kind, "video")
+        XCTAssertNil(incoming.url)
+    }
+
     func testTextProviderAndEmptyShare() async throws {
         let incoming = try await IncomingLoader.load([NSItemProvider(object: "Nota compartilhada" as NSString)])
         XCTAssertEqual(incoming.text, "Nota compartilhada")
@@ -33,10 +61,8 @@ final class IncomingTests: XCTestCase {
         catch { }
     }
 
-    func testMultipleReferencesAndUnsupportedTypesAreRejected() async throws {
+    func testUnsupportedSharesAreRejected() async throws {
         let invalid: [[NSItemProvider]] = [
-            [NSItemProvider(object: URL(string: "https://example.com/a")! as NSURL),
-             NSItemProvider(object: URL(string: "https://example.com/b")! as NSURL)],
             [NSItemProvider(item: Data() as NSData, typeIdentifier: UTType.pdf.identifier)],
             [NSItemProvider(object: URL(string: "ftp://example.com/a")! as NSURL)]
         ]

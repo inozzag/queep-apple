@@ -1,6 +1,7 @@
 # Queep Apple
 
 Um projeto Xcode, apps separados para macOS 14+ e iOS 17+, núcleo Swift comum em `Packages/QueepCore`. Interface SwiftUI com controles nativos e labels de acessibilidade. Firebase Auth mantém a identidade; todas as referências passam pela API.
+Na nuvem, o app entra com Apple, Google ou e-mail e senha.
 
 ## Rodar
 
@@ -26,7 +27,7 @@ Operações básicas completas em 12/09/2026: imagens, áudios e vídeos agora a
 
 Interface repaginada em 12/09/2026, inspirada no Craft e só com controles nativos do SwiftUI: biblioteca em cards uniformes com capa, texto e estado só quando informa algo; busca apresentada como conversa com a IA (cabeçalho com o que está sendo interpretado, esqueleto animado e resumo/assuntos nos resultados); referência aberta como documento, com título grande, editor Markdown com estilo ao vivo (títulos, listas, tarefas, citação, código, links) e barra de formatação; análise da IA em um card discreto. As notas continuam texto puro para a API; a fonte do sistema foi mantida. Base visual em `Sources/Shared/Theme.swift` e editor em `Sources/Shared/Markdown.swift`.
 
-Conta, notas/links/imagens/áudio/vídeo, galeria, edição de notas/links, exclusão e busca semântica. A busca só envia uma consulta ao confirmar pelo teclado ou botão; considera o acervo processado da conta, não apenas a página carregada. Mostra até 10 referências conferidas por IA, estados de análise e nova tentativa. O Mac usa barra de menu sem Dock e opção de iniciar no login.
+Conta, notas/links/imagens/áudio/vídeo, galeria, edição de notas/links, exclusão e busca semântica. A busca só envia uma consulta ao confirmar pelo teclado ou botão; considera o acervo processado da conta, não apenas a página carregada. Mostra até 10 referências conferidas por IA, estados de análise e nova tentativa. O Mac fica no Dock com o mesmo ícone do iPhone, mantém a barra de menu e a opção de iniciar no login.
 
 Primeiro uso: a biblioteca vazia oferece captura direta de nota, link, imagem ou mídia e
 explica captura, processamento e busca. Após salvar o primeiro item, aparece uma

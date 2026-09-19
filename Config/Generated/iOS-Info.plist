@@ -16,8 +16,19 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(QUEEP_GOOGLE_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>GIDClientID</key>
+	<string>$(QUEEP_GOOGLE_CLIENT_ID)</string>
 	<key>QueepAPIURL</key>
 	<string>$(QUEEP_API_URL)</string>
 	<key>QueepAuthGroup</key>
@@ -30,5 +41,7 @@
 	<string>$(QUEEP_REVENUECAT_PUBLIC_KEY)</string>
 	<key>QueepTermsURL</key>
 	<string>$(QUEEP_TERMS_URL)</string>
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 </dict>
 </plist>

@@ -40,50 +40,63 @@ enum IncomingLoader {
         var images: [NSItemProvider] = []
         var media: [NSItemProvider] = []
         for provider in providers {
-            if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier)
-                || provider.hasItemConformingToTypeIdentifier(UTType.audio.identifier) {
+            if isMedia(provider) {
                 media.append(provider)
-            } else if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+                || provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                 let url = try await loadURL(provider)
-                if url.isFileURL { files.append(url) } else { links.append(url.absoluteString) }
+                if url.isFileURL {
+                    files.append(url)
+                } else if Capture(kind: "link", title: "", text: "", url: url.absoluteString).isValid,
+                          !links.contains(url.absoluteString) {
+                    links.append(url.absoluteString)
+                }
             } else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
                 images.append(provider)
-            } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier)
+                || provider.hasItemConformingToTypeIdentifier(UTType.text.identifier) {
                 texts.append(try await loadText(provider))
-            } else {
-                throw QueepError.server("Compartilhe um link, texto, imagem, áudio ou vídeo.")
             }
         }
-        links = Array(Set(links))
-        guard links.count <= 1, files.count + images.count + media.count <= 1 else {
-            throw QueepError.server("Compartilhe uma referência por vez.")
+        // Instagram/Twitter attach the post URL, a thumbnail and extra proprietary types.
+        // Prefer the actual movie/audio file; keep URL over a preview image.
+        if let provider = media.first {
+            return IncomingReference(text: "", url: nil, image: nil, media: try await loadMedia(provider))
+        }
+        if let file = files.first(where: isMediaFile) {
+            return IncomingReference(text: "", url: nil, image: nil,
+                media: try await ImportedMedia.prepare(url: file))
         }
         if let link = links.first {
             let text = texts.filter { $0 != link }.joined(separator: "\n")
-            guard Capture(kind: "link", title: "", text: text, url: link).isValid else {
-                throw QueepError.invalidCapture
-            }
-            // A URL's preview image is not a separate reference.
             return IncomingReference(text: text, url: link, image: nil)
         }
         if let file = files.first {
-            if let type = UTType(filenameExtension: file.pathExtension),
-               type.conforms(to: .movie) || type.conforms(to: .audio) {
-                return IncomingReference(text: "", url: nil, image: nil,
-                    media: try await ImportedMedia.prepare(url: file))
-            }
             let image = try await Task.detached { try ImportedImage.prepare(url: file, maxPixels: 2048) }.value
             return IncomingReference(text: "", url: nil, image: image.data)
-        }
-        if let provider = media.first {
-            return IncomingReference(text: "", url: nil, image: nil,
-                                     media: try await loadMedia(provider))
         }
         if let provider = images.first {
             let image = try await loadImage(provider)
             return IncomingReference(text: "", url: nil, image: image.data)
         }
-        return try IncomingReference.text(texts.joined(separator: "\n"))
+        let note = texts.joined(separator: "\n")
+        guard !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw QueepError.server("Compartilhe um link, texto, imagem, áudio ou vídeo.")
+        }
+        return try IncomingReference.text(note)
+    }
+
+    private static func isMedia(_ provider: NSItemProvider) -> Bool {
+        mediaTypes.contains { provider.hasItemConformingToTypeIdentifier($0.identifier) }
+    }
+
+    private static let mediaTypes: [UTType] = [
+        .movie, .mpeg4Movie, .quickTimeMovie, .video, .audio, .mpeg4Audio
+    ]
+
+    private static func isMediaFile(_ url: URL) -> Bool {
+        guard let type = UTType(filenameExtension: url.pathExtension) else { return false }
+        return type.conforms(to: .movie) || type.conforms(to: .audio) || type.conforms(to: .video)
     }
 
     private static func loadURL(_ provider: NSItemProvider) async throws -> URL {
@@ -126,7 +139,7 @@ enum IncomingLoader {
     }
 
     private static func loadMedia(_ provider: NSItemProvider) async throws -> ImportedMedia {
-        let type = provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) ? UTType.movie : .audio
+        let type = mediaTypes.first { provider.hasItemConformingToTypeIdentifier($0.identifier) } ?? .movie
         let copy: TemporaryMediaFile = try await withCheckedThrowingContinuation { continuation in
             provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, error in
                 do {

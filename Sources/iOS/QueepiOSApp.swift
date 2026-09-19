@@ -1,3 +1,4 @@
+import GoogleSignIn
 import SwiftUI
 
 @main
@@ -8,6 +9,7 @@ struct QueepiOSApp: App {
     var body: some Scene {
         WindowGroup {
             RootView().environment(session).environment(library)
+                .onOpenURL { GIDSignIn.sharedInstance.handle($0) }
         }
     }
 }

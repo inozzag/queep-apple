@@ -78,6 +78,7 @@ final class AccountDeletionTests: XCTestCase {
 
     private func openDeletion(_ app: XCUIApplication) {
         app.buttons["Conta"].tap()
+        XCTAssertTrue(app.buttons["account.delete"].waitForExistence(timeout: 10))
         app.buttons["account.delete"].tap()
         XCTAssertTrue(app.secureTextFields["account.delete.password"].waitForExistence(timeout: 10))
     }

@@ -34,7 +34,7 @@ struct AnalysisView: View {
             }
             if let source = current.source {
                 Divider()
-                Label(source.state == "read" ? (source.contentKind == "metadata" ? "Informações públicas lidas" : "Texto da página lido") : "Página indisponível",
+                Label(source.state == "read" ? sourceReadLabel(source) : "Página indisponível",
                       systemImage: source.state == "read" ? "doc.text" : "exclamationmark.circle")
                     .font(.callout)
                     .accessibilityIdentifier("source.status")
@@ -95,6 +95,12 @@ struct AnalysisView: View {
                 catch { return }
             } while !Task.isCancelled
         }
+    }
+
+    private func sourceReadLabel(_ source: SourceContent) -> String {
+        if current.linkSurface?.isPost == true { return "Texto do post lido" }
+        if source.contentKind == "metadata" { return "Informações públicas lidas" }
+        return "Texto da página lido"
     }
 }
 

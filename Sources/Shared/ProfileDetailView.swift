@@ -1,0 +1,198 @@
+import SwiftUI
+import QueepCore
+
+/// Opened social profile: avatar, name, handle, bio, tags. No notes, title editor or post gallery.
+struct ProfileDetailView: View {
+    @Environment(Session.self) private var session
+    @Environment(LibraryStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    let reference: Reference
+    @State private var latest: Reference?
+    @State private var busy = false
+    @State private var error: String?
+    @State private var confirmDelete = false
+
+    private var live: Reference {
+        let fromStore = store.items.first(where: { $0.id == reference.id })
+        return [latest, fromStore, reference].compactMap { $0 }.max { $0.updatedAt < $1.updatedAt }
+            ?? reference
+    }
+    private var identity: PostIdentity { PostIdentity(live) }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    DocumentActions { moreMenu }
+                    header
+                    if !identity.body.isEmpty {
+                        Text(identity.body)
+                            .font(.body)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("profile.bio")
+                    }
+                    actions
+                    tags
+                    if let error {
+                        Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red)
+                    }
+                }
+                .padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 40)
+                .frame(maxWidth: 760).frame(maxWidth: .infinity)
+            }
+            .background(Color.card)
+            .navigationTitle("Perfil")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Fechar", systemImage: "xmark") { dismiss() }.disabled(busy)
+                        .keyboardShortcut(.cancelAction)
+                        #if os(iOS)
+                        .labelStyle(.iconOnly)
+                        #endif
+                }
+                #if os(iOS)
+                ToolbarItem(placement: .primaryAction) { moreMenu }
+                #endif
+            }
+            .confirmationDialog("Excluir este perfil dos seus dispositivos?", isPresented: $confirmDelete,
+                                titleVisibility: .visible) {
+                Button("Excluir", role: .destructive) { Task { await remove() } }
+            }
+        }
+        .interactiveDismissDisabled(busy)
+        .task(id: reference.id) { await refresh() }
+        #if os(macOS)
+        .frame(minWidth: 560, idealWidth: 720, minHeight: 480, idealHeight: 640)
+        #endif
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .bottom, spacing: 0) {
+                PostBrandMark(surface: live.linkSurface, size: 40, radius: 8)
+                    .padding(.trailing, -12)
+                PostAvatar(reference: live, initials: identity.initials, size: 36)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                if !identity.author.isEmpty {
+                    Text(identity.author)
+                        .font(.headline)
+                        .foregroundStyle(Theme.homeInk)
+                        .lineLimit(1)
+                }
+                if !identity.handle.isEmpty {
+                    Text(identity.handle)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.homePreview)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel([identity.author, identity.handle].filter { !$0.isEmpty }.joined(separator: " "))
+    }
+
+    private var actions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let source = live.url, let destination = URL(string: source) {
+                Button("Abrir no navegador", systemImage: "safari") { openURL(destination) }
+                    .accessibilityIdentifier("profile.openOriginal")
+                Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
+                    .accessibilityIdentifier("profile.copyLink")
+            }
+            Button("Arquivar", systemImage: "archivebox") { }
+                .accessibilityIdentifier("profile.archive")
+                .accessibilityHint("Em breve")
+            Button("Space", systemImage: "square.stack.3d.up") { }
+                .accessibilityIdentifier("profile.space")
+                .accessibilityHint("Em breve")
+        }
+        .buttonStyle(.bordered)
+    }
+
+    @ViewBuilder private var tags: some View {
+        let analysis = live.analysis
+        let items = Array(((analysis?.topics ?? []) + (analysis?.usefulness ?? [])
+                           + (analysis?.entities ?? [])).prefix(10))
+        if live.status == "queued" || live.status == "processing" {
+            Label("A interpretação acontece em segundo plano. Você já pode fechar este perfil.",
+                  systemImage: "sparkles")
+                .font(.callout).foregroundStyle(Color.muted)
+        } else if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Sparkle()
+                    Text("Assuntos").font(.headline)
+                }
+                FlowChips(items: items)
+            }
+        }
+        if live.status == "error" {
+            Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
+                Task { await retry() }
+            }
+            .buttonStyle(.bordered)
+            .disabled(busy)
+            .accessibilityIdentifier("profile.retry")
+        }
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            if let source = live.url, let destination = URL(string: source) {
+                Button("Abrir no navegador", systemImage: "safari") { openURL(destination) }
+                Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
+            }
+            Button("Arquivar", systemImage: "archivebox") { }
+            Button("Space", systemImage: "square.stack.3d.up") { }
+            Divider()
+            Button("Excluir perfil", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                .disabled(busy).accessibilityIdentifier("profile.delete")
+        } label: { Label("Mais", systemImage: "ellipsis.circle") }
+            .accessibilityIdentifier("reference.more")
+    }
+
+    private func refresh() async {
+        guard let api = session.client() else { return }
+        for _ in 0..<45 {
+            if Task.isCancelled { return }
+            do {
+                let fresh = try await api.get(id: reference.id)
+                latest = fresh
+                if fresh.status == "error" || fresh.status == "ready" { return }
+            } catch is CancellationError { return }
+            catch { }
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+        }
+    }
+
+    private func retry() async {
+        guard let api = session.client(), let uid = session.userID else { return }
+        busy = true; error = nil
+        defer { busy = false }
+        do {
+            let value = try await api.retryAnalysis(live)
+            guard session.userID == uid else { return }
+            latest = value
+        } catch { self.error = error.localizedDescription }
+    }
+
+    private func remove() async {
+        guard let api = session.client(), let uid = session.userID else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            try await api.delete(live)
+            guard session.userID == uid else { return }
+            store.discardSearchReference(live.id)
+            await store.refresh(api, account: uid)
+            dismiss()
+        } catch { self.error = error.localizedDescription }
+    }
+}

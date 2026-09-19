@@ -3,6 +3,9 @@ import FirebaseCore
 import Observation
 import QueepCore
 import SwiftUI
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 
 @MainActor @Observable
 final class Session {
@@ -18,6 +21,7 @@ final class Session {
     var accountState: AccountStatus?
     var accountOwner: String?
     var deletingAccount = false
+    var profileGeneration = 0
     private var listener: AuthStateDidChangeListenerHandle?
 
     init() {
@@ -67,6 +71,7 @@ final class Session {
         listener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             Task { @MainActor [weak self] in
                 guard let self, Auth.auth().currentUser?.uid == user?.uid else { return }
+                self.profileGeneration += 1
                 if let user { try? await self.refreshAccount(owner: user.uid) }
                 else { self.clearAccountState() }
             }
@@ -101,19 +106,138 @@ final class Session {
         apiURL = url
     }
 
+    enum SignInMethod {
+        case password, apple, google
+        var confirmation: String {
+            switch self {
+            case .password: "Confirme sua senha"
+            case .apple: "Confirme com a Apple"
+            case .google: "Confirme com o Google"
+            }
+        }
+    }
+
+    var signInMethod: SignInMethod {
+        let ids = Set(Auth.auth().currentUser?.providerData.map(\.providerID) ?? [])
+        if ids.contains("apple.com") { return .apple }
+        if ids.contains("google.com") { return .google }
+        return .password
+    }
+
     func signIn(email: String, password: String, create: Bool) async throws {
         if create {
             _ = try await Auth.auth().createUser(withEmail: email, password: password)
         } else {
             _ = try await Auth.auth().signIn(withEmail: email, password: password)
         }
+        try await finishSignIn()
+    }
+
+    func signIn(with credential: AuthCredential) async throws {
+        _ = try await Auth.auth().signIn(with: credential)
+        try await finishSignIn()
+    }
+
+    private func finishSignIn() async throws {
         if let user = Auth.auth().currentUser { try await refreshAccount(owner: user.uid) }
         accountNotice = nil
     }
 
     func signOut() throws {
+        #if canImport(GoogleSignIn)
+        GIDSignIn.sharedInstance.signOut()
+        #endif
         try Auth.auth().signOut()
         clearAccountState()
+    }
+
+    struct Identity: Equatable {
+        var displayName: String
+        var email: String?
+        var emailVerified: Bool
+        var photoURL: URL?
+        var providers: Set<String>
+        var hasPassword: Bool { providers.contains("password") }
+        var hasApple: Bool { providers.contains("apple.com") }
+        var hasGoogle: Bool { providers.contains("google.com") }
+        var canUnlink: Bool { providers.count > 1 }
+    }
+
+    var identity: Identity? {
+        _ = profileGeneration
+        guard let user = Auth.auth().currentUser else { return nil }
+        return Identity(
+            displayName: user.displayName ?? "",
+            email: user.email,
+            emailVerified: user.isEmailVerified,
+            photoURL: user.photoURL,
+            providers: Set(user.providerData.map(\.providerID))
+        )
+    }
+
+    func reloadIdentity() async {
+        try? await Auth.auth().currentUser?.reload()
+        profileGeneration += 1
+    }
+
+    func updateDisplayName(_ name: String) async throws {
+        guard let user = Auth.auth().currentUser else { throw QueepError.unauthorized }
+        let change = user.createProfileChangeRequest()
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        change.displayName = trimmed.isEmpty ? nil : trimmed
+        try await change.commitChanges()
+        await reloadIdentity()
+    }
+
+    func sendPasswordReset(to email: String) async throws {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw QueepError.server("Digite o e-mail da conta.") }
+        try await Auth.auth().sendPasswordReset(withEmail: trimmed)
+    }
+
+    func sendVerificationEmail() async throws {
+        guard let user = Auth.auth().currentUser else { throw QueepError.unauthorized }
+        try await user.sendEmailVerification()
+    }
+
+    func requestEmailChange(_ email: String) async throws {
+        guard let user = Auth.auth().currentUser else { throw QueepError.unauthorized }
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.contains("@") else { throw QueepError.server("Digite um e-mail válido.") }
+        try await user.sendEmailVerification(beforeUpdatingEmail: trimmed)
+    }
+
+    func setPassword(current: String?, new: String) async throws {
+        guard let user = Auth.auth().currentUser else { throw QueepError.unauthorized }
+        let password = new.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard password.count >= 6 else {
+            throw QueepError.server("A senha precisa ter pelo menos 6 caracteres.")
+        }
+        if let current, let email = user.email, identity?.hasPassword == true {
+            _ = try await user.reauthenticate(with: EmailAuthProvider.credential(withEmail: email,
+                                                                               password: current))
+            try await user.updatePassword(to: password)
+        } else if let email = user.email {
+            _ = try await user.link(with: EmailAuthProvider.credential(withEmail: email,
+                                                                     password: password))
+        } else {
+            throw QueepError.server("Cadastre um e-mail antes de criar uma senha.")
+        }
+        await reloadIdentity()
+    }
+
+    func link(_ credential: AuthCredential) async throws {
+        guard let user = Auth.auth().currentUser else { throw QueepError.unauthorized }
+        _ = try await user.link(with: credential)
+        await reloadIdentity()
+    }
+
+    func unlink(provider: String) async throws {
+        guard let user = Auth.auth().currentUser, identity?.canUnlink == true else {
+            throw QueepError.server("Mantenha pelo menos um método para entrar na conta.")
+        }
+        _ = try await user.unlink(fromProvider: provider)
+        await reloadIdentity()
     }
 
     private func clearAccountState() {
@@ -152,18 +276,31 @@ final class Session {
         accountNotice = "Sua sessão foi encerrada. Entre novamente se sua conta ainda estiver ativa."
     }
 
-    func changeAccountDeletion(password: String, owner: String, version: Int,
+    func changeAccountDeletion(password: String? = nil, credential: AuthCredential? = nil,
+                               appleAuthorizationCode: String? = nil,
+                               owner: String, version: Int,
                                operationID: UUID, immediate: Bool = false, cancel: Bool = false) async throws {
         guard !deletingAccount, accountOwner == owner,
               let user = Auth.auth().currentUser, user.uid == owner,
-              let email = user.email, let apiURL else { throw QueepError.unauthorized }
+              let apiURL else { throw QueepError.unauthorized }
         deletingAccount = true
         defer { deletingAccount = false }
         do {
-            _ = try await user.reauthenticate(with: EmailAuthProvider.credential(withEmail: email,
-                                                                               password: password))
+            if let password, let email = user.email {
+                _ = try await user.reauthenticate(with: EmailAuthProvider.credential(withEmail: email,
+                                                                                   password: password))
+            } else if let credential {
+                _ = try await user.reauthenticate(with: credential)
+                if immediate, let appleAuthorizationCode {
+                    try await Auth.auth().revokeToken(withAuthorizationCode: appleAuthorizationCode)
+                }
+            } else {
+                throw QueepError.unauthorized
+            }
+        } catch let error as QueepError {
+            throw error
         } catch {
-            throw QueepError.server("Não foi possível confirmar sua identidade. Confira a senha e a conexão.")
+            throw QueepError.server("Não foi possível confirmar sua identidade. Tente de novo.")
         }
         guard accountOwner == owner, Auth.auth().currentUser?.uid == owner else { throw QueepError.unauthorized }
         let fresh = try await user.getIDToken(forcingRefresh: true)

@@ -2,7 +2,12 @@ import Observation
 import QueepCore
 import Foundation
 
+enum LibrarySurface: String, CaseIterable {
+    case home, spaces
+}
+
 enum LibraryPresentation: Identifiable {
+    case account
     case usage
     case help
     case deleteAccount
@@ -12,6 +17,7 @@ enum LibraryPresentation: Identifiable {
 
     var id: String {
         switch self {
+        case .account: "account"
         case .usage: "usage"
         case .help: "help"
         case .deleteAccount: "delete-account"
@@ -30,20 +36,28 @@ final class LibraryStore {
     var loading = false
     var hasLoaded = false
     var captureKind = "note"
+    var captureIntent = "note"
+    var kindFilter: String?
     var presentation: LibraryPresentation?
+    var surface: LibrarySurface = .home
     var query = "" {
-        didSet { if query != oldValue { clearSearch() } }
+        didSet {
+            if query != oldValue, searchChips.isEmpty { clearSearch() }
+        }
     }
+    var searchChips: [String] = []
     var searchItems: [Reference]?
     var searchError: String?
     var searching = false
     var hasPending = false
+    var hasActiveCollection: Bool { !searchChips.isEmpty || kindFilter != nil }
     private var searchGeneration = 0
     private var accountID: String?
     private var generation = 0
 
-    func startCapture(kind: String = "note") {
+    func startCapture(kind: String = "note", intent: String? = nil) {
         captureKind = kind
+        captureIntent = intent ?? kind
         presentation = .capture(UUID())
     }
 
@@ -59,7 +73,24 @@ final class LibraryStore {
         hasLoaded = false
         presentation = nil
         query = ""
+        kindFilter = nil
+        searchChips = []
+        surface = .home
+        captureIntent = "note"
         clearSearch()
+    }
+
+    func showHome() {
+        surface = .home
+        searchChips = []
+        query = ""
+        kindFilter = nil
+        clearSearch()
+    }
+
+    func removeSearchChip(_ term: String) {
+        searchChips.removeAll { $0 == term }
+        if searchChips.isEmpty { clearSearch() }
     }
 
     func clearSearch() {
@@ -76,7 +107,14 @@ final class LibraryStore {
 
     func search(_ client: APIClient, account: String) async {
         guard account == accountID, !searching else { return }
-        let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let typed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !typed.isEmpty {
+            if !searchChips.contains(where: { $0.caseInsensitiveCompare(typed) == .orderedSame }) {
+                searchChips.append(typed)
+            }
+            query = ""
+        }
+        let term = searchChips.joined(separator: ", ")
         guard !term.isEmpty else { clearSearch(); return }
         searchGeneration += 1
         let operation = searchGeneration

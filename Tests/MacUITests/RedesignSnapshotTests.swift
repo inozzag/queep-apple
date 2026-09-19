@@ -16,7 +16,7 @@ final class RedesignSnapshotTests: XCTestCase {
         sleep(4)
         snap(library, "library")
 
-        let search = app.searchFields.firstMatch
+        let search = app.descendants(matching: .any)["library.search"]
         if search.waitForExistence(timeout: 5) {
             search.click()
             paste("aquele quadro com ideias de interface", into: search, app: app)
@@ -47,6 +47,8 @@ final class RedesignSnapshotTests: XCTestCase {
         }
 
         app.buttons["library.add"].click()
+        let note = app.menuItems["Nota"]
+        if note.waitForExistence(timeout: 3) { note.click() }
         let editor = app.textViews["capture.text"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10), app.debugDescription)
         paste("Ideias para o onboarding", into: app.textFields["capture.title"], app: app)

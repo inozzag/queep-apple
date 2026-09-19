@@ -92,6 +92,7 @@ final class RevenueCatTests: XCTestCase {
     private func openSubscription(_ app: XCUIApplication) {
         XCTAssertTrue(app.buttons["Conta"].waitForExistence(timeout: 20), app.debugDescription)
         app.buttons["Conta"].tap()
+        XCTAssertTrue(app.buttons["account.subscription"].waitForExistence(timeout: 10))
         app.buttons["account.subscription"].tap()
     }
 }

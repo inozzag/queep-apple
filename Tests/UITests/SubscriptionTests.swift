@@ -13,6 +13,7 @@ final class SubscriptionTests: XCTestCase {
         let account = app.buttons["Conta"]
         XCTAssertTrue(account.waitForExistence(timeout: 20), app.debugDescription)
         account.tap()
+        XCTAssertTrue(app.buttons["account.subscription"].waitForExistence(timeout: 10))
         app.buttons["account.subscription"].tap()
         let status = app.staticTexts["subscription.status"]
         XCTAssertTrue(status.waitForExistence(timeout: 20), app.debugDescription)

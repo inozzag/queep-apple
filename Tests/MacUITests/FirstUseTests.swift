@@ -33,7 +33,9 @@ final class FirstUseTests: XCTestCase {
         let account = app.descendants(matching: .any).matching(identifier: "person.crop.circle").firstMatch
         XCTAssertTrue(account.waitForExistence(timeout: 15))
         XCTAssertFalse(app.staticTexts["onboarding.title"].exists)
-        account.click(); app.menuItems["account.help"].click()
+        account.click()
+        XCTAssertTrue(app.buttons["account.help"].waitForExistence(timeout: 10))
+        app.buttons["account.help"].click()
         XCTAssertTrue(app.staticTexts["onboarding.title"].waitForExistence(timeout: 10))
         app.buttons["onboarding.close"].click()
         let cleanup = try await fixture.delete()

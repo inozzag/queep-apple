@@ -31,6 +31,7 @@ final class FirstUseTests: XCTestCase {
         XCTAssertTrue(app.buttons[fixture.title].waitForExistence(timeout: 15))
         XCTAssertFalse(app.staticTexts["onboarding.title"].exists)
         app.buttons["Conta"].tap()
+        XCTAssertTrue(app.buttons["account.help"].waitForExistence(timeout: 10))
         app.buttons["account.help"].tap()
         XCTAssertTrue(app.staticTexts["onboarding.title"].waitForExistence(timeout: 10))
         app.buttons["onboarding.close"].tap()

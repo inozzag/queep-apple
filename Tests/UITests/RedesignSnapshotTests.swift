@@ -14,6 +14,9 @@ final class RedesignSnapshotTests: XCTestCase {
         sleep(4)
         snap(app, "ios-library")
         add.tap()
+        let note = app.buttons["library.add.note"]
+        XCTAssertTrue(note.waitForExistence(timeout: 5), app.debugDescription)
+        note.tap()
         let title = app.textFields["capture.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 10), app.debugDescription)
         title.tap()

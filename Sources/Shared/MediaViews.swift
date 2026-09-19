@@ -218,7 +218,7 @@ struct MediaDetailView: View {
     }
 }
 
-private struct MediaPlaybackView: View {
+struct MediaPlaybackView: View {
     let player: AVPlayer
     let video: Bool
     let duration: Double

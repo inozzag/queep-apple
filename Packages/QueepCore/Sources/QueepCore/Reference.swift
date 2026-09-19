@@ -12,6 +12,8 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
     public let updatedAt: Date
     public let analysis: Interpretation?
     public let image: ImageInfo?
+    public let images: [ImageInfo]?
+    public let authorImage: ImageInfo?
     public let source: SourceContent?
     public let media: MediaInfo?
     public let transcript: String?
@@ -21,14 +23,29 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
         if kind == "image" { return "Imagem" }
         if kind == "audio" { return "Áudio" }
         if kind == "video" { return "Vídeo" }
-        if kind == "link", let source, !source.title.isEmpty { return source.title }
+        if kind == "link", let source, !source.title.isEmpty, source.title.caseInsensitiveCompare("Post") != .orderedSame {
+            return source.title
+        }
+        if kind == "link", let handle = LinkSurface.twitterProfileHandle(url: url) { return handle }
+        if kind == "link", let handle = LinkSurface.instagramProfileHandle(url: url) { return handle }
+        if kind == "link", let handle = LinkSurface.behanceProfileHandle(url: url) { return handle }
+        if kind == "link", let handle = LinkSurface.pinterestProfileHandle(url: url) { return handle }
+        if kind == "link", let handle = LinkSurface.twitterHandle(url: url) { return handle }
+        if kind == "link", let handle = LinkSurface.instagramPostCode(url: url) { return handle }
+        if kind == "link", let handle = LinkSurface.behanceProjectId(url: url) { return handle }
+        if kind == "link", let handle = LinkSurface.pinterestPinId(url: url) { return handle }
         if kind == "link", let url, let host = URL(string: url)?.host { return host }
         return String(text.split(separator: "\n").first.map(String.init)?.prefix(100) ?? "Nota")
     }
 
     public var kindLabel: String {
-        switch kind { case "image": "Imagem"; case "link": "Link"; case "audio": "Áudio"
-        case "video": "Vídeo"; default: "Nota" }
+        switch kind {
+        case "image": "Imagem"
+        case "link": isSocialProfile ? "Perfil" : isSocialPost ? "Post" : isWebsite ? "Site" : "Link"
+        case "audio": "Áudio"
+        case "video": "Vídeo"
+        default: "Nota"
+        }
     }
     public var kindSymbol: String {
         switch kind { case "image": "photo"; case "link": "link"; case "audio": "waveform"
@@ -43,6 +60,12 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
         case "error": "Falha na análise"
         default: "Salvo"
         }
+    }
+
+    public var gallery: [ImageInfo] {
+        if let images, !images.isEmpty { return images }
+        if let image { return [image] }
+        return []
     }
 }
 
@@ -66,6 +89,9 @@ public struct SourceContent: Codable, Sendable, Equatable {
     public let url: String
     public let title: String
     public let text: String
+    public let authorName: String?
+    public let authorHandle: String?
+    public let nativeTitle: Bool?
     public let fetchedAt: Date
     public let truncated: Bool
     public let limitations: [String]
@@ -77,10 +103,13 @@ public struct ImageInfo: Codable, Sendable, Equatable {
     public let width: Int
     public let height: Int
     public let byteCount: Int
+    public let previewKind: String?
+    public var isVideoPreview: Bool { previewKind == "video" }
 }
 
 public struct Interpretation: Codable, Sendable, Equatable {
     public let summary: String
+    public let headline: String?
     public let topics: [String]
     public let entities: [String]
     public let usefulness: [String]

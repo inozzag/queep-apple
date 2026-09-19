@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import ServiceManagement
 
@@ -9,12 +10,51 @@ struct QueepMacApp: App {
     var body: some Scene {
         Window("Queep", id: "library") {
             RootView().environment(capture.session).environment(capture.library)
-                .frame(minWidth: 660, minHeight: 500)
+                .frame(minWidth: 1080, minHeight: 640)
                 .background(LibraryOpener(capture: capture))
-        }.defaultSize(width: 1040, height: 720)
-        MenuBarExtra("Queep", systemImage: "bookmark.fill") {
+                .modifier(HideLibraryWindowTitle())
+        }.defaultSize(width: 1315, height: 848)
+        MenuBarExtra {
             QueepMenu().environment(capture.session).environment(capture.library).environment(capture)
+        } label: {
+            Label("Queep", image: "HomeLogo")
+                .labelStyle(.iconOnly)
         }
+    }
+}
+
+/// Keeps the glass titlebar and traffic lights; hides the redundant window title next to them.
+private struct HideLibraryWindowTitle: ViewModifier {
+    func body(content: Content) -> some View {
+        titleHidden(content)
+            .background(WindowTitleHider())
+    }
+
+    @ViewBuilder
+    private func titleHidden(_ content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.toolbar(removing: .title)
+        } else {
+            content
+        }
+    }
+}
+
+private struct WindowTitleHider: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { TitleHidingView() }
+    func updateNSView(_ nsView: NSView, context: Context) {
+        (nsView as? TitleHidingView)?.hideTitle()
+    }
+}
+
+private final class TitleHidingView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        hideTitle()
+    }
+
+    func hideTitle() {
+        window?.titleVisibility = .hidden
     }
 }
 

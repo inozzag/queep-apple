@@ -15,7 +15,8 @@ final class AccountDeletionTests: XCTestCase {
         let account = app.descendants(matching: .any).matching(identifier: "person.crop.circle").firstMatch
         XCTAssertTrue(account.waitForExistence(timeout: 20))
         account.click()
-        app.menuItems["account.delete"].click()
+        XCTAssertTrue(app.buttons["account.delete"].waitForExistence(timeout: 10))
+        app.buttons["account.delete"].click()
         XCTAssertTrue(app.secureTextFields["account.delete.password"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["account.delete.confirm"].isEnabled)
         let deleted = try await fixture.delete(immediate: false)

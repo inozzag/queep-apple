@@ -18,11 +18,13 @@ struct CaptureView: View {
     @State private var confirmDelete = false
     @State private var requestID = UUID()
     @State private var attempted = false
+    @State private var latest: Reference?
     @State private var image: ImportedImage?
     @State private var media: ImportedMedia?
     @State private var preparing = false
     @State private var editor = MarkdownEditorController()
     @FocusState private var titleFocused: Bool
+    @State private var titleTouched = false
 
     init(reference: Reference?, initialKind: String = "note") {
         self.reference = reference
@@ -62,6 +64,7 @@ struct CaptureView: View {
                         .focused($titleFocused).disabled(locked)
                         .accessibilityLabel("Título (opcional)")
                         .accessibilityIdentifier("capture.title")
+                        .onChange(of: title) { _, _ in titleTouched = true }
                     if title.count > 200 {
                         Text("O título tem no máximo 200 caracteres.").font(.caption).foregroundStyle(.orange)
                     }
@@ -73,8 +76,8 @@ struct CaptureView: View {
                         MediaPickerSection(media: $media, preparing: $preparing, disabled: locked).card(padding: 16, elevated: false)
                     default: noteEditor
                     }
-                    if let reference {
-                        AnalysisView(reference: reference)
+                    if let live {
+                        AnalysisView(reference: live)
                     }
                     if busy && reference == nil {
                         Label(kind == "image" ? "Enviando imagem…" : kind == "media" ? "Enviando mídia…" : "Salvando…", systemImage: "arrow.up.circle")
@@ -133,6 +136,28 @@ struct CaptureView: View {
         }
         .interactiveDismissDisabled(busy || preparing)
         .onAppear { if reference == nil { titleFocused = true } }
+        .onChange(of: liveTitle) { _, value in
+            if !titleTouched, !value.isEmpty { title = value }
+        }
+        .task(id: reference?.id) {
+            guard let reference, let api = session.client() else { return }
+            let wantsPhotos = reference.linkSurface?.isPost == true
+            var readyPolls = 0
+            for _ in 0..<45 {
+                if Task.isCancelled { return }
+                do {
+                    let fresh = try await api.get(id: reference.id)
+                    latest = fresh
+                    if fresh.status == "error" { return }
+                    if fresh.status == "ready" {
+                        readyPolls += 1
+                        if !wantsPhotos || !fresh.gallery.isEmpty || readyPolls >= 15 { return }
+                    }
+                } catch is CancellationError { return }
+                catch { }
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            }
+        }
         #if os(macOS)
         .frame(minWidth: 520, idealWidth: 680, minHeight: 520, idealHeight: 640)
         #endif
@@ -142,7 +167,8 @@ struct CaptureView: View {
         if let reference {
             Menu {
                 if let source = reference.url, let destination = URL(string: source) {
-                    Button("Abrir site original", systemImage: "safari") { openURL(destination) }
+                    Button(reference.linkSurface?.isPost == true ? "Abrir post original" : "Abrir site original",
+                           systemImage: "safari") { openURL(destination) }
                     Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
                 }
                 if !reference.text.isEmpty {
@@ -166,11 +192,24 @@ struct CaptureView: View {
             .accessibilityIdentifier("capture.kind")
     }
 
+    private var live: Reference? {
+        guard let reference else { return nil }
+        let fromStore = store.items.first(where: { $0.id == reference.id })
+        return [latest, fromStore, reference].compactMap { $0 }.max { lhs, rhs in
+            if lhs.gallery.count != rhs.gallery.count { return lhs.gallery.count < rhs.gallery.count }
+            return lhs.updatedAt < rhs.updatedAt
+        }
+    }
+    private var liveTitle: String { live?.title ?? "" }
+
     private var linkFields: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
                 Image(systemName: "link").foregroundStyle(Color.muted)
-                TextField("https://…", text: $url).textFieldStyle(.plain).autocorrectionDisabled()
+                TextField(store.captureIntent == "post" || live?.linkSurface?.isPost == true
+                          ? "Cole o link do post (X, Instagram, Dribbble, Behance ou Medium)"
+                          : "https://…",
+                          text: $url).textFieldStyle(.plain).autocorrectionDisabled()
                     #if os(iOS)
                     .textInputAutocapitalization(.never).keyboardType(.URL)
                     #endif
@@ -180,9 +219,29 @@ struct CaptureView: View {
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            if let live, !live.gallery.isEmpty {
+                RemoteImageCarousel(reference: live, thumbnail: false, fill: false, height: 280)
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            if let source = live?.source, source.state == "read", live?.linkSurface?.isPost == true,
+               !source.text.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(source.text)
+                        .font(.body)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("post.body")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
             VStack(alignment: .leading, spacing: 8) {
-                Text("Contexto (opcional)").sectionLabel()
-                editorBlock(minHeight: 120, placeholder: "Por que este link importa?")
+                Text(store.captureIntent == "post" || live?.linkSurface?.isPost == true
+                     ? "Contexto do post (opcional)" : "Contexto (opcional)").sectionLabel()
+                editorBlock(minHeight: 120,
+                            placeholder: store.captureIntent == "post" || live?.linkSurface?.isPost == true
+                            ? "Quem postou, por que guardar, o que lembrar."
+                            : "Por que este link importa?")
             }
         }
     }

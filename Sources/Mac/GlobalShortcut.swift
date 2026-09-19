@@ -32,6 +32,13 @@ final class MacDelegate: NSObject, NSApplicationDelegate {
         MacCapture.shared.install()
     }
 
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { MacCapture.shared.showLibrary() }
+        return true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         for hotKey in hotKeys { UnregisterEventHotKey(hotKey) }
         if let handler { RemoveEventHandler(handler) }

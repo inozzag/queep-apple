@@ -75,6 +75,8 @@ struct RemoteImage: View {
     let reference: Reference
     var thumbnail = false
     var fill = false
+    var index = 0
+    var author = false
     @State private var data: Data?
     @State private var error: String?
     @State private var attempt = 0
@@ -93,17 +95,159 @@ struct RemoteImage: View {
                 else { ProgressView("Carregando imagem…").controlSize(.small).padding() }
             }
         }
-        .task(id: "\(session.userID ?? "")/\(reference.id)/\(attempt)") {
+        .task(id: "\(session.userID ?? "")/\(reference.id)/\(index)/\(attempt)/\(author)/\(reference.gallery.count)") {
             data = nil; error = nil
             guard let api = session.client(), let uid = session.userID else { return }
             do {
-                let bytes = try await (reference.media == nil ? api.imageData(reference, thumbnail: thumbnail)
-                                      : api.mediaData(reference, thumbnail: thumbnail))
+                let bytes = try await (author || reference.media == nil
+                                       ? api.imageData(reference, thumbnail: thumbnail, index: index,
+                                                       role: author ? "author" : "gallery")
+                                       : api.mediaData(reference, thumbnail: thumbnail))
                 guard !Task.isCancelled, uid == session.userID else { return }
                 data = bytes
             } catch is CancellationError { }
             catch { if !Task.isCancelled { self.error = error.localizedDescription } }
         }
+    }
+}
+
+struct RemoteImageCarousel: View {
+    let reference: Reference
+    var thumbnail = false
+    var fill = false
+    var height: CGFloat? = 280
+    var showsChrome = true
+    @State private var page: Int? = 0
+
+    private var gallery: [ImageInfo] { reference.gallery }
+    private var current: Int {
+        min(max(page ?? 0, 0), max(gallery.count - 1, 0))
+    }
+    private var currentKind: String { showsPlay(at: current) ? "Vídeo" : "Foto" }
+
+    private func showsPlay(at index: Int) -> Bool {
+        guard gallery.indices.contains(index) else { return false }
+        if gallery[index].isVideoPreview {
+            return reference.linkSurface?.isPost != true
+        }
+        return gallery.count == 1 && (reference.kind == "video" || reference.media != nil)
+    }
+
+    var body: some View {
+        Group {
+            if gallery.isEmpty {
+                Color.clear
+            } else {
+                GeometryReader { geo in
+                    let pageSize = CGSize(width: max(geo.size.width, 1), height: max(geo.size.height, 1))
+                    ZStack {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 0) {
+                                ForEach(gallery.indices, id: \.self) { index in
+                                    ZStack {
+                                        RemoteImage(reference: reference, thumbnail: thumbnail, fill: fill, index: index)
+                                        if showsPlay(at: index) {
+                                            Image(systemName: "play.circle.fill")
+                                                .font(.system(size: 40))
+                                                .foregroundStyle(.white)
+                                                .shadow(radius: 6)
+                                                .allowsHitTesting(false)
+                                        }
+                                    }
+                                    .frame(width: pageSize.width, height: pageSize.height)
+                                    .clipped()
+                                    .id(index)
+                                }
+                            }
+                            .scrollTargetLayout()
+                        }
+                        .scrollTargetBehavior(.paging)
+                        .scrollPosition(id: $page)
+                        .scrollDisabled(gallery.count < 2)
+                        if gallery.count > 1 {
+                            chrome
+                        }
+                    }
+                }
+            }
+        }
+        .frame(height: height)
+        .onChange(of: reference.id) { _, _ in page = 0 }
+        .onChange(of: gallery.count) { _, count in
+            if current >= count { page = max(0, count - 1) }
+        }
+        .accessibilityIdentifier(gallery.count > 1 ? "post.carousel" : "post.photo")
+        .accessibilityLabel(gallery.count > 1 ? "Carrossel de \(gallery.count) mídias" : reference.displayTitle)
+        .accessibilityValue(gallery.count > 1 ? "\(currentKind) \(current + 1) de \(gallery.count)" : "")
+        .accessibilityAdjustableAction { direction in
+            guard gallery.count > 1 else { return }
+            switch direction {
+            case .increment: if current + 1 < gallery.count { page = current + 1 }
+            case .decrement: if current > 0 { page = current - 1 }
+            default: break
+            }
+        }
+    }
+
+    @ViewBuilder private var chrome: some View {
+        if showsChrome {
+            HStack {
+                stepButton(back: true)
+                Spacer()
+                stepButton(back: false)
+            }
+            .padding(.horizontal, 8)
+        }
+        VStack {
+            Spacer()
+            HStack {
+                dots
+                Spacer()
+                if showsChrome { countBadge }
+            }
+            .padding(10)
+        }
+        .allowsHitTesting(showsChrome)
+    }
+
+    private var dots: some View {
+        HStack(spacing: 5) {
+            ForEach(gallery.indices, id: \.self) { index in
+                Circle()
+                    .fill(index == current ? Color.white : Color.white.opacity(0.4))
+                    .frame(width: 6, height: 6)
+                    .shadow(radius: 1)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var countBadge: some View {
+        Text("\(current + 1)/\(gallery.count)")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.black.opacity(0.45), in: Capsule())
+            .accessibilityHidden(true)
+    }
+
+    private func stepButton(back: Bool) -> some View {
+        Button {
+            let next = back ? current - 1 : current + 1
+            guard gallery.indices.contains(next) else { return }
+            page = next
+        } label: {
+            Image(systemName: back ? "chevron.left" : "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(.black.opacity(current == (back ? 0 : gallery.count - 1) ? 0.2 : 0.45), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(current == (back ? 0 : gallery.count - 1))
+        .opacity(current == (back ? 0 : gallery.count - 1) ? 0.35 : 1)
+        .accessibilityLabel(back ? "Foto anterior" : "Próxima foto")
     }
 }
 

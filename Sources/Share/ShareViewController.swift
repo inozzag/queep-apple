@@ -3,6 +3,7 @@ import UIKit
 import QueepCore
 
 @MainActor
+@objc(ShareViewController)
 final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()

@@ -10,13 +10,12 @@ final class CloudSearchTests: XCTestCase {
         app.launch()
         let card = app.buttons["Teste Queep · material esportivo"]
         XCTAssertTrue(card.waitForExistence(timeout: 20))
-        let search = app.searchFields.firstMatch
+        app.buttons["library.nav.search"].tap()
+        let search = app.textFields["library.search"]
         XCTAssertTrue(search.waitForExistence(timeout: 5), app.debugDescription)
         search.tap()
         search.typeText("calçados para jogar em quadra de saibro\n")
-        XCTAssertTrue(app.staticTexts["Referências mais relevantes do seu acervo · até 10 por busca"]
-            .waitForExistence(timeout: 90), app.debugDescription)
-        XCTAssertTrue(card.exists)
+        XCTAssertTrue(card.waitForExistence(timeout: 90), app.debugDescription)
         card.tap()
         let note = app.textViews["capture.text"]
         XCTAssertTrue(note.waitForExistence(timeout: 5))

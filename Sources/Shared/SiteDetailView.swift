@@ -1,0 +1,218 @@
+import SwiftUI
+import QueepCore
+
+/// Opened website: favicon, product name, URL, og:image, AI title, tags. No notes or editor.
+struct SiteDetailView: View {
+    @Environment(Session.self) private var session
+    @Environment(LibraryStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    let reference: Reference
+    @State private var latest: Reference?
+    @State private var busy = false
+    @State private var error: String?
+    @State private var confirmDelete = false
+
+    private var live: Reference {
+        let fromStore = store.items.first(where: { $0.id == reference.id })
+        return [latest, fromStore, reference].compactMap { $0 }.max { $0.updatedAt < $1.updatedAt }
+            ?? reference
+    }
+
+    private var productName: String {
+        if let name = live.source?.title, !name.isEmpty { return name }
+        if let host = live.url.flatMap({ URL(string: $0)?.host?.replacingOccurrences(of: "www.", with: "") }) {
+            return host
+        }
+        return "Site"
+    }
+
+    private var functionalTitle: String {
+        let value = live.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty { return "" }
+        if value.caseInsensitiveCompare(productName) == .orderedSame { return "" }
+        return value
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    DocumentActions { moreMenu }
+                    header
+                    if !live.gallery.isEmpty {
+                        RemoteImage(reference: live, thumbnail: false, fill: false)
+                            .frame(maxWidth: .infinity)
+                            .frame(maxHeight: 360)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                    if !functionalTitle.isEmpty {
+                        Text(functionalTitle)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(Theme.homeInk)
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("site.title")
+                    }
+                    actions
+                    tags
+                    if let error {
+                        Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red)
+                    }
+                }
+                .padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 40)
+                .frame(maxWidth: 760).frame(maxWidth: .infinity)
+            }
+            .background(Color.card)
+            .navigationTitle("Site")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Fechar", systemImage: "xmark") { dismiss() }.disabled(busy)
+                        .keyboardShortcut(.cancelAction)
+                        #if os(iOS)
+                        .labelStyle(.iconOnly)
+                        #endif
+                }
+                #if os(iOS)
+                ToolbarItem(placement: .primaryAction) { moreMenu }
+                #endif
+            }
+            .confirmationDialog("Excluir este site dos seus dispositivos?", isPresented: $confirmDelete,
+                                titleVisibility: .visible) {
+                Button("Excluir", role: .destructive) { Task { await remove() } }
+            }
+        }
+        .interactiveDismissDisabled(busy)
+        .task(id: reference.id) { await refresh() }
+        #if os(macOS)
+        .frame(minWidth: 560, idealWidth: 720, minHeight: 480, idealHeight: 640)
+        #endif
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .bottom, spacing: 0) {
+                PostBrandMark(surface: .website, size: 40, radius: 8)
+                    .padding(.trailing, -12)
+                SiteFavicon(reference: live, size: 36)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(productName)
+                    .font(.headline)
+                    .foregroundStyle(Theme.homeInk)
+                    .lineLimit(2)
+                if let source = live.url {
+                    Text(source)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.homePreview)
+                        .lineLimit(2)
+                        .textSelection(.enabled)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel([productName, live.url].compactMap { $0 }.joined(separator: " "))
+    }
+
+    private var actions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let source = live.url, let destination = URL(string: source) {
+                Button("Abrir no navegador", systemImage: "safari") { openURL(destination) }
+                    .accessibilityIdentifier("site.openOriginal")
+                Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
+                    .accessibilityIdentifier("site.copyLink")
+            }
+            Button("Arquivar", systemImage: "archivebox") { }
+                .accessibilityIdentifier("site.archive")
+                .accessibilityHint("Em breve")
+            Button("Space", systemImage: "square.stack.3d.up") { }
+                .accessibilityIdentifier("site.space")
+                .accessibilityHint("Em breve")
+        }
+        .buttonStyle(.bordered)
+    }
+
+    @ViewBuilder private var tags: some View {
+        let analysis = live.analysis
+        let items = Array(((analysis?.topics ?? []) + (analysis?.usefulness ?? [])
+                           + (analysis?.entities ?? [])).prefix(10))
+        if live.status == "queued" || live.status == "processing" {
+            Label("A interpretação acontece em segundo plano. Você já pode fechar este site.",
+                  systemImage: "sparkles")
+                .font(.callout).foregroundStyle(Color.muted)
+        } else if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Sparkle()
+                    Text("Assuntos").font(.headline)
+                }
+                FlowChips(items: items)
+            }
+        }
+        if live.status == "error" {
+            Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
+                Task { await retry() }
+            }
+            .buttonStyle(.bordered)
+            .disabled(busy)
+            .accessibilityIdentifier("site.retry")
+        }
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            if let source = live.url, let destination = URL(string: source) {
+                Button("Abrir no navegador", systemImage: "safari") { openURL(destination) }
+                Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
+            }
+            Button("Arquivar", systemImage: "archivebox") { }
+            Button("Space", systemImage: "square.stack.3d.up") { }
+            Divider()
+            Button("Excluir site", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                .disabled(busy).accessibilityIdentifier("site.delete")
+        } label: { Label("Mais", systemImage: "ellipsis.circle") }
+            .accessibilityIdentifier("reference.more")
+    }
+
+    private func refresh() async {
+        guard let api = session.client() else { return }
+        for _ in 0..<45 {
+            if Task.isCancelled { return }
+            do {
+                let fresh = try await api.get(id: reference.id)
+                latest = fresh
+                if fresh.status == "error" || fresh.status == "ready" { return }
+            } catch is CancellationError { return }
+            catch { }
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+        }
+    }
+
+    private func retry() async {
+        guard let api = session.client(), let uid = session.userID else { return }
+        busy = true; error = nil
+        defer { busy = false }
+        do {
+            let value = try await api.retryAnalysis(live)
+            guard session.userID == uid else { return }
+            latest = value
+        } catch { self.error = error.localizedDescription }
+    }
+
+    private func remove() async {
+        guard let api = session.client(), let uid = session.userID else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            try await api.delete(live)
+            guard session.userID == uid else { return }
+            store.discardSearchReference(live.id)
+            await store.refresh(api, account: uid)
+            dismiss()
+        } catch { self.error = error.localizedDescription }
+    }
+}

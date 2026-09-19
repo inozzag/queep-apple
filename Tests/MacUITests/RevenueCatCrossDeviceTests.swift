@@ -20,7 +20,8 @@ final class RevenueCatCrossDeviceTests: XCTestCase {
         let account = app.descendants(matching: .any).matching(identifier: "person.crop.circle").firstMatch
         XCTAssertTrue(account.waitForExistence(timeout: 20), app.debugDescription)
         account.click()
-        app.menuItems["account.subscription"].click()
+        XCTAssertTrue(app.buttons["account.subscription"].waitForExistence(timeout: 10))
+        app.buttons["account.subscription"].click()
         let status = app.staticTexts["subscription.status"]
         XCTAssertTrue(status.waitForExistence(timeout: 30), app.debugDescription)
         let active = XCTNSPredicateExpectation(

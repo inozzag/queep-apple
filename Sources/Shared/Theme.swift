@@ -9,10 +9,40 @@ import UIKit
 /// Everything stays on the system font; only sizes, weights, spacing and surfaces change.
 enum Theme {
     static let cardRadius: CGFloat = 16
+    static let homeRadius: CGFloat = 16.4
+    static let homeGap: CGFloat = 24
+    static let homeColumn: CGFloat = 250
+    static let homeChrome: CGFloat = 46
+    /// Floating iOS chips: 64pt matches the previous visual weight; add stays a 16.4 card.
+    static let homeNav: CGFloat = 64
+    static let homeNavGap: CGFloat = 8
+    static let homeNavInset: CGFloat = 16
+    static let homeNavBottom: CGFloat = 16
+    static let homeNavMenuRadius: CGFloat = 22
+    static let homeInk = Color(red: 23 / 255, green: 23 / 255, blue: 29 / 255)
+    static let homePreview = Color(red: 102 / 255, green: 102 / 255, blue: 113 / 255)
+    static let homeLine = Color(red: 238 / 255, green: 238 / 255, blue: 238 / 255)
+    static let homeAccent = Color(red: 60 / 255, green: 107 / 255, blue: 157 / 255)
+    static let homeFill = Color(red: 250 / 255, green: 250 / 255, blue: 250 / 255)
+    static let homeShadow = Color(red: 60 / 255, green: 60 / 255, blue: 60 / 255).opacity(0.05)
     static let aiColors = [Color(red: 0.45, green: 0.38, blue: 0.96), Color(red: 0.24, green: 0.60, blue: 0.98),
                            Color(red: 0.22, green: 0.79, blue: 0.70)]
     static var aiGradient: LinearGradient {
         LinearGradient(colors: aiColors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    static var addWash: LinearGradient {
+        LinearGradient(
+            stops: [
+                .init(color: Color.white.opacity(0.4), location: 0.066),
+                .init(color: Color(red: 207 / 255, green: 228 / 255, blue: 251 / 255).opacity(0.4), location: 0.170),
+                .init(color: Color(red: 247 / 255, green: 251 / 255, blue: 254 / 255).opacity(0.4), location: 0.606),
+                .init(color: Color(red: 245 / 255, green: 249 / 255, blue: 254 / 255).opacity(0.4), location: 0.853),
+                .init(color: Color(red: 165 / 255, green: 205 / 255, blue: 248 / 255).opacity(0.4), location: 1)
+            ],
+            startPoint: UnitPoint(x: 0.02, y: 0.72),
+            endPoint: UnitPoint(x: 0.98, y: 0.18)
+        )
     }
 }
 
@@ -22,8 +52,8 @@ extension Color {
     static var canvas: Color {
         #if os(macOS)
         Color(nsColor: NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-                ? NSColor(red: 0.11, green: 0.11, blue: 0.118, alpha: 1) : NSColor(red: 0.95, green: 0.95, blue: 0.965, alpha: 1)
+                appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                ? NSColor(red: 0.11, green: 0.11, blue: 0.118, alpha: 1) : .white
         })
         #else
         Color(uiColor: .systemGroupedBackground)
@@ -63,9 +93,35 @@ extension View {
         modifier(CardStyle(radius: radius, padding: padding, elevated: elevated))
     }
 
+    func homeSurface(highlighted: Bool = false) -> some View {
+        modifier(HomeSurface(highlighted: highlighted))
+    }
+
     /// A small uppercase-free section label, Craft style: light, quiet, aligned with content.
     func sectionLabel() -> some View {
         self.font(.footnote.weight(.medium)).foregroundStyle(Color.muted)
+    }
+}
+
+private struct HomeSurface: ViewModifier {
+    var highlighted = false
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous)
+                    .fill(Color.white)
+                if highlighted {
+                    RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous)
+                        .fill(Theme.addWash)
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous)
+                    .strokeBorder(Theme.homeLine)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
+            .shadow(color: Theme.homeShadow, radius: 6, y: 3)
     }
 }
 
