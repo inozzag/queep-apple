@@ -17,10 +17,41 @@ struct QueepMacApp: App {
         MenuBarExtra {
             QueepMenu().environment(capture.session).environment(capture.library).environment(capture)
         } label: {
-            Label("Queep", image: "HomeLogo")
-                .labelStyle(.iconOnly)
+            Image(nsImage: MenuBarLogo.image)
+                .accessibilityLabel("Queep")
         }
     }
+}
+
+/// 18pt template; MenuBarExtra uses the image's native size and HomeLogo is hundreds of points.
+private enum MenuBarLogo {
+    static let image: NSImage = {
+        let source = NSImage(named: "MenuBarLogo") ?? NSImage(named: "HomeLogo") ?? NSImage()
+        let points = NSSize(width: 18, height: 18)
+        let pixels = 36
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pixels,
+            pixelsHigh: pixels,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else { return source }
+        rep.size = points
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        NSGraphicsContext.current?.imageInterpolation = .high
+        source.draw(in: NSRect(origin: .zero, size: points), from: .zero, operation: .sourceOver, fraction: 1)
+        NSGraphicsContext.restoreGraphicsState()
+        let icon = NSImage(size: points)
+        icon.addRepresentation(rep)
+        icon.isTemplate = true
+        return icon
+    }()
 }
 
 /// Keeps the glass titlebar and traffic lights; hides the redundant window title next to them.

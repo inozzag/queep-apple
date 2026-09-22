@@ -18,6 +18,7 @@
 		159AD3F959B5E4F6BADAC07A /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4D35BA562A69DBA8C0AD000E /* FirebaseAuth */; };
 		1646C9AF3721E4FF85FE630A /* IncomingReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FCC66E4D155E455FEEB017 /* IncomingReference.swift */; };
 		16BBD33A0E1877F0387F34DD /* SocialAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C69E44624BF3502390F7908 /* SocialAuth.swift */; };
+		1BE5E3733CF5444C07239CB8 /* SpacesJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B9F18BED4A4FAEBBBEE891 /* SpacesJourney.swift */; };
 		1BE814BF09069826C0265142 /* HomeReferenceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E38A0C59BDE7A13369DE54B /* HomeReferenceCard.swift */; };
 		1BE89D1FAD9EF2B509ECD14C /* sample-video.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 70DE42B368A3BE1DB918AC1B /* sample-video.mp4 */; };
 		1E52D38AD26B18FB5C72D227 /* CloudSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF202B3DD4FB6EF9770BF9BD /* CloudSourceTests.swift */; };
@@ -26,6 +27,7 @@
 		2A2C72646264B982BEBDB7A3 /* SiteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310CAE21E9A8FC376E8D4E9E /* SiteDetailView.swift */; };
 		2B11EE24943CB84FDDFAF46E /* CaptureFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB2450314ED132A7828F8730 /* CaptureFlowTests.swift */; };
 		2B28F1D37553AF8EB8F37B58 /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
+		2C1178501D90C046E6B03412 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */; };
 		2C8A02BDCFEDD0F312B65C66 /* IslandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB448BA8DA1B01BF66B860DC /* IslandTests.swift */; };
 		2D06B9CB53C58E3AB2A495F9 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */; };
 		32BF5CF297F33FA384FE9C57 /* sample-audio.wav in Resources */ = {isa = PBXBuildFile; fileRef = 4C959DC6FF4D75172915C0FA /* sample-audio.wav */; };
@@ -47,6 +49,8 @@
 		5221A3E01F1F0813C0C5AAD1 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */; };
 		53FAAA8A7E9653EAA1821FFA /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF400C89CE0A73581FB4FFBB /* CaptureView.swift */; };
 		5558699E5D09C462624C9EF4 /* UsagePrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1457DDC6F0ECA062401EDF37 /* UsagePrivacyView.swift */; };
+		5A1F4B9049E2CD9B862EE64E /* SpacesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B04168AAF6D34FFB752A1CD6 /* SpacesViews.swift */; };
+		5B264F91A47560FFC8F1295E /* SpacesJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B9F18BED4A4FAEBBBEE891 /* SpacesJourney.swift */; };
 		5BDA5B5904C5E755EDB2D10C /* sample-image.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 11E1C1EBF2B24246A752A4CB /* sample-image.jpg */; };
 		5D265085420FB7394B202AAA /* ImportedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A3319D8C1AC4186CB05AFBD /* ImportedMedia.swift */; };
 		625E8DD020ACD90251C09826 /* DeleteAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */; };
@@ -56,6 +60,7 @@
 		63E610B06A2527ED87FC283F /* AccountDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316CD0F3D2B3FC139105EAAB /* AccountDeletionTests.swift */; };
 		64901E61762CF7783C6BB61A /* sample-image.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 11E1C1EBF2B24246A752A4CB /* sample-image.jpg */; };
 		64C047D84BF4999FCD4E0CA0 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 4C783710C920477FE4D5F973 /* GoogleSignIn */; };
+		6879375F2A2B8BC03D323002 /* LibrarySpacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 448EA832C6163EA29684639B /* LibrarySpacesTests.swift */; };
 		6B80ECD478746A3AF06AC53E /* CloudShareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B2E01C5CB6E1489B7A89607 /* CloudShareTests.swift */; };
 		6CBA2064CBD92A89CC8D918B /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7204B7FD55FC25256854F095 /* Session.swift */; };
 		6CF50A01298B13950E9C0EB8 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = ED8EFCBC4554E34C190E82A5 /* RevenueCat */; };
@@ -68,10 +73,10 @@
 		7EF1F13CA07785B269744334 /* QualityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62AD0AC44B739E3176E9CF5E /* QualityTests.swift */; };
 		84EF50E7F0D78F2323685F5A /* IncomingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C884AB1D62891FBCDA93B83F /* IncomingTests.swift */; };
 		86C87CA4AF9BE15FB1CC3FB6 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 542E89D179A6A1FD2BB2B0E0 /* QueepCore */; };
+		8747FD345D04AD6309D8FCB0 /* SpacesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B04168AAF6D34FFB752A1CD6 /* SpacesViews.swift */; };
 		8822AAEA127DC7A87B391BC2 /* sample-audio.wav in Resources */ = {isa = PBXBuildFile; fileRef = 4C959DC6FF4D75172915C0FA /* sample-audio.wav */; };
 		8A92E8BB0C5AFCEE98C7DD8D /* DeleteAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */; };
 		8B00E55AB16F33F240721861 /* ScreenCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259B81A4876BC372ECB2E2E0 /* ScreenCapture.swift */; };
-		8C6461108CAD63F6A77DA38C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8169790DA9A1F97835122FE7 /* Assets.xcassets */; };
 		8E21D7961457245AE4335A4A /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = A3E50EDE37776FE29F3A1FAE /* README.md */; };
 		910B030B8B554269E0BF2619 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 49C2B2B21B99F3931F3643BE /* RevenueCat */; };
 		91EC702DC4DB9604DD9AD980 /* sample-audio.wav in Resources */ = {isa = PBXBuildFile; fileRef = 4C959DC6FF4D75172915C0FA /* sample-audio.wav */; };
@@ -87,6 +92,7 @@
 		9E43D657290AB0E8E52F9085 /* AnalysisView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199F14B28CC882C0FF83A29C /* AnalysisView.swift */; };
 		9F18373556C1D27A6CECBE74 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = A83A335ED5F8CE966A4CB76B /* QueepCore */; };
 		A33A0CCFBEAFAEC528E2465E /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DD8C45948F2A04A479DAE9 /* SubscriptionView.swift */; };
+		A726BF382D97824C877280D7 /* SpacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F43F224CC67407BEEF4D27AB /* SpacesTests.swift */; };
 		A9D01D4AB91DD1E1D2A40FEA /* RevenueCatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E521BF9EB40A1C9DF6F485D /* RevenueCatTests.swift */; };
 		ADE09EAABFBF5CC7A6E6AC1C /* RedesignSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04CAC7C516D613848DC7CC5C /* RedesignSnapshotTests.swift */; };
 		B05597C3071D416F5763975D /* ImageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */; };
@@ -100,12 +106,14 @@
 		BD9C8F2A0E05D1EA18D7C912 /* sample-video.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 70DE42B368A3BE1DB918AC1B /* sample-video.mp4 */; };
 		BE014578D8E690395CD76F9D /* ImportedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A3319D8C1AC4186CB05AFBD /* ImportedMedia.swift */; };
 		C1B594EFB4201F2316A014CF /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5867AA63FD643070ACC96BA5 /* AccountView.swift */; };
+		C4EB16F144DDE0FD60C4DA0B /* SpacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF6C50EC26B5DF5789044626 /* SpacesTests.swift */; };
 		C5560942DAEBFBD89E81A9C6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8169790DA9A1F97835122FE7 /* Assets.xcassets */; };
 		C55B0D16D835EFE4B70B1A63 /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5867AA63FD643070ACC96BA5 /* AccountView.swift */; };
 		C5A2938357398FE63D94ACE8 /* SubscriptionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D8DD2B33C0013545C7F814B /* SubscriptionStore.swift */; };
 		C713DFAE4400275284E907A1 /* ShortcutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAAE69E5E9F1233A6C2509B1 /* ShortcutTests.swift */; };
 		C7D325EC04C5103452019E8F /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63292A41B43AD9A001A5EEAD /* Theme.swift */; };
 		CB9993880266E1D0CCB66CD5 /* MediaImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 688B179FA64834C4FE7726F8 /* MediaImportTests.swift */; };
+		CDB696745348653A2A5258F3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A655CD1C2C4FA81E60DCDA17 /* Assets.xcassets */; };
 		D171D7345892DC00167FD700 /* IncomingReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FCC66E4D155E455FEEB017 /* IncomingReference.swift */; };
 		D1B31828DA363105D07C78B3 /* FirstUseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE63076BBD0A3B76452512D /* FirstUseView.swift */; };
 		D1E4C876B6403A49612518C2 /* SubscriptionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D8DD2B33C0013545C7F814B /* SubscriptionStore.swift */; };
@@ -189,6 +197,7 @@
 		316CD0F3D2B3FC139105EAAB /* AccountDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionTests.swift; sourceTree = "<group>"; };
 		427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountView.swift; sourceTree = "<group>"; };
 		448A171EFDE10BD4B0D93D7B /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		448EA832C6163EA29684639B /* LibrarySpacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySpacesTests.swift; sourceTree = "<group>"; };
 		4A209CB032567C65928FAABB /* QueepiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QueepiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4A79B0CDD062EEC96B1A19BB /* AccountDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionTests.swift; sourceTree = "<group>"; };
 		4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageViews.swift; sourceTree = "<group>"; };
@@ -218,12 +227,16 @@
 		90CEA5BFE8E11C59B231D597 /* MediaViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaViews.swift; sourceTree = "<group>"; };
 		91246D1B12DC2DEBD9F44C7A /* GlobalShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalShortcut.swift; sourceTree = "<group>"; };
 		93948A8C9F10608A56D7B0A0 /* DeletionFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionFixture.swift; sourceTree = "<group>"; };
+		93B9F18BED4A4FAEBBBEE891 /* SpacesJourney.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacesJourney.swift; sourceTree = "<group>"; };
+		95B8A5E16005E71B9F8922F7 /* TestFlight.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = TestFlight.xcconfig; sourceTree = "<group>"; };
 		96D7F12B5BBB1AB4CC310E2F /* QueepShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = QueepShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9A3319D8C1AC4186CB05AFBD /* ImportedMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedMedia.swift; sourceTree = "<group>"; };
 		9CE34B866AE958971C4D6CA3 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		A3E50EDE37776FE29F3A1FAE /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		A655CD1C2C4FA81E60DCDA17 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AB6EDD7AA22087AAA5F95227 /* PostDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostDetailView.swift; sourceTree = "<group>"; };
 		AD1EEC8D0C2DE67C5DFB4D17 /* HomeChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeChrome.swift; sourceTree = "<group>"; };
+		B04168AAF6D34FFB752A1CD6 /* SpacesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacesViews.swift; sourceTree = "<group>"; };
 		BE3EC29C819B440A82AB3595 /* MacCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacCapture.swift; sourceTree = "<group>"; };
 		BEE63076BBD0A3B76452512D /* FirstUseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstUseView.swift; sourceTree = "<group>"; };
 		C2BB72B8EC2FA6DE61D3B4B7 /* FirstUseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstUseTests.swift; sourceTree = "<group>"; };
@@ -232,6 +245,7 @@
 		CAAE69E5E9F1233A6C2509B1 /* ShortcutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutTests.swift; sourceTree = "<group>"; };
 		CFD6DA443D47A0A395264467 /* ImageEditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageEditTests.swift; sourceTree = "<group>"; };
 		D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
+		DF6C50EC26B5DF5789044626 /* SpacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacesTests.swift; sourceTree = "<group>"; };
 		E1395287258F14C65D8424EE /* ImportedImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedImage.swift; sourceTree = "<group>"; };
 		E15BE1356E67A48F8B24FB6D /* QueepiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueepiOSApp.swift; sourceTree = "<group>"; };
 		E6C6461CEA92A238D3E64FFA /* QueepMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueepMacApp.swift; sourceTree = "<group>"; };
@@ -240,6 +254,7 @@
 		ED0F006731E0A73E315B86EE /* CloudSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSearchTests.swift; sourceTree = "<group>"; };
 		EF202B3DD4FB6EF9770BF9BD /* CloudSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSourceTests.swift; sourceTree = "<group>"; };
 		EF335AB16EFA9D60B3E49962 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		F43F224CC67407BEEF4D27AB /* SpacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacesTests.swift; sourceTree = "<group>"; };
 		F5248E32C4C74CAF8EC35CBD /* QueepMacUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QueepMacUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB448BA8DA1B01BF66B860DC /* IslandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslandTests.swift; sourceTree = "<group>"; };
 		FB7580BFE06134B21872DC1A /* QueepMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QueepMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -300,6 +315,7 @@
 				04CAC7C516D613848DC7CC5C /* RedesignSnapshotTests.swift */,
 				EBE4A8C78F8D235C019E5B60 /* RevenueCatCrossDeviceTests.swift */,
 				CAAE69E5E9F1233A6C2509B1 /* ShortcutTests.swift */,
+				F43F224CC67407BEEF4D27AB /* SpacesTests.swift */,
 			);
 			name = MacUITests;
 			path = Tests/MacUITests;
@@ -309,6 +325,7 @@
 			isa = PBXGroup;
 			children = (
 				C884AB1D62891FBCDA93B83F /* IncomingTests.swift */,
+				448EA832C6163EA29684639B /* LibrarySpacesTests.swift */,
 				688B179FA64834C4FE7726F8 /* MediaImportTests.swift */,
 			);
 			name = CaptureTests;
@@ -333,6 +350,7 @@
 			children = (
 				93948A8C9F10608A56D7B0A0 /* DeletionFixture.swift */,
 				873AD79E2EAEEF68B76340A0 /* ShareSheet.swift */,
+				93B9F18BED4A4FAEBBBEE891 /* SpacesJourney.swift */,
 			);
 			name = Support;
 			path = Tests/Support;
@@ -412,6 +430,7 @@
 				5FA8C00B18412BDA56F8ADB5 /* QualityTests.swift */,
 				7C1AB3CF993634E016B72674 /* RedesignSnapshotTests.swift */,
 				5E521BF9EB40A1C9DF6F485D /* RevenueCatTests.swift */,
+				DF6C50EC26B5DF5789044626 /* SpacesTests.swift */,
 				576E6A89CBF22D4D562CEACD /* SubscriptionTests.swift */,
 			);
 			name = UITests;
@@ -446,6 +465,7 @@
 				5F3EC9E92F5D5BEEC0E6E27A /* SignInView.swift */,
 				310CAE21E9A8FC376E8D4E9E /* SiteDetailView.swift */,
 				0C69E44624BF3502390F7908 /* SocialAuth.swift */,
+				B04168AAF6D34FFB752A1CD6 /* SpacesViews.swift */,
 				4D8DD2B33C0013545C7F814B /* SubscriptionStore.swift */,
 				15DD8C45948F2A04A479DAE9 /* SubscriptionView.swift */,
 				63292A41B43AD9A001A5EEAD /* Theme.swift */,
@@ -461,6 +481,7 @@
 				6A33A39E95DEB3D3A486E8C3 /* CloudDevelopment.xcconfig */,
 				9CE34B866AE958971C4D6CA3 /* Debug.xcconfig */,
 				7BD4065FE9552201BF6CFE6F /* Release.xcconfig */,
+				95B8A5E16005E71B9F8922F7 /* TestFlight.xcconfig */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -468,6 +489,7 @@
 		C3098DCD612C602CAA7BC465 /* Share */ = {
 			isa = PBXGroup;
 			children = (
+				A655CD1C2C4FA81E60DCDA17 /* Assets.xcassets */,
 				448A171EFDE10BD4B0D93D7B /* ShareViewController.swift */,
 			);
 			name = Share;
@@ -677,7 +699,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8C6461108CAD63F6A77DA38C /* Assets.xcassets in Resources */,
+				CDB696745348653A2A5258F3 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -750,7 +772,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#!/bin/sh\nset -eu\n[ \"${CONFIGURATION}\" = \"Release\" ] || exit 0\ncase \"${QUEEP_REVENUECAT_PUBLIC_KEY:-}\" in\n  appl_?*) ;;\n  *) echo \"error: Release requires an Apple RevenueCat public key; Test Store is forbidden.\"; exit 1 ;;\nesac\nfor address in \"${QUEEP_PRIVACY_URL:-}\" \"${QUEEP_TERMS_URL:-}\"; do\n  case \"$address\" in\n    https://?*.?*) ;;\n    *) echo \"error: Release requires published HTTPS privacy and terms URLs.\"; exit 1 ;;\n  esac\ndone\n";
+			shellScript = "#!/bin/sh\nset -eu\ncase \"${CONFIGURATION}\" in\n  Release|TestFlight) ;;\n  *) exit 0 ;;\nesac\ncase \"${QUEEP_REVENUECAT_PUBLIC_KEY:-}\" in\n  appl_?*) ;;\n  *) echo \"error: Release requires an Apple RevenueCat public key; Test Store is forbidden.\"; exit 1 ;;\nesac\nfor address in \"${QUEEP_PRIVACY_URL:-}\" \"${QUEEP_TERMS_URL:-}\"; do\n  case \"$address\" in\n    https://?*.?*) ;;\n    *) echo \"error: Release requires published HTTPS privacy and terms URLs.\"; exit 1 ;;\n  esac\ndone\n\nif [ \"${CONFIGURATION}\" = \"TestFlight\" ]; then\n  [ \"${QUEEP_FIREBASE_PROJECT_ID:-}\" = \"queep-dev-hstlx\" ] || {\n    echo \"error: TestFlight sandbox requires the configured development Firebase project.\"; exit 1;\n  }\n  case \"${QUEEP_API_URL:-}\" in\n    https://?*.?*) ;;\n    *) echo \"error: TestFlight requires an isolated HTTPS API with billing required.\"; exit 1 ;;\n  esac\n  case \"${QUEEP_API_URL}\" in\n    *queep-api-721281571441*) echo \"error: Do not use the shared development API for TestFlight billing.\"; exit 1 ;;\n  esac\nfi\n";
 		};
 		33AE75D4F44230DB7AF7F98B /* Select Firebase environment */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -771,7 +793,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
+			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ] || [ \"${CONFIGURATION}\" = \"TestFlight\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
 		};
 		5980C05A5673C3106041D969 /* Select Firebase environment */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -792,7 +814,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
+			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ] || [ \"${CONFIGURATION}\" = \"TestFlight\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
 		};
 		6A8ACA1630E36E25B2C473D1 /* Select Firebase environment */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -813,7 +835,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
+			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ] || [ \"${CONFIGURATION}\" = \"TestFlight\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
 		};
 		B33FA6C6D615ACFE2EF24FEB /* Verify release billing configuration */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -832,7 +854,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#!/bin/sh\nset -eu\n[ \"${CONFIGURATION}\" = \"Release\" ] || exit 0\ncase \"${QUEEP_REVENUECAT_PUBLIC_KEY:-}\" in\n  appl_?*) ;;\n  *) echo \"error: Release requires an Apple RevenueCat public key; Test Store is forbidden.\"; exit 1 ;;\nesac\nfor address in \"${QUEEP_PRIVACY_URL:-}\" \"${QUEEP_TERMS_URL:-}\"; do\n  case \"$address\" in\n    https://?*.?*) ;;\n    *) echo \"error: Release requires published HTTPS privacy and terms URLs.\"; exit 1 ;;\n  esac\ndone\n";
+			shellScript = "#!/bin/sh\nset -eu\ncase \"${CONFIGURATION}\" in\n  Release|TestFlight) ;;\n  *) exit 0 ;;\nesac\ncase \"${QUEEP_REVENUECAT_PUBLIC_KEY:-}\" in\n  appl_?*) ;;\n  *) echo \"error: Release requires an Apple RevenueCat public key; Test Store is forbidden.\"; exit 1 ;;\nesac\nfor address in \"${QUEEP_PRIVACY_URL:-}\" \"${QUEEP_TERMS_URL:-}\"; do\n  case \"$address\" in\n    https://?*.?*) ;;\n    *) echo \"error: Release requires published HTTPS privacy and terms URLs.\"; exit 1 ;;\n  esac\ndone\n\nif [ \"${CONFIGURATION}\" = \"TestFlight\" ]; then\n  [ \"${QUEEP_FIREBASE_PROJECT_ID:-}\" = \"queep-dev-hstlx\" ] || {\n    echo \"error: TestFlight sandbox requires the configured development Firebase project.\"; exit 1;\n  }\n  case \"${QUEEP_API_URL:-}\" in\n    https://?*.?*) ;;\n    *) echo \"error: TestFlight requires an isolated HTTPS API with billing required.\"; exit 1 ;;\n  esac\n  case \"${QUEEP_API_URL}\" in\n    *queep-api-721281571441*) echo \"error: Do not use the shared development API for TestFlight billing.\"; exit 1 ;;\n  esac\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -864,6 +886,8 @@
 				716253DD8952BD4D56500432 /* RevenueCatCrossDeviceTests.swift in Sources */,
 				6EFE6852346704B6EA648FE3 /* ShareSheet.swift in Sources */,
 				C713DFAE4400275284E907A1 /* ShortcutTests.swift in Sources */,
+				5B264F91A47560FFC8F1295E /* SpacesJourney.swift in Sources */,
+				A726BF382D97824C877280D7 /* SpacesTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -884,6 +908,8 @@
 				F8B2D6D608432E8B48305D21 /* RedesignSnapshotTests.swift in Sources */,
 				A9D01D4AB91DD1E1D2A40FEA /* RevenueCatTests.swift in Sources */,
 				3B039EAA608C2F2C1462A9B6 /* ShareSheet.swift in Sources */,
+				1BE5E3733CF5444C07239CB8 /* SpacesJourney.swift in Sources */,
+				C4EB16F144DDE0FD60C4DA0B /* SpacesTests.swift in Sources */,
 				9BD2862017B36BA3F833A706 /* SubscriptionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -917,6 +943,7 @@
 				03587CE6186BE57A5D0DEAC6 /* SignInView.swift in Sources */,
 				2A2C72646264B982BEBDB7A3 /* SiteDetailView.swift in Sources */,
 				16BBD33A0E1877F0387F34DD /* SocialAuth.swift in Sources */,
+				8747FD345D04AD6309D8FCB0 /* SpacesViews.swift in Sources */,
 				D1E4C876B6403A49612518C2 /* SubscriptionStore.swift in Sources */,
 				11FF8A1D0B75E3E90668C2D9 /* SubscriptionView.swift in Sources */,
 				E5EFBA3A37A8C4D5E95342BF /* Theme.swift in Sources */,
@@ -957,6 +984,7 @@
 				3D3B52534F2FC525CD38B985 /* SignInView.swift in Sources */,
 				40CB46EDA13BEFCF2896AB87 /* SiteDetailView.swift in Sources */,
 				0257A7F300E838CA0339F26A /* SocialAuth.swift in Sources */,
+				5A1F4B9049E2CD9B862EE64E /* SpacesViews.swift in Sources */,
 				C5A2938357398FE63D94ACE8 /* SubscriptionStore.swift in Sources */,
 				A33A0CCFBEAFAEC528E2465E /* SubscriptionView.swift in Sources */,
 				C7D325EC04C5103452019E8F /* Theme.swift in Sources */,
@@ -972,6 +1000,8 @@
 				BE014578D8E690395CD76F9D /* ImportedMedia.swift in Sources */,
 				501F90400089000CDD303C66 /* IncomingReference.swift in Sources */,
 				84EF50E7F0D78F2323685F5A /* IncomingTests.swift in Sources */,
+				6879375F2A2B8BC03D323002 /* LibrarySpacesTests.swift in Sources */,
+				2C1178501D90C046E6B03412 /* LibraryStore.swift in Sources */,
 				CB9993880266E1D0CCB66CD5 /* MediaImportTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -997,6 +1027,21 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		03E59520D45C909AFC6566E1 /* TestFlight */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.capture.tests;
+				SDKROOT = macosx;
+			};
+			name = TestFlight;
+		};
 		05663FB114792F91822C122F /* CloudDevelopment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1069,6 +1114,27 @@
 			};
 			name = Debug;
 		};
+		3C07AA57652D9701A1D69455 /* TestFlight */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/Share.entitlements;
+				INFOPLIST_FILE = "Config/Generated/Share-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Salvar no Queep";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.dev.share;
+				QUEEP_FIREBASE_CONFIG = "Config/Firebase/Development/Share/GoogleService-Info.plist";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = TestFlight;
+		};
 		3F580F35FA04AC9A0A45187C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1088,6 +1154,22 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
+		};
+		431C9B3FD4945DE1BB80689E /* TestFlight */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = QueepiOS;
+			};
+			name = TestFlight;
 		};
 		538594833B9C10C46F0C4ECC /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1161,6 +1243,27 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = CloudDevelopment;
+		};
+		731E319370A6BB55B96C521B /* TestFlight */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/iOS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = "Config/Generated/iOS-Info.plist";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.dev;
+				QUEEP_FIREBASE_CONFIG = "Config/Firebase/Development/iOS/GoogleService-Info.plist";
+				QUEEP_REVENUECAT_PUBLIC_KEY = "$(QUEEP_REVENUECAT_IOS_KEY)";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = TestFlight;
 		};
 		75D4B3822D1EB5B7CB90407C /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1292,6 +1395,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				QUEEP_AUTH_GROUP = app.queep.auth;
+				QUEEP_URL_SCHEME = queep;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
@@ -1399,6 +1503,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				QUEEP_AUTH_GROUP = app.queep.auth.local;
+				QUEEP_URL_SCHEME = "queep-local";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
@@ -1419,6 +1524,72 @@
 				SDKROOT = macosx;
 			};
 			name = Release;
+		};
+		EE09D555D57B63E12913617C /* TestFlight */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 95B8A5E16005E71B9F8922F7 /* TestFlight.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Queep;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				QUEEP_AUTH_GROUP = app.queep.auth.dev;
+				QUEEP_URL_SCHEME = "queep-dev";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) QUEEP_CLOUD";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = TestFlight;
 		};
 		F45D03AFD478AF4EB54C77E5 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1505,11 +1676,49 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				QUEEP_AUTH_GROUP = app.queep.auth.dev;
+				QUEEP_URL_SCHEME = "queep-dev";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG QUEEP_CLOUD";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
 			};
 			name = CloudDevelopment;
+		};
+		FC37B1F3DEFC99AE21E6DBBF /* TestFlight */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/Mac.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = "Config/Generated/Mac-Info.plist";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.mac.dev;
+				QUEEP_FIREBASE_CONFIG = "Config/Firebase/Development/Mac/GoogleService-Info.plist";
+				QUEEP_REVENUECAT_PUBLIC_KEY = "$(QUEEP_REVENUECAT_MAC_KEY)";
+				SDKROOT = macosx;
+			};
+			name = TestFlight;
+		};
+		FDDF55FC2DF8775056E38C3C /* TestFlight */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.queep.mac.uitests;
+				SDKROOT = macosx;
+				TEST_TARGET_NAME = QueepMac;
+			};
+			name = TestFlight;
 		};
 		FE45F1302D7A207B38F1485C /* CloudDevelopment */ = {
 			isa = XCBuildConfiguration;
@@ -1536,6 +1745,7 @@
 				5E58413C7E073BEB9E98944D /* CloudDevelopment */,
 				2129EE0D6BF0B53604EE7926 /* Debug */,
 				75D4B3822D1EB5B7CB90407C /* Release */,
+				731E319370A6BB55B96C521B /* TestFlight */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = CloudDevelopment;
@@ -1546,6 +1756,7 @@
 				12B8744C516340E691DBD4BE /* CloudDevelopment */,
 				76BCDA78BA6AA573BB4527DE /* Debug */,
 				DD1604E5A0D7CAAD6EBED7B3 /* Release */,
+				03E59520D45C909AFC6566E1 /* TestFlight */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = CloudDevelopment;
@@ -1556,6 +1767,7 @@
 				FE45F1302D7A207B38F1485C /* CloudDevelopment */,
 				94A30F18AAEC08794D31C9B5 /* Debug */,
 				538594833B9C10C46F0C4ECC /* Release */,
+				431C9B3FD4945DE1BB80689E /* TestFlight */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = CloudDevelopment;
@@ -1566,6 +1778,7 @@
 				5DA80612BDBCE8581B00E1CB /* CloudDevelopment */,
 				B48FB45FEA29057FA9FEE002 /* Debug */,
 				11BBA974059AB1C7CA350C9A /* Release */,
+				FDDF55FC2DF8775056E38C3C /* TestFlight */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = CloudDevelopment;
@@ -1576,6 +1789,7 @@
 				F869E022242A46D72341818D /* CloudDevelopment */,
 				D47A488C8E17CE9412469F90 /* Debug */,
 				A939CF9A221233D860D73FC4 /* Release */,
+				EE09D555D57B63E12913617C /* TestFlight */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = CloudDevelopment;
@@ -1586,6 +1800,7 @@
 				05663FB114792F91822C122F /* CloudDevelopment */,
 				5706284958C446562744EE48 /* Debug */,
 				F45D03AFD478AF4EB54C77E5 /* Release */,
+				FC37B1F3DEFC99AE21E6DBBF /* TestFlight */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = CloudDevelopment;
@@ -1596,6 +1811,7 @@
 				81A88C591D43E9C5AA5CECD4 /* CloudDevelopment */,
 				3F580F35FA04AC9A0A45187C /* Debug */,
 				B96733E44929621E3EC8C700 /* Release */,
+				3C07AA57652D9701A1D69455 /* TestFlight */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = CloudDevelopment;

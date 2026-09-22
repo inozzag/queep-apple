@@ -63,7 +63,7 @@ struct AnalysisView: View {
                         .accessibilityIdentifier("media.transcript")
                 }.font(.callout).accessibilityIdentifier("media.showTranscript")
             }
-            if current.status == "error" {
+            if current.status == "error" && !current.isArchived {
                 Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
                     Task {
                         guard let api = session.client(), let uid = session.userID else { return }

@@ -37,7 +37,7 @@ struct PostDetailView: View {
     private var changed: Bool {
         title.trimmingCharacters(in: .whitespacesAndNewlines) != live.title
     }
-    private var canSave: Bool { changed && !busy && title.count <= 200 }
+    private var canSave: Bool { changed && !busy && !live.isArchived && title.count <= 200 }
 
     var body: some View {
         NavigationStack {
@@ -60,7 +60,7 @@ struct PostDetailView: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("post.body")
                     }
-                    DocumentTitleField(title: $title, disabled: busy, identifier: "post.title")
+                    DocumentTitleField(title: $title, disabled: busy || live.isArchived, identifier: "post.title")
                     if title.count > 200 {
                         Text("O título tem no máximo 200 caracteres.").font(.caption).foregroundStyle(.orange)
                     }
@@ -107,11 +107,12 @@ struct PostDetailView: View {
                         .accessibilityLabel(busy ? "Salvando" : "Salvar")
                 }
             }
-            .confirmationDialog("Excluir este post dos seus dispositivos?", isPresented: $confirmDelete,
+            .confirmationDialog("Excluir permanentemente este post?", isPresented: $confirmDelete,
                                 titleVisibility: .visible) {
                 Button("Excluir", role: .destructive) { Task { await remove() } }
-            }
+            } message: { Text("Arquivar esconde. Excluir apaga da sua conta.") }
         }
+        .subscriptionGate()
         .interactiveDismissDisabled(busy)
         .task(id: reference.id) { await refresh() }
         .task(id: "\(session.userID ?? "")/\(live.id)/\(live.media?.sha256 ?? "")/\(mediaAttempt)") {
@@ -159,10 +160,11 @@ struct PostDetailView: View {
                 Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
                     .accessibilityIdentifier("post.copyLink")
             }
-            Button("Arquivar", systemImage: "archivebox") { }
+            Button(live.isArchived ? "Desarquivar" : "Arquivar",
+                   systemImage: live.isArchived ? "archivebox.fill" : "archivebox") { archive() }
                 .accessibilityIdentifier("post.archive")
-                .accessibilityHint("Em breve")
-            Button("Space", systemImage: "square.stack.3d.up") { }
+                .accessibilityValue(live.isArchived ? "Arquivado" : "")
+            ReferenceSpaceButton(reference: reference)
                 .accessibilityIdentifier("post.space")
                 .accessibilityHint("Em breve")
         }
@@ -186,7 +188,7 @@ struct PostDetailView: View {
                 FlowChips(items: items)
             }
         }
-        if live.status == "error" {
+        if live.status == "error" && !live.isArchived {
             Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
                 Task { await retry() }
             }
@@ -219,8 +221,10 @@ struct PostDetailView: View {
                 Button("Abrir no navegador", systemImage: "safari") { openURL(destination) }
                 Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
             }
-            Button("Arquivar", systemImage: "archivebox") { }
-            Button("Space", systemImage: "square.stack.3d.up") { }
+            Button(live.isArchived ? "Desarquivar" : "Arquivar",
+                   systemImage: live.isArchived ? "archivebox.fill" : "archivebox") { archive() }
+                .accessibilityIdentifier("post.archive")
+            ReferenceSpaceButton(reference: reference)
             Divider()
             Button("Excluir post", systemImage: "trash", role: .destructive) { confirmDelete = true }
                 .disabled(busy).accessibilityIdentifier("post.delete")
@@ -265,6 +269,12 @@ struct PostDetailView: View {
         player?.pause()
         player = nil
         file = nil
+    }
+
+    private func archive() {
+        guard let api = session.client(), let uid = session.userID else { return }
+        clearAudio()
+        store.setArchived([live], archived: !live.isArchived, client: api, account: uid)
     }
 
     private func save() async {

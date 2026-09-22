@@ -11,3 +11,5 @@ Config/Local.xcconfig
 Config/BillingDevelopment.xcconfig
 Config/BillingProduction.xcconfig
 *.log
+
+Config/BillingTestFlight.xcconfig

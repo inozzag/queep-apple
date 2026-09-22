@@ -12,6 +12,7 @@ final class MacCapture {
     let session = Session()
     let library = LibraryStore()
     var draft = ""
+    var captureSpaceID: String?
     var busy = false
     var message: String?
     var error: String?
@@ -34,6 +35,7 @@ final class MacCapture {
         session.onAccountChange = { [weak self] in
             guard let self else { return }
             draft = ""; pending = nil; owner = nil; error = nil; message = nil; quiet = false
+            captureSpaceID = nil
             screenshot.cancel()
             library.reset(for: session.userID)
         }
@@ -58,13 +60,17 @@ final class MacCapture {
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             panel.isReleasedWhenClosed = false
             panel.hidesOnDeactivate = false
-            panel.contentView = NSHostingView(rootView: QuickCaptureView().environment(self).environment(session))
+            panel.contentView = NSHostingView(rootView: QuickCaptureView().environment(self).environment(session).environment(library))
             quick = panel
         }
         if let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) ?? NSScreen.main {
             quick?.setFrameOrigin(.init(x: screen.visibleFrame.midX - 210, y: screen.visibleFrame.midY - 160))
         }
         quick?.makeKeyAndOrderFront(nil)
+        Task {
+            guard let api = session.client(), let account = session.userID else { return }
+            await library.refreshSpaces(api, account: account)
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -109,7 +115,10 @@ final class MacCapture {
         if !quiet { show() }
         Task {
             do {
-                let incoming = try await IncomingLoader.load(providers)
+                guard let client = session.client() else { throw QueepError.unauthorized }
+                let incoming = try await IncomingLoader.load(providers, authorizeMedia: {
+                    try await client.requireMediaAccess()
+                })
                 busy = false
                 await send(incoming, account: account)
             } catch { fail(error) }
@@ -164,12 +173,15 @@ final class MacCapture {
         guard let account, session.userID == account, let api = session.client() else {
             fail(QueepError.server("A conta mudou. Repita a captura na conta desejada.")); return
         }
+        var incoming = incoming
+        if pending == nil { incoming.spaceIDs = quiet ? [] : captureSpaceID.map { [$0] } ?? [] }
         pending = incoming; owner = account; busy = true; error = nil; message = "Salvando…"
         if !quiet { show() }
         do {
             _ = try await incoming.save(using: api)
             guard session.userID == account else { pending = nil; busy = false; quiet = false; return }
             pending = nil; owner = nil; busy = false; quiet = false; draft = ""; message = Self.savedMessage
+            captureSpaceID = nil
             library.reset(for: account)
             await library.refresh(api, account: account)
         } catch { fail(error) }
@@ -190,6 +202,8 @@ private struct QuickCaptureView: View {
         @Bindable var capture = capture
         VStack(alignment: .leading, spacing: 12) {
             Text("Guarde o que você quer lembrar").font(.headline)
+            CaptureSpaceChoice(selection: $capture.captureSpaceID)
+                .disabled(capture.busy || capture.pending != nil)
             TextEditor(text: $capture.draft).frame(height: 100)
                 .accessibilityLabel("Nota ou link").accessibilityIdentifier("quick.text")
                 .disabled(capture.busy || capture.pending != nil)
@@ -212,6 +226,6 @@ private struct QuickCaptureView: View {
             }
             Text("⌘⇧Espaço abre esta janela · ⌘⇧7 captura a tela · Esc fecha")
                 .font(.caption2).foregroundStyle(.secondary)
-        }.padding(18).frame(width: 420)
+        }.padding(18).frame(width: 420).subscriptionGate()
     }
 }

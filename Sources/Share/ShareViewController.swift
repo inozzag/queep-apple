@@ -60,6 +60,13 @@ private struct ShareView: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     if let error { Text(error).foregroundStyle(.red).accessibilityIdentifier("share.error") }
+                    if session.planRequirement != nil {
+                        Text("Abra o Queep e acesse Conta → Assinatura para conhecer o Max. Depois compartilhe novamente.")
+                        Button("Abrir Queep") {
+                            let scheme = Bundle.main.object(forInfoDictionaryKey: "QueepURLScheme") as? String ?? "queep"
+                            context.open(URL(string: "\(scheme)://subscription?plan=max")!) { _ in }
+                        }
+                    }
                     if saved { Label("Salvo no Queep", systemImage: "checkmark.circle.fill") }
                     else if sending { ProgressView("Salvando…") }
                 }.padding()
@@ -78,12 +85,21 @@ private struct ShareView: View {
             }
         }
         .interactiveDismissDisabled(sending)
-        .task {
+        .task(id: "\(session.userID ?? "")/\(session.preparing)") {
+            incoming = nil; error = nil
+            guard !session.preparing, let owner = session.userID else { loading = false; return }
+            loading = true
             defer { loading = false }
             let items = context.inputItems.compactMap { $0 as? NSExtensionItem }
             do {
-                incoming = try await IncomingLoader.load(items.flatMap { $0.attachments ?? [] },
-                    context: items.compactMap { $0.attributedContentText?.string }.joined(separator: "\n"))
+                let result = try await IncomingLoader.load(items.flatMap { $0.attachments ?? [] },
+                    context: items.compactMap { $0.attributedContentText?.string }.joined(separator: "\n"),
+                    authorizeMedia: {
+                        guard let client = session.client() else { throw QueepError.unauthorized }
+                        try await client.requireMediaAccess()
+                    })
+                guard owner == session.userID, !Task.isCancelled else { return }
+                incoming = result
             } catch { self.error = error.localizedDescription }
         }
     }

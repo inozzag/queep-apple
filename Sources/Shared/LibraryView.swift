@@ -9,6 +9,10 @@ struct LibraryView: View {
     @State private var actionError: String?
     @State private var pendingDelete: Reference?
     @State private var macHeaderHeight: CGFloat = 140
+    @State private var selecting = false
+    @State private var selectedIDs: Set<String> = []
+    @State private var spaceSelection: [Reference] = []
+    @State private var pickingSpaces = false
     @AppStorage("queep.firstSearchHint.dismissed") private var searchHintDismissed = false
 
     private var filtered: [Reference] {
@@ -23,6 +27,7 @@ struct LibraryView: View {
         @Bindable var store = store
         NavigationStack {
             libraryStack
+            .subscriptionGate(enabled: store.presentation == nil)
             .sheet(item: $store.presentation) { presentation in
                 switch presentation {
                 case .account: AccountView()
@@ -30,6 +35,7 @@ struct LibraryView: View {
                 case .help: HelpView()
                 case .deleteAccount: DeleteAccountView()
                 case .subscription: SubscriptionView()
+                case .newSpace: SpaceNameSheet()
                 case .capture: CaptureView(reference: nil, initialKind: store.captureKind)
                 case .reference(let reference):
                     LiveReferenceView(reference: reference) { live in
@@ -45,14 +51,31 @@ struct LibraryView: View {
             .alert("Não foi possível sair", isPresented: Binding(get: { logoutError != nil }, set: { if !$0 { logoutError = nil } })) {
                 Button("OK") { logoutError = nil }
             } message: { Text(logoutError ?? "") }
-            .alert("Não foi possível excluir", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
+            .alert("Não foi possível concluir", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
                 Button("OK") { actionError = nil }
             } message: { Text(actionError ?? "") }
-            .confirmationDialog("Excluir esta referência dos seus dispositivos?",
+            .confirmationDialog("Excluir permanentemente esta referência?",
                                 isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
                                 titleVisibility: .visible, presenting: pendingDelete) { reference in
                 Button("Excluir \(reference.kindLabel.lowercased())", role: .destructive) { Task { await remove(reference) } }
-            } message: { reference in Text(reference.displayTitle) }
+            } message: { reference in
+                Text("Arquivar esconde. Excluir apaga da sua conta.\n\n\(reference.displayTitle)")
+            }
+        }
+        .overlay(alignment: .bottom) { archiveToast }
+        .sheet(isPresented: $pickingSpaces) { SpacePicker(references: spaceSelection) }
+        .onChange(of: store.selectedSpaceID) { _, _ in
+            selecting = false
+            selectedIDs = []
+            Task {
+                await refresh()
+                if !store.searchChips.isEmpty { await search() }
+            }
+        }
+        .onChange(of: store.surface) { _, _ in
+            selecting = false
+            selectedIDs = []
+            Task { await refresh() }
         }
     }
 
@@ -66,6 +89,9 @@ struct LibraryView: View {
                     .padding(.top, max(8, macHeaderHeight))
                     .frame(maxWidth: 1280).frame(maxWidth: .infinity)
             }
+            .scrollPosition(id: Binding(get: { store.scrollAnchors[store.filterKey] }, set: {
+                if let id = $0 { store.scrollAnchors[store.filterKey] = id }
+            }), anchor: .top)
             MacLibraryHeader(search: { Task { await search() } }, refresh: { Task { await refresh() } })
                 .homeTopBar()
                 .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
@@ -89,9 +115,12 @@ struct LibraryView: View {
                     .font(.caption).foregroundStyle(Color.muted).padding(.horizontal, 4)
             }
             if store.surface == .spaces {
-                ContentUnavailableView("Spaces", systemImage: "square.stack.3d.up",
-                    description: Text("Pastas com os filtros da busca chegam no próximo passo."))
+                SpacesOverview()
             } else {
+            if store.surface == .home { SpaceNavigation() }
+            if !store.items.isEmpty && !searching {
+                selectionBar
+            }
             if let error = store.error {
                 HStack(spacing: 12) {
                     Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
@@ -100,7 +129,7 @@ struct LibraryView: View {
                     Button("Tentar novamente") { Task { await refresh() } }
                 }.card(padding: 14, elevated: false)
             }
-            if store.items.count == 1 && !searching && !searchHintDismissed {
+            if store.surface == .home && store.items.count == 1 && !searching && !searchHintDismissed {
                 HStack(alignment: .top, spacing: 12) {
                     Sparkle()
                     Text("Referência salva. Use a busca da biblioteca para encontrá-la pelo nome ou, depois da análise, pelo assunto e pela aparência.")
@@ -128,13 +157,25 @@ struct LibraryView: View {
                 ContentUnavailableView("Não foi possível carregar a biblioteca", systemImage: "wifi.exclamationmark",
                     description: Text("Toque em Tentar novamente para recuperar suas referências."))
             } else if store.items.isEmpty && !searching && store.error == nil {
-                FirstUseView(scrolls: false)
+                if store.surface == .archived {
+                    ContentUnavailableView("Nenhum item arquivado", systemImage: "archivebox",
+                        description: Text("Itens arquivados saem da biblioteca ativa e continuam guardados aqui."))
+                } else if store.surface == .home && store.selectedSpaceID == nil && store.hasArchivedItems {
+                    ContentUnavailableView("Tudo arquivado", systemImage: "archivebox.fill",
+                        description: Text("Sua biblioteca ativa está vazia. Abra Arquivados para restaurar itens."))
+                } else if store.selectedSpaceID != nil {
+                    EmptySpaceView()
+                } else {
+                    FirstUseView(scrolls: false)
+                }
             } else if filtered.isEmpty {
                 ContentUnavailableView {
                     Label(searching ? "Nada parecido por aqui" : store.kindFilter == nil ? "Seu espaço para lembrar" : "Nada neste filtro",
                           systemImage: searching ? "sparkle.magnifyingglass" : "bookmark")
                 } description: {
-                    Text(searching ? "Nenhuma correspondência entre os candidatos analisados. Tente descrever de outro jeito."
+                    Text(searching ? (store.surface == .archived
+                         ? "Nenhum arquivado tem esse título ou endereço."
+                         : "Nenhuma correspondência entre os candidatos analisados. Tente descrever de outro jeito.")
                          : store.kindFilter == nil
                          ? "Guarde uma imagem, um link ou uma nota. Eles aparecem nos seus dispositivos."
                          : "Esse tipo ainda não está na biblioteca. Queep things guarda o próximo.")
@@ -144,7 +185,8 @@ struct LibraryView: View {
             } else {
                 #if os(macOS)
                 MacLibraryCollection(items: filtered, more: !searching && store.nextCursor != nil, loading: store.loading,
-                                     open: { store.presentation = .reference($0) },
+                                     selecting: selecting, selectedIDs: selectedIDs,
+                                     open: { open($0) },
                                      loadMore: {
                     Task {
                         guard let api = session.client(), let uid = session.userID else { return }
@@ -154,11 +196,21 @@ struct LibraryView: View {
                 #else
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
                     ForEach(filtered) { reference in
-                        LibraryCardCell(reference: reference, open: { store.presentation = .reference(reference) }) {
+                        LibraryCardCell(reference: reference, open: { open(reference) }) {
                             cardMenu(reference)
+                        }
+                        .id(reference.id)
+                        .overlay(alignment: .topTrailing) {
+                            if selecting {
+                                Image(systemName: selectedIDs.contains(reference.id) ? "checkmark.circle.fill" : "circle")
+                                    .font(.title2)
+                                    .foregroundStyle(selectedIDs.contains(reference.id) ? Color.accentColor : .secondary)
+                                    .padding(10).accessibilityHidden(true)
+                            }
                         }
                     }
                 }
+                .scrollTargetLayout()
                 if !searching && store.nextCursor != nil {
                     Button("Carregar mais") {
                         Task {
@@ -176,10 +228,86 @@ struct LibraryView: View {
     /// Right-click on the Mac, long-press on iPhone: the basics without opening the item.
     @ViewBuilder private func cardMenu(_ reference: Reference) -> some View {
         Button("Abrir", systemImage: "arrow.up.right.square") { store.presentation = .reference(reference) }
+        Button("Space", systemImage: "square.stack.3d.up") {
+            spaceSelection = [reference]
+            pickingSpaces = true
+        }
         if let url = reference.url { Button("Copiar link", systemImage: "link") { Clipboard.copy(url) } }
         if !reference.text.isEmpty { Button("Copiar texto", systemImage: "doc.on.doc") { Clipboard.copy(reference.text) } }
         Divider()
+        Button(reference.isArchived ? "Desarquivar" : "Arquivar",
+               systemImage: reference.isArchived ? "archivebox.fill" : "archivebox") {
+            archive([reference], archived: !reference.isArchived)
+        }
         Button("Excluir…", systemImage: "trash", role: .destructive) { pendingDelete = reference }
+    }
+
+    private var selectionBar: some View {
+        HStack(spacing: 12) {
+            Button(selecting ? "Cancelar" : "Selecionar") {
+                selecting.toggle()
+                if !selecting { selectedIDs = [] }
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("library.select")
+            if selecting {
+                Text("\(selectedIDs.count) selecionado\(selectedIDs.count == 1 ? "" : "s")")
+                    .font(.callout).foregroundStyle(Color.muted)
+                Spacer()
+                Button("Space", systemImage: "square.stack.3d.up") {
+                    spaceSelection = filtered.filter { selectedIDs.contains($0.id) }
+                    pickingSpaces = true
+                }
+                .disabled(selectedIDs.isEmpty).accessibilityIdentifier("library.spaceSelection")
+                Button(store.surface == .archived ? "Desarquivar" : "Arquivar") {
+                    let chosen = filtered.filter { selectedIDs.contains($0.id) }
+                    archive(chosen, archived: store.surface != .archived)
+                    selecting = false
+                    selectedIDs = []
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedIDs.isEmpty)
+                .accessibilityIdentifier("library.archiveSelection")
+            }
+        }
+    }
+
+    @ViewBuilder private var archiveToast: some View {
+        if let undo = store.archiveUndo {
+            HStack(spacing: 16) {
+                Label(undo.references.count == 1 ? "Arquivado" : "\(undo.references.count) arquivados",
+                      systemImage: "archivebox")
+                Button("Desfazer") {
+                    guard let api = session.client(), let uid = session.userID else { return }
+                    store.undoArchive(undo, client: api, account: uid)
+                }
+                .fontWeight(.semibold)
+            }
+            .padding(.horizontal, 18).padding(.vertical, 12)
+            .background(.regularMaterial, in: Capsule())
+            .shadow(radius: 12, y: 4)
+            .padding(.bottom, 24)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Arquivado")
+            .task(id: undo.id) {
+                do { try await Task.sleep(for: .seconds(5)) } catch { return }
+                if store.archiveUndo?.id == undo.id { store.archiveUndo = nil }
+            }
+        }
+    }
+
+    private func open(_ reference: Reference) {
+        if selecting {
+            if selectedIDs.contains(reference.id) { selectedIDs.remove(reference.id) }
+            else if selectedIDs.count < 50 { selectedIDs.insert(reference.id) }
+        } else {
+            store.presentation = .reference(reference)
+        }
+    }
+
+    private func archive(_ references: [Reference], archived: Bool) {
+        guard let api = session.client(), let uid = session.userID, !references.isEmpty else { return }
+        store.setArchived(references, archived: archived, client: api, account: uid)
     }
 
     private func remove(_ reference: Reference) async {

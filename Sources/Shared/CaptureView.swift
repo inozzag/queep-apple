@@ -9,6 +9,7 @@ struct CaptureView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     let reference: Reference?
+    @State private var captureSpaceID: String?
     @State private var kind: String
     @State private var title: String
     @State private var text: String
@@ -37,14 +38,14 @@ struct CaptureView: View {
     private var capture: Capture {
         Capture(kind: kind, title: title, text: text, url: kind == "link" ? url : nil)
     }
-    private var locked: Bool { busy || attempted }
+    private var locked: Bool { busy || attempted || live?.isArchived == true }
     private var changed: Bool {
         guard let reference else { return true }
         return reference.title != title.trimmingCharacters(in: .whitespacesAndNewlines) || reference.text != text
             || (kind == "link" && reference.url != url.trimmingCharacters(in: .whitespacesAndNewlines))
     }
     private var canSave: Bool {
-        !busy && !preparing && title.count <= 200 && changed
+        !busy && !preparing && live?.isArchived != true && title.count <= 200 && changed
             && (kind == "media" ? media != nil : kind == "image" ? image != nil : capture.isValid)
     }
 
@@ -52,12 +53,15 @@ struct CaptureView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    if reference != nil { DocumentActions { moreMenu } }
+                    if let reference {
+                        HStack { ReferenceSpaceButton(reference: reference); Spacer(); DocumentActions { moreMenu } }
+                    }
                     if reference == nil {
                         Group {
                             if typeSize.isAccessibilitySize { kindPicker.pickerStyle(.menu) }
                             else { kindPicker.pickerStyle(.segmented).frame(maxWidth: 440) }
                         }.disabled(locked || preparing)
+                        CaptureSpaceChoice(selection: $captureSpaceID).disabled(locked || preparing)
                     }
                     TextField("Título", text: $title, axis: .vertical)
                         .textFieldStyle(.plain).font(.title.weight(.bold)).lineLimit(1...3)
@@ -129,11 +133,12 @@ struct CaptureView: View {
                 }
             }
             .markdownToolbarBar(editor, shown: kind == "note" || kind == "link", disabled: locked)
-            .confirmationDialog("Excluir esta referência dos seus dispositivos?", isPresented: $confirmDelete,
+            .confirmationDialog("Excluir permanentemente esta referência?", isPresented: $confirmDelete,
                                 titleVisibility: .visible) {
                 Button("Excluir", role: .destructive) { Task { await remove() } }
-            }
+            } message: { Text("Arquivar esconde. Excluir apaga da sua conta.") }
         }
+        .subscriptionGate()
         .interactiveDismissDisabled(busy || preparing)
         .onAppear { if reference == nil { titleFocused = true } }
         .onChange(of: liveTitle) { _, value in
@@ -164,7 +169,7 @@ struct CaptureView: View {
     }
 
     @ViewBuilder private var moreMenu: some View {
-        if let reference {
+        if let reference = live {
             Menu {
                 if let source = reference.url, let destination = URL(string: source) {
                     Button(reference.linkSurface?.isPost == true ? "Abrir post original" : "Abrir site original",
@@ -175,6 +180,11 @@ struct CaptureView: View {
                     Button("Copiar texto", systemImage: "doc.on.doc") { Clipboard.copy(reference.text) }
                 }
                 Divider()
+                Button(reference.isArchived ? "Desarquivar" : "Arquivar",
+                       systemImage: reference.isArchived ? "archivebox.fill" : "archivebox") {
+                    archive(reference)
+                }
+                .accessibilityIdentifier("reference.archive")
                 Button("Excluir referência", systemImage: "trash", role: .destructive) { confirmDelete = true }
                     .disabled(busy).accessibilityIdentifier("reference.delete")
             } label: { Label("Mais", systemImage: "ellipsis.circle") }
@@ -262,11 +272,11 @@ struct CaptureView: View {
         do {
             if let reference { _ = try await api.edit(reference, capture: capture, mutationID: requestID) }
             else if kind == "media", let media {
-                _ = try await api.uploadMedia(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), file: media.file.url)
+                _ = try await api.uploadMedia(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), file: media.file.url, spaceIDs: captureSpaceID.map { [$0] } ?? [])
             }
             else if kind == "image", let image {
-                _ = try await api.uploadImage(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), data: image.data)
-            } else { _ = try await api.create(id: requestID, capture: capture) }
+                _ = try await api.uploadImage(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), data: image.data, spaceIDs: captureSpaceID.map { [$0] } ?? [])
+            } else { _ = try await api.create(id: requestID, capture: capture, spaceIDs: captureSpaceID.map { [$0] } ?? []) }
             guard session.userID == uid else { return }
             if let reference { store.discardSearchReference(reference.id) }
             await store.refresh(api, account: uid)
@@ -285,5 +295,10 @@ struct CaptureView: View {
             await store.refresh(api, account: uid)
             dismiss()
         } catch { self.error = error.localizedDescription }
+    }
+
+    private func archive(_ reference: Reference) {
+        guard let api = session.client(), let uid = session.userID else { return }
+        store.setArchived([reference], archived: !reference.isArchived, client: api, account: uid)
     }
 }

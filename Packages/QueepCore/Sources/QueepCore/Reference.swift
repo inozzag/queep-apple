@@ -2,6 +2,8 @@ import Foundation
 
 public struct Reference: Codable, Identifiable, Sendable, Equatable {
     public let id: String
+    public var spaceIds: [String]?
+    public var membershipIDs: [String] { spaceIds ?? [] }
     public let kind: String
     public let title: String
     public let text: String
@@ -10,6 +12,7 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
     public let revision: Int
     public let createdAt: Date
     public let updatedAt: Date
+    public var archivedAt: Date?
     public let analysis: Interpretation?
     public let image: ImageInfo?
     public let images: [ImageInfo]?
@@ -53,7 +56,8 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
     }
 
     public var statusLabel: String {
-        switch status {
+        if isArchived { return "Arquivado" }
+        return switch status {
         case "queued": "Salvo · aguardando análise"
         case "processing": "Analisando"
         case "ready": analysis?.coverage == "partial" ? "Análise parcial" : "Pronto"
@@ -67,6 +71,8 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
         if let image { return [image] }
         return []
     }
+
+    public var isArchived: Bool { archivedAt != nil }
 }
 
 public struct MediaInfo: Codable, Sendable, Equatable {
@@ -121,6 +127,11 @@ public struct Interpretation: Codable, Sendable, Equatable {
 public struct LibraryPage: Codable, Sendable {
     public let items: [Reference]
     public let nextCursor: String?
+
+    public init(items: [Reference], nextCursor: String? = nil) {
+        self.items = items
+        self.nextCursor = nextCursor
+    }
 }
 
 public struct SearchResults: Codable, Sendable {
@@ -156,6 +167,7 @@ public struct Capture: Encodable, Sendable {
 
 public enum QueepError: LocalizedError {
     case invalidCapture, unauthorized, conflict, unavailable, server(String)
+    case planRequired(PlanRequirement)
     public var errorDescription: String? {
         switch self {
         case .invalidCapture: "Preencha uma nota ou um link HTTP válido."
@@ -163,6 +175,7 @@ public enum QueepError: LocalizedError {
         case .conflict: "Essa referência mudou em outro dispositivo. Atualize antes de salvar."
         case .unavailable: "Não foi possível conectar. Tente novamente."
         case .server(let message): message
+        case .planRequired(let requirement): requirement.message
         }
     }
 }

@@ -522,6 +522,7 @@ struct LibraryCardCell<MenuContent: View>: View {
             .accessibilityElement(children: .ignore)
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel(isAnalyzing ? "Enviando novos itens" : reference.displayTitle)
+            .accessibilityIdentifier("reference.\(reference.id)")
             .accessibilityValue("\(reference.kindLabel), \(reference.statusLabel)")
             .accessibilityHint("Abrir \(reference.kindLabel.lowercased())")
             .accessibilityAction(named: "Abrir", open)

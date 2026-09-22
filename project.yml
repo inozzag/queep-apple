@@ -3,10 +3,12 @@ configs:
   Debug: debug
   CloudDevelopment: debug
   Release: release
+  TestFlight: release
 configFiles:
   Debug: Config/Debug.xcconfig
   CloudDevelopment: Config/CloudDevelopment.xcconfig
   Release: Config/Release.xcconfig
+  TestFlight: Config/TestFlight.xcconfig
 options:
   bundleIdPrefix: app.queep
   deploymentTarget:
@@ -21,11 +23,18 @@ settings:
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_CFBundleDisplayName: Queep
     ENABLE_USER_SCRIPT_SANDBOXING: YES
+    QUEEP_URL_SCHEME: queep
     QUEEP_AUTH_GROUP: app.queep.auth
   configs:
     Debug:
+      QUEEP_URL_SCHEME: queep-local
       QUEEP_AUTH_GROUP: app.queep.auth.local
+    TestFlight:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) QUEEP_CLOUD"
+      QUEEP_URL_SCHEME: queep-dev
+      QUEEP_AUTH_GROUP: app.queep.auth.dev
     CloudDevelopment:
+      QUEEP_URL_SCHEME: queep-dev
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG QUEEP_CLOUD"
       QUEEP_AUTH_GROUP: app.queep.auth.dev
 packages:
@@ -51,9 +60,13 @@ targets:
     info:
       path: Config/Generated/Mac-Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
         QueepRevenueCatKey: $(QUEEP_REVENUECAT_PUBLIC_KEY)
         QueepPrivacyURL: $(QUEEP_PRIVACY_URL)
         QueepTermsURL: $(QUEEP_TERMS_URL)
+        QueepURLScheme: $(QUEEP_URL_SCHEME)
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
         GIDClientID: $(QUEEP_GOOGLE_CLIENT_ID)
@@ -62,6 +75,7 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - $(QUEEP_GOOGLE_REVERSED_CLIENT_ID)
+              - $(QUEEP_URL_SCHEME)
     sources: [Sources/Shared, Sources/Mac]
     postBuildScripts:
       - path: Scripts/verify-billing-config.sh
@@ -94,6 +108,9 @@ targets:
         CloudDevelopment:
           PRODUCT_BUNDLE_IDENTIFIER: app.queep.mac.dev
           QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/Mac/GoogleService-Info.plist
+        TestFlight:
+          PRODUCT_BUNDLE_IDENTIFIER: app.queep.mac.dev
+          QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/Mac/GoogleService-Info.plist
   QueepiOS:
     attributes:
       SystemCapabilities:
@@ -104,9 +121,13 @@ targets:
     info:
       path: Config/Generated/iOS-Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
         QueepRevenueCatKey: $(QUEEP_REVENUECAT_PUBLIC_KEY)
         QueepPrivacyURL: $(QUEEP_PRIVACY_URL)
         QueepTermsURL: $(QUEEP_TERMS_URL)
+        QueepURLScheme: $(QUEEP_URL_SCHEME)
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
         GIDClientID: $(QUEEP_GOOGLE_CLIENT_ID)
@@ -114,6 +135,7 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - $(QUEEP_GOOGLE_REVERSED_CLIENT_ID)
+              - $(QUEEP_URL_SCHEME)
         QueepAuthGroup: $(AppIdentifierPrefix)$(QUEEP_AUTH_GROUP)
     sources: [Sources/Shared, Sources/iOS]
     postBuildScripts:
@@ -149,13 +171,20 @@ targets:
         CloudDevelopment:
           PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev
           QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/iOS/GoogleService-Info.plist
+        TestFlight:
+          PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev
+          QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/iOS/GoogleService-Info.plist
   QueepShare:
     type: app-extension
     platform: iOS
     info:
       path: Config/Generated/Share-Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
         CFBundleDisplayName: Salvar no Queep
+        QueepURLScheme: $(QUEEP_URL_SCHEME)
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
         QueepAuthGroup: $(AppIdentifierPrefix)$(QUEEP_AUTH_GROUP)
@@ -177,7 +206,6 @@ targets:
       - Sources/Shared/ImportedImage.swift
       - Sources/Shared/ImportedMedia.swift
       - Sources/Shared/IncomingReference.swift
-      - Sources/Shared/Assets.xcassets
     postBuildScripts:
       - path: Scripts/copy-firebase-config.sh
         name: Select Firebase environment
@@ -203,6 +231,9 @@ targets:
         CloudDevelopment:
           PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev.share
           QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/Share/GoogleService-Info.plist
+        TestFlight:
+          PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.dev.share
+          QUEEP_FIREBASE_CONFIG: Config/Firebase/Development/Share/GoogleService-Info.plist
   QueepMacUITests:
     type: bundle.ui-testing
     platform: macOS
@@ -225,6 +256,7 @@ targets:
     sources:
       - Tests/CaptureTests
       - Sources/Shared/IncomingReference.swift
+      - Sources/Shared/LibraryStore.swift
       - Sources/Shared/ImportedImage.swift
       - Sources/Shared/ImportedMedia.swift
       - path: Tests/Fixtures
@@ -259,6 +291,8 @@ schemes:
     build:
       targets:
         QueepMac: all
+    test:
+      targets: [QueepMacUITests]
   QueepiOS:
     build:
       targets:
@@ -280,3 +314,20 @@ schemes:
         QueepiOS: all
     run:
       config: CloudDevelopment
+
+  QueepMacTestFlight:
+    build:
+      targets:
+        QueepMac: all
+    run:
+      config: TestFlight
+    archive:
+      config: TestFlight
+  QueepiOSTestFlight:
+    build:
+      targets:
+        QueepiOS: all
+    run:
+      config: TestFlight
+    archive:
+      config: TestFlight

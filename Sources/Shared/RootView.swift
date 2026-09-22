@@ -22,6 +22,12 @@ struct RootView: View {
         // Queep uses a deliberately light, paper-like canvas on every platform.
         // Never inherit the system appearance: dark mode changes contrast, icons and surfaces.
         .preferredColorScheme(.light)
+        .onOpenURL { url in
+            if url.scheme == Bundle.main.object(forInfoDictionaryKey: "QueepURLScheme") as? String,
+               url.host == "subscription" {
+                session.planRequirement = .media(for: .free)
+            }
+        }
         .task(id: SyncKey(userID: session.userID, owner: session.accountOwner, active: phase == .active)) {
             library.reset(for: session.userID)
             if session.userID == nil { await SubscriptionStore.shared.clearSession(session) }

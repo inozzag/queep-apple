@@ -13,12 +13,16 @@ struct UsagePrivacyView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("Seu uso diário").font(.title2.bold()).accessibilityAddTraits(.isHeader)
+                        Text("Seu uso mensal").font(.title2.bold()).accessibilityAddTraits(.isHeader)
                         if let usage {
+                            Text("Plano Queep \(usage.plan.title)").font(.headline)
                             counter("Salvamentos e novas análises", key: "operations", usage: usage)
                             counter("Áudio e vídeo para analisar", key: "media_seconds", usage: usage, divisor: 60, unit: "min")
                             counter("Arquivos enviados", key: "upload_bytes", usage: usage, divisor: 1_048_576, unit: "MiB")
                             counter("Buscas com IA", key: "searches", usage: usage)
+                            counter("Itens na biblioteca", key: "items", usage: usage)
+                            counter("Armazenamento", key: "storage_bytes", usage: usage, divisor: 1_048_576, unit: "MiB")
+                            counter("Spaces", key: "spaces", usage: usage)
                             Text("Renova em \(usage.resetsAt.formatted(date: .abbreviated, time: .shortened)).")
                                 .font(.callout).accessibilityIdentifier("usage.reset")
                         } else if error == nil { ProgressView("Consultando uso…") }
@@ -26,9 +30,9 @@ struct UsagePrivacyView: View {
                             Text(error).foregroundStyle(.red)
                             Button("Tentar novamente") { attempt += 1 }
                         }
-                        Text("Novos itens, edições e novas tentativas de análise contam. Repetir um envio não confirmado com o mesmo conteúdo não conta de novo. Reservas de envio e buscas iniciadas podem contar mesmo se houver falha. Excluir conteúdo não devolve a cota diária.")
+                        Text("Novos itens, edições e novas tentativas de análise contam. Repetir um envio não confirmado com o mesmo conteúdo não conta de novo. Reservas de envio e buscas iniciadas podem contar mesmo se houver falha. Excluir conteúdo libera espaço após a limpeza, mas não devolve a cota mensal de IA e envio.")
                             .font(.callout).foregroundStyle(Color.primary.opacity(0.8))
-                        Text("Estes são limites iniciais de uso. Os planos comerciais ainda serão definidos.")
+                        Text("As cotas de IA e envio renovam no primeiro dia de cada mês, à meia-noite UTC. Itens, armazenamento e Spaces são limites do acervo e não renovam.")
                             .font(.callout).foregroundStyle(Color.primary.opacity(0.8))
                     }
                     Divider()
@@ -80,7 +84,7 @@ struct UsagePrivacyView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title).font(.headline)
                 Text(description).font(.callout).monospacedDigit()
-                ProgressView(value: min(Double(counter.used), Double(counter.limit)), total: Double(counter.limit))
+                ProgressView(value: min(Double(counter.used), Double(counter.limit)), total: max(1, Double(counter.limit)))
                     .accessibilityHidden(true)
             }
             .accessibilityElement(children: .ignore)

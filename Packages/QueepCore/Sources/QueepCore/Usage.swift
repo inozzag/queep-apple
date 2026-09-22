@@ -6,6 +6,7 @@ public struct UsageCounter: Decodable, Sendable {
 }
 
 public struct Usage: Decodable, Sendable {
+    public let plan: SubscriptionPlan
     public let resetsAt: Date
     public let counters: [String: UsageCounter]
 }

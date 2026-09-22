@@ -10,13 +10,14 @@ import GoogleSignIn
 @MainActor @Observable
 final class Session {
     var userID: String? {
-        didSet { if oldValue != userID { onAccountChange?() } }
+        didSet { if oldValue != userID { planRequirement = nil; onAccountChange?() } }
     }
     var onAccountChange: (() -> Void)?
     var configurationError: String?
     var isLocal = false
     var apiURL: URL?
     var preparing = true
+    var planRequirement: PlanRequirement?
     var accountNotice: String?
     var accountState: AccountStatus?
     var accountOwner: String?
@@ -339,10 +340,17 @@ final class Session {
         }
     }
 
+    private func showPlanRequirement(_ requirement: PlanRequirement, owner: String) {
+        guard userID == owner else { return }
+        planRequirement = requirement
+    }
+
     func client() -> APIClient? {
         guard let apiURL, let owner = userID else { return nil }
         return APIClient(baseURL: apiURL, onUnauthorized: { [weak self] in
             await self?.handleUnauthorized(owner)
+        }, onPlanRequired: { [weak self] requirement in
+            await self?.showPlanRequirement(requirement, owner: owner)
         }) { [weak self] in
             guard let self else { throw QueepError.unauthorized }
             return try await self.token(for: owner)

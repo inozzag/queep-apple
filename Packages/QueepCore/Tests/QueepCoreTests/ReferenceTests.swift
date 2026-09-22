@@ -20,6 +20,14 @@ import Foundation
     #expect(page.items[0].statusLabel == "Análise parcial")
     #expect(page.items[0].analysis?.limitations == ["Only title available"])
     #expect(page.items[0].source == nil)
+    #expect(!page.items[0].isArchived)
+}
+
+@Test func decodesArchivedState() throws {
+    let raw = #"{"id":"archived","kind":"note","title":"Guardada","text":"Texto","url":null,"status":"ready","revision":1,"created_at":"2026-09-20T15:00:00Z","updated_at":"2026-09-20T16:00:00Z","archived_at":"2026-09-20T16:00:00Z"}"#
+    let reference = try APIClient.decoder().decode(Reference.self, from: Data(raw.utf8))
+    #expect(reference.isArchived)
+    #expect(reference.archivedAt != nil)
 }
 
 @Test func identifiesSocialPostsSeparatelyFromGenericSites() {

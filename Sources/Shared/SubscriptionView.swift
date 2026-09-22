@@ -1,11 +1,14 @@
 import SwiftUI
 import RevenueCat
+import QueepCore
 
 struct SubscriptionView: View {
     @Environment(Session.self) private var session
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var phase
+    @Environment(\.openURL) private var openURL
     @State private var store = SubscriptionStore.shared
+    var requirement: PlanRequirement? = nil
 
     var body: some View {
         NavigationStack {
@@ -15,6 +18,15 @@ struct SubscriptionView: View {
                         .font(.title2.bold())
                     Text("Salve imagens, links e notas. Encontre pelo que você lembra, no Mac e no iPhone.")
                         .foregroundStyle(.secondary)
+                    if let requirement {
+                        Text(requirement.message).font(.headline)
+                        if requirement.requiredPlan == nil, let reset = requirement.resetsAt {
+                            Text("Sua cota mensal renova em \(reset.formatted(date: .abbreviated, time: .shortened)). Você pode continuar abrindo e excluindo suas referências.")
+                        }
+                    }
+                    planSummary(.free, detail: "Sem assinatura: 12 capturas com IA, 8 buscas por mês, 100 itens e 250 MiB. Sincronize, abra e exclua suas referências no Mac e no iPhone.")
+                    planSummary(.pro, detail: "100 capturas, 50 buscas por mês, até 800 itens, 2 GiB e 15 Spaces. Imagens, notas, sites e posts sociais.")
+                    planSummary(.max, detail: "200 capturas, 80 buscas por mês, até 2.500 itens, 10 GiB e 40 Spaces. Inclui 40 minutos mensais de áudio e vídeo de arquivo.")
                     if store.ownerID == session.userID {
                         status
                         if let message = store.message {
@@ -24,14 +36,30 @@ struct SubscriptionView: View {
                             Label(error, systemImage: "exclamationmark.circle")
                                 .foregroundStyle(.red).accessibilityIdentifier("subscription.error")
                         }
-                        if !store.awaitingConfirmation && (store.access?.active != true || store.access?.isDevelopment == true) {
-                            ForEach(store.packages, id: \.identifier) { package in
+                        if !store.awaitingConfirmation && (requirement == nil || requirement?.requiredPlan != nil) {
+                            ForEach(visiblePackages, id: \.identifier) { package in
                                 Button {
-                                    Task { await store.purchase(package, session: session) }
+                                    if store.access?.active == true && store.access?.isDevelopment != true {
+                                        openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
+                                    } else {
+                                        Task { await store.purchase(package, session: session) }
+                                    }
                                 } label: {
                                     VStack(alignment: .leading, spacing: 6) {
-                                        Text(package.storeProduct.localizedTitle).font(.headline)
+                                        Text("Queep \(SubscriptionStore.plan(package)?.title ?? "") · \(SubscriptionStore.isAnnual(package) ? "Anual" : "Mensal")").font(.headline)
+                                        if store.access?.active == true && store.access?.isDevelopment != true {
+                                            Text("Alterar na App Store").font(.callout)
+                                        }
+                                        if SubscriptionStore.isAnnual(package), SubscriptionStore.plan(package) == .pro {
+                                            Text("Recomendado").font(.caption.bold())
+                                        }
                                         Text("\(package.storeProduct.localizedPriceString) / \(period(package))")
+                                        if let discount = store.annualDiscount(package) {
+                                            Text("Economize \(discount)% em relação a 12 meses do mensal").font(.caption)
+                                        }
+                                        if store.trialEligible.contains(package.identifier) {
+                                            Text("7 dias grátis de Pro; depois, \(package.storeProduct.localizedPriceString) por ano").font(.callout)
+                                        }
                                     }.frame(maxWidth: .infinity, alignment: .leading).padding(8)
                                 }.buttonStyle(.borderedProminent)
                                     .accessibilityIdentifier("subscription.buy.\(package.identifier)")
@@ -76,7 +104,7 @@ struct SubscriptionView: View {
     @ViewBuilder private var status: some View {
         if let access = store.access {
             VStack(alignment: .leading, spacing: 6) {
-                Label(access.isDevelopment ? "Acesso de desenvolvimento" : access.active ? "Assinatura ativa" : "Sem assinatura ativa",
+                Label(access.isDevelopment ? "Acesso de desenvolvimento" : "Queep \(access.plan.title)",
                       systemImage: access.active ? "checkmark.seal" : "person.crop.circle")
                     .font(.headline).accessibilityIdentifier("subscription.status")
                 if access.isDevelopment {
@@ -90,6 +118,21 @@ struct SubscriptionView: View {
         }
     }
 
+    private var visiblePackages: [Package] {
+        store.packages.filter { package in
+            guard let plan = SubscriptionStore.plan(package) else { return false }
+            if let target = requirement?.requiredPlan { return plan == target }
+            return plan.rank > (store.access?.plan.rank ?? 0) || store.access?.isDevelopment == true
+        }
+    }
+
+    private func planSummary(_ plan: SubscriptionPlan, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Queep \(plan.title)").font(.headline).accessibilityAddTraits(.isHeader)
+            Text(detail).font(.callout).foregroundStyle(.secondary)
+        }.accessibilityElement(children: .combine)
+    }
+
     private func period(_ package: Package) -> String {
         guard let duration = package.storeProduct.subscriptionPeriod else { return "período" }
         let unit: String
@@ -101,5 +144,22 @@ struct SubscriptionView: View {
         @unknown default: unit = "período"
         }
         return duration.value == 1 ? unit : "\(duration.value) \(unit)"
+    }
+}
+
+private struct SubscriptionGate: ViewModifier {
+    @Environment(Session.self) private var session
+    var enabled: Bool
+    func body(content: Content) -> some View {
+        content.sheet(item: Binding(get: { enabled ? session.planRequirement : nil },
+                                    set: { session.planRequirement = $0 })) { requirement in
+            SubscriptionView(requirement: requirement)
+        }
+    }
+}
+
+extension View {
+    func subscriptionGate(enabled: Bool = true) -> some View {
+        modifier(SubscriptionGate(enabled: enabled))
     }
 }

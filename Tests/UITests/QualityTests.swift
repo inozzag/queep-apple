@@ -86,4 +86,40 @@ final class QualityTests: XCTestCase {
         try audit(app)
         #endif
     }
+
+    func testArchiveUndoAndArchivedLibrary() async throws {
+        #if QUEEP_CLOUD
+        throw XCTSkip("Disposable identities run only in the emulators.")
+        #else
+        let fixture = try await DeletionFixture.make()
+        addTeardownBlock { _ = try await fixture.delete() }
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing"]
+        app.launchEnvironment["QUEEP_TEST_EMAIL"] = fixture.email
+        app.launchEnvironment["QUEEP_TEST_PASSWORD"] = fixture.password
+        app.launch()
+        let card = app.buttons[fixture.title]
+        XCTAssertTrue(card.waitForExistence(timeout: 20), app.debugDescription)
+
+        card.tap()
+        XCTAssertTrue(app.buttons["reference.more"].waitForExistence(timeout: 5))
+        app.buttons["reference.more"].tap()
+        app.buttons["reference.archive"].tap()
+        XCTAssertTrue(app.buttons["Desfazer"].waitForExistence(timeout: 5))
+        app.buttons["Desfazer"].tap()
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+
+        card.tap()
+        app.buttons["reference.more"].tap()
+        app.buttons["reference.archive"].tap()
+        XCTAssertTrue(card.waitForNonExistence(timeout: 10))
+        app.buttons["library.archived"].tap()
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        card.tap()
+        app.buttons["reference.more"].tap()
+        app.buttons["reference.archive"].tap()
+        app.buttons["library.home"].tap()
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        #endif
+    }
 }

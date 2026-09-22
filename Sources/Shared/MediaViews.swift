@@ -5,6 +5,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct MediaPickerSection: View {
+    @Environment(Session.self) private var session
     @Binding var media: ImportedMedia?
     @Binding var preparing: Bool
     let disabled: Bool
@@ -36,7 +37,11 @@ struct MediaPickerSection: View {
             Task {
                 preparing = true; error = nil; media = nil
                 defer { preparing = false }
-                do { media = try await ImportedMedia.prepare(url: result.get()) }
+                do {
+                    guard let client = session.client() else { throw QueepError.unauthorized }
+                    try await client.requireMediaAccess()
+                    media = try await ImportedMedia.prepare(url: result.get())
+                }
                 catch { self.error = error.localizedDescription }
             }
         }
@@ -46,6 +51,8 @@ struct MediaPickerSection: View {
                 preparing = true; error = nil; media = nil
                 defer { preparing = false }
                 do {
+                    guard let client = session.client() else { throw QueepError.unauthorized }
+                    try await client.requireMediaAccess()
                     guard let value = try await selected.loadTransferable(type: ImportedMedia.self) else {
                         throw QueepError.server("Não foi possível abrir este vídeo.")
                     }
@@ -84,13 +91,15 @@ struct MediaDetailView: View {
     private var changed: Bool {
         title.trimmingCharacters(in: .whitespacesAndNewlines) != reference.title || text != reference.text
     }
-    private var canSave: Bool { changed && !busy && title.count <= 200 && text.count <= 30_000 }
+    private var canSave: Bool {
+        changed && !busy && !reference.isArchived && title.count <= 200 && text.count <= 30_000
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    DocumentActions { moreMenu }
+                    HStack { ReferenceSpaceButton(reference: reference); Spacer(); DocumentActions { moreMenu } }
                     Group {
                         if let player {
                             MediaPlaybackView(player: player, video: reference.kind == "video",
@@ -106,10 +115,12 @@ struct MediaDetailView: View {
                     if let media = reference.media {
                         Chip(text: "\(reference.kindLabel) · \(media.durationLabel)", symbol: reference.kindSymbol)
                     }
-                    DocumentTitleField(title: $title, disabled: busy, identifier: "media.title")
+                    DocumentTitleField(title: $title, disabled: busy || reference.isArchived,
+                                       identifier: "media.title")
                     MarkdownEditorBlock(text: $text, controller: editor,
                                         placeholder: "Anotações sobre este \(reference.kindLabel.lowercased()): contexto, pessoas, o que lembrar.",
-                                        disabled: busy, minHeight: 120, identifier: "media.text")
+                                        disabled: busy || reference.isArchived, minHeight: 120,
+                                        identifier: "media.text")
                     AnalysisView(reference: reference)
                     if let error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red) }
                 }
@@ -151,11 +162,12 @@ struct MediaDetailView: View {
                 }
             }
             .markdownToolbarBar(editor, disabled: busy)
-            .confirmationDialog("Excluir esta mídia dos seus dispositivos?", isPresented: $confirmDelete,
+            .confirmationDialog("Excluir permanentemente esta mídia?", isPresented: $confirmDelete,
                                 titleVisibility: .visible) {
                 Button("Excluir", role: .destructive) { Task { await remove() } }
-            }
+            } message: { Text("Arquivar esconde. Excluir apaga da sua conta.") }
         }
+        .subscriptionGate()
         .interactiveDismissDisabled(busy)
         .task(id: "\(session.userID ?? "")/\(reference.id)/\(attempt)") {
             clear(); loadError = nil
@@ -182,6 +194,11 @@ struct MediaDetailView: View {
                 ShareLink(item: file.url) { Label("Compartilhar arquivo", systemImage: "square.and.arrow.up") }
             }
             Divider()
+            Button(reference.isArchived ? "Desarquivar" : "Arquivar",
+                   systemImage: reference.isArchived ? "archivebox.fill" : "archivebox") {
+                archive()
+            }
+            .accessibilityIdentifier("media.archive")
             Button("Excluir \(reference.kindLabel.lowercased())", systemImage: "trash", role: .destructive) {
                 confirmDelete = true
             }.disabled(busy).accessibilityIdentifier("media.delete")
@@ -215,6 +232,12 @@ struct MediaDetailView: View {
             await store.refresh(api, account: owner)
             dismiss()
         } catch { self.error = error.localizedDescription }
+    }
+
+    private func archive() {
+        guard let api = session.client(), let owner = session.userID else { return }
+        clear()
+        store.setArchived([reference], archived: !reference.isArchived, client: api, account: owner)
     }
 }
 
