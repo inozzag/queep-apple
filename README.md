@@ -24,7 +24,7 @@ emulado). `QueepMac` também inclui seu target de UI no esquema de testes.
 ## Rodar
 
 1. Inicie os emuladores e a API em `../queep-api`.
-2. Instale XcodeGen (`brew install xcodegen`) e rode `xcodegen generate`.
+2. Use Xcode 26.6, a versão validada no archive TestFlight e fixada no CI. Instale XcodeGen (`brew install xcodegen`) e rode `xcodegen generate`.
 3. Configure sua equipe de desenvolvimento em `Config/Local.xcconfig` (`DEVELOPMENT_TEAM = ID`) ou passe pelo Xcode. Esse arquivo não vai para Git.
 4. Abra `Queep.xcodeproj`; use `QueepMac` no Mac ou `QueepiOS` no simulador.
 5. Crie uma conta de teste em um app e entre com a mesma conta no outro.
