@@ -24,6 +24,7 @@ struct QueepMacApp: App {
 }
 
 /// 18pt template; MenuBarExtra uses the image's native size and HomeLogo is hundreds of points.
+@MainActor
 private enum MenuBarLogo {
     static let image: NSImage = {
         let source = NSImage(named: "MenuBarLogo") ?? NSImage(named: "HomeLogo") ?? NSImage()
