@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 destination="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist"
-if [ "${CONFIGURATION}" = "CloudDevelopment" ]; then
+if [ "${CONFIGURATION}" = "CloudDevelopment" ] || [ "${CONFIGURATION}" = "TestFlight" ]; then
   source="${SRCROOT}/${QUEEP_FIREBASE_CONFIG}"
   test -f "$source" || { echo "error: Missing development Firebase configuration"; exit 1; }
   /bin/cp "$source" "$destination"

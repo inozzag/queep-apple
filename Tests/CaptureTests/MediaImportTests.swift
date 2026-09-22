@@ -50,7 +50,7 @@ final class MediaImportTests: XCTestCase {
             try? FileManager.default.removeItem(at: temporary)
             return nil
         }
-        let incoming = try await IncomingLoader.load([provider])
+        let incoming = try await IncomingLoader.load([provider], authorizeMedia: {})
         XCTAssertEqual(incoming.media?.kind, "video")
         XCTAssertNil(incoming.image)
         XCTAssertFalse(FileManager.default.fileExists(atPath: temporary.path))

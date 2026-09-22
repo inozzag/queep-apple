@@ -278,18 +278,22 @@ struct ImageDetailView: View {
     private var changed: Bool {
         title.trimmingCharacters(in: .whitespacesAndNewlines) != reference.title || text != reference.text
     }
-    private var canSave: Bool { changed && !busy && title.count <= 200 && text.count <= 30_000 }
+    private var canSave: Bool {
+        changed && !busy && !reference.isArchived && title.count <= 200 && text.count <= 30_000
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-                    DocumentActions { zoomButton; moreMenu }
+                    HStack { ReferenceSpaceButton(reference: reference); Spacer(); DocumentActions { zoomButton; moreMenu } }
                     picture
-                    DocumentTitleField(title: $title, disabled: busy, identifier: "image.title")
+                    DocumentTitleField(title: $title, disabled: busy || reference.isArchived,
+                                       identifier: "image.title")
                     MarkdownEditorBlock(text: $text, controller: editor,
                                         placeholder: "Anotações sobre esta imagem: onde viu, por que guardou, o que lembrar.",
-                                        disabled: busy, minHeight: 120, identifier: "image.text")
+                                        disabled: busy || reference.isArchived, minHeight: 120,
+                                        identifier: "image.text")
                     AnalysisView(reference: reference)
                     if let error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red) }
                 }
@@ -331,11 +335,12 @@ struct ImageDetailView: View {
                 }
             }
             .markdownToolbarBar(editor, disabled: busy)
-            .confirmationDialog("Excluir esta imagem dos seus dispositivos?", isPresented: $confirmDelete,
+            .confirmationDialog("Excluir permanentemente esta imagem?", isPresented: $confirmDelete,
                                 titleVisibility: .visible) {
                 Button("Excluir", role: .destructive) { Task { await remove() } }
-            }
+            } message: { Text("Arquivar esconde. Excluir apaga da sua conta.") }
         }
+        .subscriptionGate()
         .interactiveDismissDisabled(busy)
         .task(id: "\(session.userID ?? "")/\(reference.id)/\(attempt)") {
             data = nil; loadError = nil
@@ -368,6 +373,11 @@ struct ImageDetailView: View {
                 Button("Copiar imagem", systemImage: "doc.on.doc") { Clipboard.copy(imageData: data) }
             }
             Divider()
+            Button(reference.isArchived ? "Desarquivar" : "Arquivar",
+                   systemImage: reference.isArchived ? "archivebox.fill" : "archivebox") {
+                archive()
+            }
+            .accessibilityIdentifier("image.archive")
             Button("Excluir imagem", systemImage: "trash", role: .destructive) { confirmDelete = true }
                 .disabled(busy).accessibilityIdentifier("image.delete")
         } label: { Label("Mais", systemImage: "ellipsis.circle") }
@@ -425,5 +435,10 @@ struct ImageDetailView: View {
             await store.refresh(api, account: uid)
             dismiss()
         } catch { self.error = error.localizedDescription }
+    }
+
+    private func archive() {
+        guard let api = session.client(), let uid = session.userID else { return }
+        store.setArchived([reference], archived: !reference.isArchived, client: api, account: uid)
     }
 }

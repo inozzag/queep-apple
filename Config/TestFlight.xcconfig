@@ -1,0 +1,5 @@
+// Path A: sandbox Apple, development Firebase, isolated API with required billing.
+// This is a release build: no DEBUG code and no RevenueCat Test Store keys.
+#include? "Local.xcconfig"
+QUEEP_FIREBASE_PROJECT_ID = queep-dev-hstlx
+#include? "BillingTestFlight.xcconfig"

@@ -2,6 +2,7 @@ import XCTest
 import UniformTypeIdentifiers
 import ImageIO
 import AppKit
+import QueepCore
 
 @MainActor
 final class IncomingTests: XCTestCase {
@@ -49,9 +50,26 @@ final class IncomingTests: XCTestCase {
         let incoming = try await IncomingLoader.load([
             NSItemProvider(object: URL(string: "https://x.com/user/status/1")! as NSURL),
             video
-        ])
+        ], authorizeMedia: {})
         XCTAssertEqual(incoming.media?.kind, "video")
         XCTAssertNil(incoming.url)
+    }
+
+    func testDeniedMediaDoesNotLoadOrPrepareProvider() async throws {
+        let provider = NSItemProvider()
+        provider.registerFileRepresentation(forTypeIdentifier: UTType.movie.identifier,
+                                            fileOptions: [], visibility: .all) { _ in
+            XCTFail("A blocked movie must never be loaded")
+            return nil
+        }
+        do {
+            _ = try await IncomingLoader.load([provider], authorizeMedia: {
+                throw QueepError.planRequired(.media(for: .pro))
+            })
+            XCTFail("Pro cannot import a movie")
+        } catch QueepError.planRequired(let requirement) {
+            XCTAssertEqual(requirement.requiredPlan, .max)
+        }
     }
 
     func testTextProviderAndEmptyShare() async throws {

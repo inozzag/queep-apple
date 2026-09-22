@@ -1,0 +1,7 @@
+// Copy to BillingTestFlight.xcconfig after configuring Apple apps and the isolated API.
+// Only public SDK keys belong here. Never paste an administrative RevenueCat key.
+QUEEP_API_URL =
+QUEEP_REVENUECAT_IOS_KEY =
+QUEEP_REVENUECAT_MAC_KEY =
+QUEEP_PRIVACY_URL =
+QUEEP_TERMS_URL =

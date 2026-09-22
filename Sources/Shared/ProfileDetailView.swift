@@ -59,11 +59,12 @@ struct ProfileDetailView: View {
                 ToolbarItem(placement: .primaryAction) { moreMenu }
                 #endif
             }
-            .confirmationDialog("Excluir este perfil dos seus dispositivos?", isPresented: $confirmDelete,
+            .confirmationDialog("Excluir permanentemente este perfil?", isPresented: $confirmDelete,
                                 titleVisibility: .visible) {
                 Button("Excluir", role: .destructive) { Task { await remove() } }
-            }
+            } message: { Text("Arquivar esconde. Excluir apaga da sua conta.") }
         }
+        .subscriptionGate()
         .interactiveDismissDisabled(busy)
         .task(id: reference.id) { await refresh() }
         #if os(macOS)
@@ -106,10 +107,11 @@ struct ProfileDetailView: View {
                 Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
                     .accessibilityIdentifier("profile.copyLink")
             }
-            Button("Arquivar", systemImage: "archivebox") { }
+            Button(live.isArchived ? "Desarquivar" : "Arquivar",
+                   systemImage: live.isArchived ? "archivebox.fill" : "archivebox") { archive() }
                 .accessibilityIdentifier("profile.archive")
-                .accessibilityHint("Em breve")
-            Button("Space", systemImage: "square.stack.3d.up") { }
+                .accessibilityValue(live.isArchived ? "Arquivado" : "")
+            ReferenceSpaceButton(reference: reference)
                 .accessibilityIdentifier("profile.space")
                 .accessibilityHint("Em breve")
         }
@@ -133,7 +135,7 @@ struct ProfileDetailView: View {
                 FlowChips(items: items)
             }
         }
-        if live.status == "error" {
+        if live.status == "error" && !live.isArchived {
             Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
                 Task { await retry() }
             }
@@ -149,8 +151,10 @@ struct ProfileDetailView: View {
                 Button("Abrir no navegador", systemImage: "safari") { openURL(destination) }
                 Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
             }
-            Button("Arquivar", systemImage: "archivebox") { }
-            Button("Space", systemImage: "square.stack.3d.up") { }
+            Button(live.isArchived ? "Desarquivar" : "Arquivar",
+                   systemImage: live.isArchived ? "archivebox.fill" : "archivebox") { archive() }
+                .accessibilityIdentifier("profile.archive")
+            ReferenceSpaceButton(reference: reference)
             Divider()
             Button("Excluir perfil", systemImage: "trash", role: .destructive) { confirmDelete = true }
                 .disabled(busy).accessibilityIdentifier("profile.delete")
@@ -181,6 +185,11 @@ struct ProfileDetailView: View {
             guard session.userID == uid else { return }
             latest = value
         } catch { self.error = error.localizedDescription }
+    }
+
+    private func archive() {
+        guard let api = session.client(), let uid = session.userID else { return }
+        store.setArchived([live], archived: !live.isArchived, client: api, account: uid)
     }
 
     private func remove() async {

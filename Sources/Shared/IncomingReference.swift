@@ -9,6 +9,7 @@ struct IncomingReference: Sendable {
     let url: String?
     let image: Data?
     var media: ImportedMedia? = nil
+    var spaceIDs: [String] = []
 
     static func text(_ raw: String) throws -> Self {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -23,16 +24,17 @@ struct IncomingReference: Sendable {
     }
 
     func save(using client: APIClient) async throws -> Reference {
-        if let media { return try await client.uploadMedia(id: id, title: title, file: media.file.url) }
-        if let image { return try await client.uploadImage(id: id, title: title, data: image) }
+        if let media { return try await client.uploadMedia(id: id, title: title, file: media.file.url, spaceIDs: spaceIDs) }
+        if let image { return try await client.uploadImage(id: id, title: title, data: image, spaceIDs: spaceIDs) }
         return try await client.create(id: id, capture: Capture(
-            kind: url == nil ? "note" : "link", title: title, text: text, url: url))
+            kind: url == nil ? "note" : "link", title: title, text: text, url: url), spaceIDs: spaceIDs)
     }
 }
 
 @MainActor
 enum IncomingLoader {
-    static func load(_ providers: [NSItemProvider], context: String = "") async throws -> IncomingReference {
+    static func load(_ providers: [NSItemProvider], context: String = "",
+                     authorizeMedia: () async throws -> Void = { throw QueepError.unauthorized }) async throws -> IncomingReference {
         guard providers.count <= 10 else { throw QueepError.server("Compartilhe uma referência por vez.") }
         var links: [String] = []
         var files: [URL] = []
@@ -61,9 +63,11 @@ enum IncomingLoader {
         // Instagram/Twitter attach the post URL, a thumbnail and extra proprietary types.
         // Prefer the actual movie/audio file; keep URL over a preview image.
         if let provider = media.first {
+            try await authorizeMedia()
             return IncomingReference(text: "", url: nil, image: nil, media: try await loadMedia(provider))
         }
         if let file = files.first(where: isMediaFile) {
+            try await authorizeMedia()
             return IncomingReference(text: "", url: nil, image: nil,
                 media: try await ImportedMedia.prepare(url: file))
         }

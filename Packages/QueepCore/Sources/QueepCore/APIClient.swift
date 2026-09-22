@@ -4,15 +4,18 @@ public struct APIClient: Sendable {
     public let baseURL: URL
     private let session: URLSession
     private let token: @Sendable () async throws -> String
+    private let onPlanRequired: @Sendable (PlanRequirement) async -> Void
     private let onUnauthorized: @Sendable () async -> Void
 
     public init(baseURL: URL, session: URLSession = .shared,
                 onUnauthorized: @escaping @Sendable () async -> Void = {},
+                onPlanRequired: @escaping @Sendable (PlanRequirement) async -> Void = { _ in },
                 token: @escaping @Sendable () async throws -> String) {
         self.baseURL = baseURL
         self.session = session
         self.token = token
         self.onUnauthorized = onUnauthorized
+        self.onPlanRequired = onPlanRequired
     }
 
     public static func decoder() -> JSONDecoder {
@@ -32,8 +35,18 @@ public struct APIClient: Sendable {
     }
 
     public func subscriptionAccess(refresh: Bool = false) async throws -> SubscriptionAccess {
-        try await decoded(refresh ? "v1/billing/sync" : "v1/billing/access",
-                       method: refresh ? "POST" : "GET")
+        let data = try await request(refresh ? "v1/billing/sync" : "v1/billing/access",
+                                     method: refresh ? "POST" : "GET", timeout: 12)
+        return try Self.decoder().decode(SubscriptionAccess.self, from: data)
+    }
+
+    public func requireMediaAccess() async throws {
+        let access = try await subscriptionAccess()
+        guard access.features.mediaAv else {
+            let requirement = PlanRequirement.media(for: access.plan)
+            await onPlanRequired(requirement)
+            throw QueepError.planRequired(requirement)
+        }
     }
 
     public func accountStatus() async throws -> AccountStatus {
@@ -71,8 +84,10 @@ public struct APIClient: Sendable {
                                  method: "POST", body: JSONSerialization.data(withJSONObject: body))
     }
 
-    public func list(cursor: String? = nil) async throws -> LibraryPage {
-        let query = cursor.map { [URLQueryItem(name: "cursor", value: $0)] } ?? []
+    public func list(cursor: String? = nil, archived: Bool = false, spaceID: String? = nil) async throws -> LibraryPage {
+        var query = [URLQueryItem(name: "archived", value: archived ? "only" : "exclude")]
+        if let cursor { query.append(.init(name: "cursor", value: cursor)) }
+        if let spaceID { query.append(.init(name: "space_id", value: spaceID)) }
         return try await decoded("v1/references", query: query)
     }
 
@@ -80,13 +95,15 @@ public struct APIClient: Sendable {
         try await decoded("v1/references/\(id)")
     }
 
-    public func search(_ query: String) async throws -> SearchResults {
+    public func search(_ query: String, spaceID: String? = nil) async throws -> SearchResults {
         let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (2...500).contains(term.count) else {
             throw QueepError.server("Escreva uma busca de 2 a 500 caracteres.")
         }
+        var body = ["query": term]
+        if let spaceID { body["space_id"] = spaceID }
         let data = try await request("v1/search", method: "POST",
-                                     body: JSONEncoder().encode(["query": term]), timeout: 90)
+                                     body: JSONEncoder().encode(body), timeout: 90)
         return try Self.decoder().decode(SearchResults.self, from: data)
     }
 
@@ -95,10 +112,29 @@ public struct APIClient: Sendable {
                           body: JSONEncoder().encode(["revision": reference.revision]))
     }
 
-    public func create(id: UUID, capture: Capture) async throws -> Reference {
+    public func setArchived(_ archived: Bool, reference: Reference) async throws -> Reference {
+        try await decoded("v1/references/\(reference.id)", method: "PATCH",
+                          body: JSONEncoder().encode(["archived": archived]))
+    }
+
+    public func setArchived(_ archived: Bool, ids: [String]) async throws -> [Reference] {
+        guard (1...50).contains(ids.count) else {
+            throw QueepError.server("Selecione de 1 a 50 referências.")
+        }
+        let body: [String: Any] = ["ids": ids, "archived": archived]
+        let page: LibraryPage = try await decoded(
+            "v1/references/batch-archive", method: "POST",
+            body: JSONSerialization.data(withJSONObject: body)
+        )
+        return page.items
+    }
+
+    public func create(id: UUID, capture: Capture, spaceIDs: [String] = []) async throws -> Reference {
         guard capture.isValid else { throw QueepError.invalidCapture }
+        var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(capture)) as! [String: Any]
+        if !spaceIDs.isEmpty { object["space_ids"] = spaceIDs }
         return try await decoded("v1/references/\(id.uuidString.lowercased())", method: "PUT",
-                                 body: JSONEncoder().encode(capture))
+                                 body: JSONSerialization.data(withJSONObject: object))
     }
 
     public func edit(_ reference: Reference, capture: Capture, mutationID: UUID) async throws -> Reference {
@@ -133,12 +169,12 @@ public struct APIClient: Sendable {
                               query: [.init(name: "revision", value: String(reference.revision))])
     }
 
-    public func uploadImage(id: UUID, title: String, data: Data) async throws -> Reference {
+    public func uploadImage(id: UUID, title: String, data: Data, spaceIDs: [String] = []) async throws -> Reference {
         guard !data.isEmpty, data.count <= 12 * 1024 * 1024, title.count <= 200 else {
             throw QueepError.server("Escolha uma imagem de até 12 MB e um título de até 200 caracteres.")
         }
         let result = try await request("v1/references/\(id.uuidString.lowercased())/image", method: "PUT",
-                                       query: [.init(name: "title", value: title)], body: data,
+                                       query: [.init(name: "title", value: title)] + spaceIDs.map { .init(name: "space_ids", value: $0) }, body: data,
                                        contentType: "application/octet-stream", timeout: 120)
         return try Self.decoder().decode(Reference.self, from: result)
     }
@@ -152,13 +188,13 @@ public struct APIClient: Sendable {
                           timeout: 60)
     }
 
-    public func uploadMedia(id: UUID, title: String, file: URL) async throws -> Reference {
+    public func uploadMedia(id: UUID, title: String, file: URL, spaceIDs: [String] = []) async throws -> Reference {
         let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         guard file.isFileURL, size > 0, size <= 25 * 1024 * 1024, title.count <= 200 else {
             throw QueepError.server("Escolha um áudio ou vídeo de até 25 MB.")
         }
         let data = try await request("v1/references/\(id.uuidString.lowercased())/media", method: "PUT",
-                                     query: [.init(name: "title", value: title)],
+                                     query: [.init(name: "title", value: title)] + spaceIDs.map { .init(name: "space_ids", value: $0) },
                                      contentType: "application/octet-stream", timeout: 150, file: file)
         return try Self.decoder().decode(Reference.self, from: data)
     }
@@ -166,6 +202,42 @@ public struct APIClient: Sendable {
     public func mediaData(_ reference: Reference, thumbnail: Bool = false) async throws -> Data {
         try await request("v1/references/\(reference.id)/media", method: "GET",
                           query: [.init(name: "thumbnail", value: thumbnail ? "true" : "false")], timeout: 90)
+    }
+
+    public func spaces() async throws -> [Space] {
+        try await decoded("v1/spaces")
+    }
+
+    public func createSpace(name: String) async throws -> Space {
+        try await saveSpace(name: name)
+    }
+
+    public func saveSpace(id: String? = nil, name: String? = nil, sortIndex: Int? = nil) async throws -> Space {
+        var body: [String: Any] = [:]
+        if let name {
+            let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard (1...40).contains(clean.unicodeScalars.count) else {
+                throw QueepError.server("O nome do Space deve ter de 1 a 40 caracteres.")
+            }
+            body["name"] = clean
+        }
+        if let sortIndex { body["sort_index"] = sortIndex }
+        do {
+            return try await decoded(id.map { "v1/spaces/\($0)" } ?? "v1/spaces",
+                                     method: id == nil ? "POST" : "PATCH",
+                                     body: JSONSerialization.data(withJSONObject: body))
+        } catch QueepError.conflict {
+            throw QueepError.server("Já existe um Space com este nome.")
+        }
+    }
+
+    public func deleteSpace(id: String) async throws {
+        _ = try await request("v1/spaces/\(id)", method: "DELETE")
+    }
+
+    public func assignSpaces(referenceID: String, add: [String] = [], remove: [String] = []) async throws -> Reference {
+        try await decoded("v1/references/\(referenceID)/spaces", method: "POST",
+                          body: JSONEncoder().encode(["add": add, "remove": remove]))
     }
 
     private func decoded<T: Decodable>(_ path: String, method: String = "GET",
@@ -212,7 +284,14 @@ public struct APIClient: Sendable {
                 throw QueepError.server(failure.detail)
             }
             throw QueepError.server("Essa referência não está mais disponível.")
-        case 402, 403, 413, 415, 429, 503:
+        case 402:
+            struct Failure: Decodable { let detail: PlanRequirement }
+            if let failure = try? Self.decoder().decode(Failure.self, from: data) {
+                await onPlanRequired(failure.detail)
+                throw QueepError.planRequired(failure.detail)
+            }
+            throw QueepError.server("Confira seu plano em Conta → Assinatura.")
+        case 403, 413, 415, 429, 503:
             struct Failure: Decodable { let detail: String }
             let failure = try? JSONDecoder().decode(Failure.self, from: data)
             throw QueepError.server(failure?.detail ?? "Serviço temporariamente indisponível. Tente novamente.")

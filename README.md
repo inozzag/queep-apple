@@ -3,10 +3,28 @@
 Um projeto Xcode, apps separados para macOS 14+ e iOS 17+, núcleo Swift comum em `Packages/QueepCore`. Interface SwiftUI com controles nativos e labels de acessibilidade. Firebase Auth mantém a identidade; todas as referências passam pela API.
 Na nuvem, o app entra com Apple, Google ou e-mail e senha.
 
+## Spaces
+
+“Tudo” e os Spaces aparecem na biblioteca. A aba Spaces cria, renomeia, reordena e
+exclui coleções; excluir preserva as referências. O botão Space nos detalhes e na
+seleção em lote adiciona/remove vínculos imediatamente, com rollback em erro.
+Captura normal e captura rápida do Mac oferecem “Salvar em…” opcional; o padrão
+continua sendo nenhum Space. A extensão de compartilhamento continua na inbox,
+com atribuição posterior, conforme o escopo permitido pela GAZ-116.
+
+O cache de leitura é separado por conta e filtro, preserva a última seleção e é
+removido ao trocar/sair da conta. Alterações exigem conexão. Busca usa o Space
+selecionado; arquivados não aparecem nem contam nos Spaces ativos. Criação segue
+as cotas 0/15/40 da API, sem bloquear atribuição aos Spaces já existentes.
+
+Cobertura: `SpaceTests` no QueepCore, `LibrarySpacesTests` para cache e rollback,
+e `SpacesTests` nos dois targets de UI (criar → atribuir → filtrar, com Firebase
+emulado). `QueepMac` também inclui seu target de UI no esquema de testes.
+
 ## Rodar
 
 1. Inicie os emuladores e a API em `../queep-api`.
-2. Instale XcodeGen (`brew install xcodegen`) e rode `xcodegen generate`.
+2. Use Xcode 26.6, a versão validada no archive TestFlight e fixada no CI. Instale XcodeGen (`brew install xcodegen`) e rode `xcodegen generate`.
 3. Configure sua equipe de desenvolvimento em `Config/Local.xcconfig` (`DEVELOPMENT_TEAM = ID`) ou passe pelo Xcode. Esse arquivo não vai para Git.
 4. Abra `Queep.xcodeproj`; use `QueepMac` no Mac ou `QueepiOS` no simulador.
 5. Crie uma conta de teste em um app e entre com a mesma conta no outro.
@@ -116,3 +134,17 @@ e no iPhone cloud; leitura/expansão também verificadas no Mac. As referências
 foram removidas, mantendo a conta e os conteúdos anteriores.
 
 Validado na nuvem: PNG de Fotos no iPhone → aberto/excluído no Mac; HEIC do Mac → aberto/excluído no iPhone. Uploads usam a mesma API autenticada das notas. A conta usada no teste manual foi preservada com a imagem adicionada durante o teste; credenciais locais ficam em `.local/`, ignorado pelo Git, sem tokens exportados.
+
+
+## Free / Pro / Max (GAZ-115)
+
+A tela compartilhada de planos usa o plano confirmado pela API, preços da loja,
+desconto anual calculado pelos produtos e trial somente com elegibilidade confirmada.
+Erros 402 abrem Pro/Max conforme a API; mídia é verificada antes da preparação,
+inclusive na extensão (sem RevenueCat). Uso mostra cotas mensais e inventário.
+
+Esquemas `QueepiOSTestFlight` / `QueepMacTestFlight` usam configuração de release
+com Firebase dev e API isolada. Preencher `Config/BillingTestFlight.xcconfig`
+a partir do exemplo após configurar os consoles. O build rejeita chaves `test_`.
+[Contrato backend](../queep-api/infra/PLANS.md) e
+[configuração Apple, pendências e margem anual](../queep-api/infra/APPLE-LAUNCH.md).

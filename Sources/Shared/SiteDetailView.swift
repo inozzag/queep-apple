@@ -80,11 +80,12 @@ struct SiteDetailView: View {
                 ToolbarItem(placement: .primaryAction) { moreMenu }
                 #endif
             }
-            .confirmationDialog("Excluir este site dos seus dispositivos?", isPresented: $confirmDelete,
+            .confirmationDialog("Excluir permanentemente este site?", isPresented: $confirmDelete,
                                 titleVisibility: .visible) {
                 Button("Excluir", role: .destructive) { Task { await remove() } }
-            }
+            } message: { Text("Arquivar esconde. Excluir apaga da sua conta.") }
         }
+        .subscriptionGate()
         .interactiveDismissDisabled(busy)
         .task(id: reference.id) { await refresh() }
         #if os(macOS)
@@ -126,10 +127,11 @@ struct SiteDetailView: View {
                 Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
                     .accessibilityIdentifier("site.copyLink")
             }
-            Button("Arquivar", systemImage: "archivebox") { }
+            Button(live.isArchived ? "Desarquivar" : "Arquivar",
+                   systemImage: live.isArchived ? "archivebox.fill" : "archivebox") { archive() }
                 .accessibilityIdentifier("site.archive")
-                .accessibilityHint("Em breve")
-            Button("Space", systemImage: "square.stack.3d.up") { }
+                .accessibilityValue(live.isArchived ? "Arquivado" : "")
+            ReferenceSpaceButton(reference: reference)
                 .accessibilityIdentifier("site.space")
                 .accessibilityHint("Em breve")
         }
@@ -153,7 +155,7 @@ struct SiteDetailView: View {
                 FlowChips(items: items)
             }
         }
-        if live.status == "error" {
+        if live.status == "error" && !live.isArchived {
             Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
                 Task { await retry() }
             }
@@ -169,8 +171,10 @@ struct SiteDetailView: View {
                 Button("Abrir no navegador", systemImage: "safari") { openURL(destination) }
                 Button("Copiar link", systemImage: "link") { Clipboard.copy(source) }
             }
-            Button("Arquivar", systemImage: "archivebox") { }
-            Button("Space", systemImage: "square.stack.3d.up") { }
+            Button(live.isArchived ? "Desarquivar" : "Arquivar",
+                   systemImage: live.isArchived ? "archivebox.fill" : "archivebox") { archive() }
+                .accessibilityIdentifier("site.archive")
+            ReferenceSpaceButton(reference: reference)
             Divider()
             Button("Excluir site", systemImage: "trash", role: .destructive) { confirmDelete = true }
                 .disabled(busy).accessibilityIdentifier("site.delete")
@@ -201,6 +205,11 @@ struct SiteDetailView: View {
             guard session.userID == uid else { return }
             latest = value
         } catch { self.error = error.localizedDescription }
+    }
+
+    private func archive() {
+        guard let api = session.client(), let uid = session.userID else { return }
+        store.setArchived([live], archived: !live.isArchived, client: api, account: uid)
     }
 
     private func remove() async {

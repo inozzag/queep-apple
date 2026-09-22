@@ -24,8 +24,8 @@ struct QueepLogo: View {
         Image("HomeLogo")
             .resizable()
             .renderingMode(.original)
-            .aspectRatio(580 / 548, contentMode: .fit)
-            .frame(width: size, height: size * 548 / 580)
+            .aspectRatio(828 / 778, contentMode: .fit)
+            .frame(width: size, height: size * 778 / 828)
             .accessibilityHidden(true)
     }
 }
@@ -43,8 +43,8 @@ struct HomeTopScrim: View {
         LinearGradient(
             stops: [
                 .init(color: .white, location: 0),
-                .init(color: .white, location: 0.42),
-                .init(color: .white.opacity(0.55), location: 0.72),
+                .init(color: .white, location: 0.82),
+                .init(color: .white.opacity(0.45), location: 0.93),
                 .init(color: .white.opacity(0), location: 1)
             ],
             startPoint: .top,
@@ -377,6 +377,9 @@ struct iPhoneLibrary<Content: View>: View {
                     .frame(maxWidth: .infinity)
             }
             .refreshable { await refresh() }
+            .scrollPosition(id: Binding(get: { store.scrollAnchors[store.filterKey] }, set: {
+                if let id = $0 { store.scrollAnchors[store.filterKey] = id }
+            }), anchor: .top)
             .scrollDismissesKeyboard(.interactively)
 
             VStack {
@@ -397,7 +400,7 @@ struct iPhoneLibrary<Content: View>: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .top)
-            .homeTopBar()
+            .homeTopBar(fade: 10)
         }
         .onPreferenceChange(HomeTopBarHeightKey.self) { headerHeight = $0 }
         .toolbar(.hidden, for: .navigationBar)
@@ -484,6 +487,7 @@ struct MobileLibraryNav: View {
         HStack(spacing: 4) {
             tab("Home", "HomeDashboard", .home, "library.home", flexible: width != nil)
             tab("Spaces", "HomeSpaces", .spaces, "library.spaces", flexible: width != nil)
+            tab("Arquivados", "system:archivebox", .archived, "library.archived", flexible: width != nil)
         }
         .padding(5)
         .frame(width: width, height: Theme.homeNav)
@@ -564,12 +568,18 @@ struct MobileLibraryNav: View {
     private func tab(_ title: String, _ asset: String, _ surface: LibrarySurface, _ identifier: String, flexible: Bool) -> some View {
         let selected = store.surface == surface
         return Button {
-            if surface == .home { store.showHome() }
-            else { store.surface = surface }
+            store.show(surface)
             mode = .standard
         } label: {
             VStack(spacing: 0) {
-                HomeGlyph(asset: asset, size: 24, color: selected ? Theme.homeInk : Theme.homePreview)
+                if asset.hasPrefix("system:") {
+                    Image(systemName: String(asset.dropFirst(7)))
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(selected ? Theme.homeInk : Theme.homePreview)
+                        .frame(width: 24, height: 24)
+                } else {
+                    HomeGlyph(asset: asset, size: 24, color: selected ? Theme.homeInk : Theme.homePreview)
+                }
                 Text(title)
                     .font(.system(size: 10, weight: selected ? .semibold : .regular))
                     .foregroundStyle(selected ? Theme.homeInk : Theme.homePreview)
@@ -588,7 +598,8 @@ struct MobileLibraryNav: View {
         .accessibilityLabel(title)
         .accessibilityIdentifier(identifier)
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .help(surface == .spaces ? "Pastas com filtros." : "Galeria")
+        .help(surface == .spaces ? "Pastas com filtros."
+              : surface == .archived ? "Itens ocultos da biblioteca ativa." : "Galeria")
     }
 
     private func chromeButton(asset: String, identifier: String, label: String, action: @escaping () -> Void) -> some View {

@@ -77,12 +77,22 @@ struct MacLibraryHeader: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("library.home")
-                    Button(action: { store.surface = .spaces }) {
+                    Button(action: { store.show(.spaces) }) {
                         HomePillLabel(title: "Spaces", asset: "HomeSpaces").homeSurface()
                     }
                     .buttonStyle(.plain)
-                    .help("Pastas com filtros. A biblioteca continua em Home.")
+                    .help("Organizar suas referências em Spaces.")
                     .accessibilityIdentifier("library.spaces")
+                    Button(action: { store.show(.archived) }) {
+                        Label("Arquivados", systemImage: "archivebox")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Theme.homeInk)
+                            .padding(.horizontal, 14).frame(height: Theme.homeChrome)
+                            .homeSurface()
+                    }
+                    .buttonStyle(.plain)
+                    .help("Itens ocultos da biblioteca ativa.")
+                    .accessibilityIdentifier("library.archived")
                 }
             }
             HStack(alignment: .top, spacing: 16) {
@@ -96,13 +106,13 @@ struct MacLibraryHeader: View {
                 Spacer(minLength: 16)
                 HStack(spacing: 16) {
                     if store.hasActiveCollection {
-                        Button(action: {}) {
-                            HomePillLabel(title: "Create a space in this collection", asset: "HomeCreateSpace")
+                        Button(action: { store.presentation = .newSpace }) {
+                            HomePillLabel(title: "Novo Space", asset: "HomeCreateSpace")
                                 .homeSurface()
                         }
                         .buttonStyle(.plain)
-                        .help("Em breve: cria um space já com estes filtros.")
-                        .accessibilityLabel("Create a space in this collection")
+                        .help("Criar uma coleção pessoal de referências.")
+                        .accessibilityLabel("Novo Space")
                         .accessibilityIdentifier("library.createSpace")
                     }
                     HomeFilterMenu(refresh: refresh)
@@ -168,6 +178,8 @@ struct MacLibraryCollection<MenuContent: View>: View {
     let items: [Reference]
     let more: Bool
     let loading: Bool
+    let selecting: Bool
+    let selectedIDs: Set<String>
     let open: (Reference) -> Void
     let loadMore: () -> Void
     @ViewBuilder var menu: (Reference) -> MenuContent
@@ -179,10 +191,20 @@ struct MacLibraryCollection<MenuContent: View>: View {
                     LibraryCardCell(reference: reference, open: { open(reference) }) {
                         menu(reference)
                     }
+                    .id(reference.id)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .overlay(alignment: .topTrailing) {
+                        if selecting {
+                            Image(systemName: selectedIDs.contains(reference.id) ? "checkmark.circle.fill" : "circle")
+                                .font(.title2)
+                                .foregroundStyle(selectedIDs.contains(reference.id) ? Color.accentColor : .secondary)
+                                .padding(10).accessibilityHidden(true)
+                        }
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
+            .scrollTargetLayout()
             if more {
                 Button("Carregar mais", action: loadMore)
                     .buttonStyle(.bordered).disabled(loading).frame(maxWidth: .infinity)

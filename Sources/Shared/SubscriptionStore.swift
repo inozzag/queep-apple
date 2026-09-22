@@ -11,6 +11,8 @@ final class SubscriptionStore {
     private(set) var ownerID: String?
     private(set) var access: SubscriptionAccess?
     private(set) var packages: [Package] = []
+    private(set) var trialEligible: Set<String> = []
+    private var pendingPlan: SubscriptionPlan?
     private(set) var busy = false
     private(set) var error: String?
     private(set) var message: String?
@@ -26,6 +28,7 @@ final class SubscriptionStore {
         defer { busy = false }
         ownerID = nil; access = nil; packages = []; error = nil; message = nil
         storeAvailable = false; awaitingConfirmation = false
+        pendingPlan = nil; trialEligible = []
         if Purchases.isConfigured && !Purchases.shared.isAnonymous {
             _ = try? await Purchases.shared.logOut()
         }
@@ -55,7 +58,8 @@ final class SubscriptionStore {
         }
         if !Purchases.isConfigured {
             Purchases.logLevel = .error
-            Purchases.configure(withAPIKey: key, appUserID: uid)
+            Purchases.configure(with: Configuration.Builder(withAPIKey: key)
+                .with(appUserID: uid).with(networkTimeout: 10).build())
         } else if Purchases.shared.appUserID != uid {
             _ = try await Purchases.shared.logIn(uid)
         }
@@ -67,6 +71,7 @@ final class SubscriptionStore {
         guard !busy, let uid = session.userID, let api = session.client() else { return }
         if ownerID != uid {
             access = nil; packages = []; storeAvailable = false; awaitingConfirmation = false
+            pendingPlan = nil; trialEligible = []
         }
         ownerID = uid
         busy = true; error = nil; message = nil
@@ -74,7 +79,7 @@ final class SubscriptionStore {
             busy = false
             if session.userID != uid {
                 access = nil; packages = []; storeAvailable = false; message = nil; error = nil
-                awaitingConfirmation = false
+                awaitingConfirmation = false; pendingPlan = nil; trialEligible = []
             }
         }
         do { try await operation(uid, api) }
@@ -98,7 +103,7 @@ final class SubscriptionStore {
             let result = try await api.subscriptionAccess(refresh: refresh)
             guard session.userID == uid else { return }
             access = result
-            if result.active { awaitingConfirmation = false }
+            if result.plan.rank >= (pendingPlan?.rank ?? 0) { awaitingConfirmation = false; pendingPlan = nil }
             guard key != nil else {
                 storeAvailable = false
                 message = "Compras ainda não disponíveis nesta versão."
@@ -111,10 +116,28 @@ final class SubscriptionStore {
             let customer = try await Purchases.shared.customerInfo()
             guard session.userID == uid else { return }
             // A local entitlement may suppress another purchase, but never grant API access.
-            awaitingConfirmation = !result.active && customer.entitlements["queep_pro"]?.isActive == true
+            let storePlan = customer.entitlements["queep_max"]?.isActive == true ? SubscriptionPlan.max
+                : customer.entitlements["queep_pro"]?.isActive == true ? .pro : .free
+            pendingPlan = storePlan.rank > result.plan.rank ? storePlan : nil
+            awaitingConfirmation = pendingPlan != nil
+            trialEligible = []
             packages = offerings.current?.availablePackages.filter {
-                $0.storeProduct.productType == .autoRenewableSubscription
+                $0.storeProduct.productType == .autoRenewableSubscription && Self.plan($0) != nil
             } ?? []
+            packages.sort { lhs, rhs in
+                let l = Self.plan(lhs)?.rank ?? 0, r = Self.plan(rhs)?.rank ?? 0
+                return l == r ? Self.isAnnual(lhs) && !Self.isAnnual(rhs) : l < r
+            }
+            let eligibility = await Purchases.shared.checkTrialOrIntroDiscountEligibility(packages: packages)
+            guard session.userID == uid else { return }
+            trialEligible = Set(packages.filter { package in
+                guard Self.plan(package) == .pro, Self.isAnnual(package),
+                      eligibility[package]?.status == .eligible,
+                      let offer = package.storeProduct.introductoryDiscount,
+                      offer.paymentMode == .freeTrial else { return false }
+                return (offer.subscriptionPeriod.unit == .day && offer.subscriptionPeriod.value == 7)
+                    || (offer.subscriptionPeriod.unit == .week && offer.subscriptionPeriod.value == 1)
+            }.map(\.identifier))
             storeAvailable = true
             if awaitingConfirmation {
                 message = "Sua compra aguarda confirmação. Aguarde alguns segundos e atualize a assinatura."
@@ -129,17 +152,51 @@ final class SubscriptionStore {
             guard !awaitingConfirmation, session.userID == uid,
                   packages.contains(where: { $0.identifier == package.identifier })
             else { throw QueepError.unauthorized }
+            let before = try await api.subscriptionAccess(refresh: true)
+            guard session.userID == uid else { return }
+            access = before
+            guard !before.active || before.isDevelopment else {
+                message = "Altere seu plano em Gerenciar na App Store para manter uma única assinatura."
+                return
+            }
             let result = try await Purchases.shared.purchase(package: package)
             guard !result.userCancelled, session.userID == uid else { return }
+            pendingPlan = Self.plan(package)
             awaitingConfirmation = true
             let confirmed = try await api.subscriptionAccess(refresh: true)
             guard session.userID == uid else { return }
             access = confirmed
-            awaitingConfirmation = !confirmed.active
+            awaitingConfirmation = confirmed.plan.rank < (pendingPlan?.rank ?? 1)
             message = confirmed.isDevelopment ? "Compra de teste concluída. O acesso de desenvolvimento permanece liberado."
-                : confirmed.active ? "Assinatura confirmada. Ela vale também nos seus outros dispositivos."
+                : !awaitingConfirmation ? "Assinatura confirmada. Ela vale também nos seus outros dispositivos."
                 : "Compra recebida. Aguarde alguns segundos e toque em Atualizar assinatura para confirmar."
         }
+    }
+
+    static func plan(_ package: Package) -> SubscriptionPlan? {
+        if let value = SubscriptionPlan.product(package.storeProduct.productIdentifier) { return value }
+        #if DEBUG
+        // Existing RevenueCat Test Store fixtures never enter a distribution build.
+        if ["monthly", "yearly"].contains(package.storeProduct.productIdentifier) { return .pro }
+        #endif
+        return nil
+    }
+
+    static func isAnnual(_ package: Package) -> Bool {
+        package.storeProduct.subscriptionPeriod?.unit == .year
+            && package.storeProduct.subscriptionPeriod?.value == 1
+    }
+
+    func annualDiscount(_ package: Package) -> Int? {
+        guard Self.isAnnual(package), let monthly = packages.first(where: {
+            Self.plan($0) == Self.plan(package) && $0.storeProduct.subscriptionPeriod?.unit == .month
+                && $0.storeProduct.subscriptionPeriod?.value == 1
+                && $0.storeProduct.currencyCode == package.storeProduct.currencyCode
+        }) else { return nil }
+        let year = NSDecimalNumber(decimal: package.storeProduct.price).doubleValue
+        let month = NSDecimalNumber(decimal: monthly.storeProduct.price).doubleValue
+        guard month > 0, year < month * 12 else { return nil }
+        return Int(((1 - year / (month * 12)) * 100).rounded(.down))
     }
 
     func restore(_ session: Session) async {
@@ -148,11 +205,13 @@ final class SubscriptionStore {
             guard session.userID == uid else { throw QueepError.unauthorized }
             let customer = try await Purchases.shared.restorePurchases()
             guard session.userID == uid else { return }
-            awaitingConfirmation = customer.entitlements["queep_pro"]?.isActive == true
+            pendingPlan = customer.entitlements["queep_max"]?.isActive == true ? .max
+                : customer.entitlements["queep_pro"]?.isActive == true ? .pro : nil
+            awaitingConfirmation = pendingPlan != nil
             let confirmed = try await api.subscriptionAccess(refresh: true)
             guard session.userID == uid else { return }
             access = confirmed
-            awaitingConfirmation = awaitingConfirmation && !confirmed.active
+            awaitingConfirmation = confirmed.plan.rank < (pendingPlan?.rank ?? 0)
             message = confirmed.isDevelopment ? "Restauração solicitada na loja de teste."
                 : confirmed.active ? "Sua assinatura está ativa nesta conta."
                 : "Nenhuma assinatura ativa confirmada. Confira a conta da App Store e tente atualizar em instantes."

@@ -18,6 +18,9 @@ final class SubscriptionTests: XCTestCase {
         let status = app.staticTexts["subscription.status"]
         XCTAssertTrue(status.waitForExistence(timeout: 20), app.debugDescription)
         XCTAssertTrue(status.label.contains("Acesso de desenvolvimento"))
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Queep Free")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Queep Pro")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Queep Max")).firstMatch.exists)
         app.buttons["subscription.refresh"].tap()
         XCTAssertTrue(status.waitForExistence(timeout: 20))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
