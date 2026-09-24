@@ -7,3 +7,5 @@ QUEEP_FIREBASE_PROJECT_ID = queep-dev-hstlx
 QUEEP_POSTHOG_KEY =
 QUEEP_POSTHOG_HOST =
 #include? "PostHog.xcconfig"
+QUEEP_SENTRY_DSN =
+#include? "Sentry.xcconfig"

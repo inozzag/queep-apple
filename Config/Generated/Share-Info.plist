@@ -47,7 +47,7 @@
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.ui-services</string>
 		<key>NSExtensionPrincipalClass</key>
-		<string>$(PRODUCT_MODULE_NAME).ShareViewController</string>
+        <string>ShareViewController</string>
 	</dict>
 	<key>QueepAPIURL</key>
 	<string>$(QUEEP_API_URL)</string>
@@ -55,6 +55,8 @@
 	<string>$(AppIdentifierPrefix)$(QUEEP_AUTH_GROUP)</string>
 	<key>QueepFirebaseProjectID</key>
 	<string>$(QUEEP_FIREBASE_PROJECT_ID)</string>
+	<key>QueepSentryDSN</key>
+	<string>$(QUEEP_SENTRY_DSN)</string>
 	<key>QueepURLScheme</key>
 	<string>$(QUEEP_URL_SCHEME)</string>
 </dict>

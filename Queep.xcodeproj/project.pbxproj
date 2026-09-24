@@ -11,7 +11,9 @@
 		0257A7F300E838CA0339F26A /* SocialAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C69E44624BF3502390F7908 /* SocialAuth.swift */; };
 		03587CE6186BE57A5D0DEAC6 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3EC9E92F5D5BEEC0E6E27A /* SignInView.swift */; };
 		047541D8096740B3A6749210 /* sample-video.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 70DE42B368A3BE1DB918AC1B /* sample-video.mp4 */; };
+		060B48221E9CE4B4F134FFCE /* CrashReporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC82B3180B284D672C79246 /* CrashReporting.swift */; };
 		085A80289A13884C55D5E1AC /* DeletionFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93948A8C9F10608A56D7B0A0 /* DeletionFixture.swift */; };
+		09B9B55EC2E3F24557588A02 /* CrashReporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC82B3180B284D672C79246 /* CrashReporting.swift */; };
 		1039CC5CEB1857A90863D1D6 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 70FB7F20F84669C0D56036C3 /* QueepCore */; };
 		1095129D63D080D01757A4BA /* FirstUseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28F7E9ED7DB96983034F1383 /* FirstUseTests.swift */; };
 		11FF8A1D0B75E3E90668C2D9 /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DD8C45948F2A04A479DAE9 /* SubscriptionView.swift */; };
@@ -63,11 +65,11 @@
 		64901E61762CF7783C6BB61A /* sample-image.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 11E1C1EBF2B24246A752A4CB /* sample-image.jpg */; };
 		64C047D84BF4999FCD4E0CA0 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 4C783710C920477FE4D5F973 /* GoogleSignIn */; };
 		6879375F2A2B8BC03D323002 /* LibrarySpacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 448EA832C6163EA29684639B /* LibrarySpacesTests.swift */; };
+		6B6C39B754A2283243FEAEDA /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 3BC17EF90C01D8CE22BFBB1C /* Sentry */; };
 		6B80ECD478746A3AF06AC53E /* CloudShareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B2E01C5CB6E1489B7A89607 /* CloudShareTests.swift */; };
 		6CBA2064CBD92A89CC8D918B /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7204B7FD55FC25256854F095 /* Session.swift */; };
 		6CF50A01298B13950E9C0EB8 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = ED8EFCBC4554E34C190E82A5 /* RevenueCat */; };
 		6DB5692A4FE34BED1DB2EB5F /* FirstUseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2BB72B8EC2FA6DE61D3B4B7 /* FirstUseTests.swift */; };
-		A1210ACE0000000000000001 /* AnalyticsAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1210ACE0000000000000002 /* AnalyticsAcceptanceTests.swift */; };
 		6EFE6852346704B6EA648FE3 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 873AD79E2EAEEF68B76340A0 /* ShareSheet.swift */; };
 		6F858F3DF5B78884E3D91EE5 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 6E4EE3AC59E84FBC025CA224 /* PostHog */; };
 		716253DD8952BD4D56500432 /* RevenueCatCrossDeviceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE4A8C78F8D235C019E5B60 /* RevenueCatCrossDeviceTests.swift */; };
@@ -79,9 +81,11 @@
 		86C87CA4AF9BE15FB1CC3FB6 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 542E89D179A6A1FD2BB2B0E0 /* QueepCore */; };
 		8747FD345D04AD6309D8FCB0 /* SpacesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B04168AAF6D34FFB752A1CD6 /* SpacesViews.swift */; };
 		8822AAEA127DC7A87B391BC2 /* sample-audio.wav in Resources */ = {isa = PBXBuildFile; fileRef = 4C959DC6FF4D75172915C0FA /* sample-audio.wav */; };
+		893C004CB9ED9E59CA8D3614 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 6D66D27219A46C11853C641B /* Sentry */; };
 		8A92E8BB0C5AFCEE98C7DD8D /* DeleteAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */; };
 		8B00E55AB16F33F240721861 /* ScreenCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259B81A4876BC372ECB2E2E0 /* ScreenCapture.swift */; };
 		8E21D7961457245AE4335A4A /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = A3E50EDE37776FE29F3A1FAE /* README.md */; };
+		8FB1E85D9E086B01D4AC2DE4 /* AnalyticsAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 380E6333B84BD8A72A67B64F /* AnalyticsAcceptanceTests.swift */; };
 		910B030B8B554269E0BF2619 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 49C2B2B21B99F3931F3643BE /* RevenueCat */; };
 		91EC702DC4DB9604DD9AD980 /* sample-audio.wav in Resources */ = {isa = PBXBuildFile; fileRef = 4C959DC6FF4D75172915C0FA /* sample-audio.wav */; };
 		922C2A4A7FC30A5612C1E9C5 /* GlobalShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91246D1B12DC2DEBD9F44C7A /* GlobalShortcut.swift */; };
@@ -91,6 +95,7 @@
 		9469B9D9AFF28A2D10230928 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8169790DA9A1F97835122FE7 /* Assets.xcassets */; };
 		94E8917F4CDF140F5313CFF3 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF400C89CE0A73581FB4FFBB /* CaptureView.swift */; };
 		96C23C83A25CBFAAAAD47303 /* FirstUseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE63076BBD0A3B76452512D /* FirstUseView.swift */; };
+		99CF636E0C1AB553DD548858 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 50239184DD8FCCB5308EC3E9 /* Sentry */; };
 		9A7B59C222C11C09BEDE43AC /* MediaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90CEA5BFE8E11C59B231D597 /* MediaViews.swift */; };
 		9BA5680DA549BD9A50E61692 /* ImportedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A3319D8C1AC4186CB05AFBD /* ImportedMedia.swift */; };
 		9BD2862017B36BA3F833A706 /* SubscriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 576E6A89CBF22D4D562CEACD /* SubscriptionTests.swift */; };
@@ -99,6 +104,7 @@
 		A33A0CCFBEAFAEC528E2465E /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DD8C45948F2A04A479DAE9 /* SubscriptionView.swift */; };
 		A726BF382D97824C877280D7 /* SpacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F43F224CC67407BEEF4D27AB /* SpacesTests.swift */; };
 		A9D01D4AB91DD1E1D2A40FEA /* RevenueCatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E521BF9EB40A1C9DF6F485D /* RevenueCatTests.swift */; };
+		AB5451FB651C8542647AF856 /* CrashReporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BC82B3180B284D672C79246 /* CrashReporting.swift */; };
 		ADE09EAABFBF5CC7A6E6AC1C /* RedesignSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04CAC7C516D613848DC7CC5C /* RedesignSnapshotTests.swift */; };
 		B05597C3071D416F5763975D /* ImageViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */; };
 		B48814EBE3192ABA210DFFCA /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF335AB16EFA9D60B3E49962 /* LibraryView.swift */; };
@@ -203,6 +209,7 @@
 		2E38A0C59BDE7A13369DE54B /* HomeReferenceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReferenceCard.swift; sourceTree = "<group>"; };
 		310CAE21E9A8FC376E8D4E9E /* SiteDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiteDetailView.swift; sourceTree = "<group>"; };
 		316CD0F3D2B3FC139105EAAB /* AccountDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionTests.swift; sourceTree = "<group>"; };
+		380E6333B84BD8A72A67B64F /* AnalyticsAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsAcceptanceTests.swift; sourceTree = "<group>"; };
 		427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountView.swift; sourceTree = "<group>"; };
 		448A171EFDE10BD4B0D93D7B /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		448EA832C6163EA29684639B /* LibrarySpacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySpacesTests.swift; sourceTree = "<group>"; };
@@ -227,6 +234,7 @@
 		737ADAFAFF16DA72E466A4AA /* ProductAnalytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductAnalytics.swift; sourceTree = "<group>"; };
 		75E4F4E442DC8E8DA478A295 /* MacHome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacHome.swift; sourceTree = "<group>"; };
 		7610F7839B8AEEC870D0C14F /* ProfileDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileDetailView.swift; sourceTree = "<group>"; };
+		7BC82B3180B284D672C79246 /* CrashReporting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReporting.swift; sourceTree = "<group>"; };
 		7BD4065FE9552201BF6CFE6F /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		7C1AB3CF993634E016B72674 /* RedesignSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedesignSnapshotTests.swift; sourceTree = "<group>"; };
 		8169790DA9A1F97835122FE7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -248,7 +256,6 @@
 		B04168AAF6D34FFB752A1CD6 /* SpacesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacesViews.swift; sourceTree = "<group>"; };
 		BE3EC29C819B440A82AB3595 /* MacCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacCapture.swift; sourceTree = "<group>"; };
 		BEE63076BBD0A3B76452512D /* FirstUseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstUseView.swift; sourceTree = "<group>"; };
-		A1210ACE0000000000000002 /* AnalyticsAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsAcceptanceTests.swift; sourceTree = "<group>"; };
 		C2BB72B8EC2FA6DE61D3B4B7 /* FirstUseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstUseTests.swift; sourceTree = "<group>"; };
 		C525F2515A3AE17962468274 /* AccountRecoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountRecoveryView.swift; sourceTree = "<group>"; };
 		C884AB1D62891FBCDA93B83F /* IncomingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingTests.swift; sourceTree = "<group>"; };
@@ -280,6 +287,7 @@
 			files = (
 				1039CC5CEB1857A90863D1D6 /* QueepCore in Frameworks */,
 				159AD3F959B5E4F6BADAC07A /* FirebaseAuth in Frameworks */,
+				893C004CB9ED9E59CA8D3614 /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -292,6 +300,7 @@
 				F487741FE2762A0E66C39774 /* FirebaseAuth in Frameworks */,
 				E8A2CD33AF03BC477ADD2755 /* GoogleSignIn in Frameworks */,
 				3026DE5417A58709621D5881 /* PostHog in Frameworks */,
+				6B6C39B754A2283243FEAEDA /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -312,6 +321,7 @@
 				63063E30E7CDEFBEFB3BB90E /* FirebaseAuth in Frameworks */,
 				64C047D84BF4999FCD4E0CA0 /* GoogleSignIn in Frameworks */,
 				6F858F3DF5B78884E3D91EE5 /* PostHog in Frameworks */,
+				99CF636E0C1AB553DD548858 /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -433,11 +443,11 @@
 			isa = PBXGroup;
 			children = (
 				4A79B0CDD062EEC96B1A19BB /* AccountDeletionTests.swift */,
+				380E6333B84BD8A72A67B64F /* AnalyticsAcceptanceTests.swift */,
 				EB2450314ED132A7828F8730 /* CaptureFlowTests.swift */,
 				ED0F006731E0A73E315B86EE /* CloudSearchTests.swift */,
 				2B2E01C5CB6E1489B7A89607 /* CloudShareTests.swift */,
 				EF202B3DD4FB6EF9770BF9BD /* CloudSourceTests.swift */,
-				A1210ACE0000000000000002 /* AnalyticsAcceptanceTests.swift */,
 				C2BB72B8EC2FA6DE61D3B4B7 /* FirstUseTests.swift */,
 				CFD6DA443D47A0A395264467 /* ImageEditTests.swift */,
 				903BA9EE87B9BD38698BE892 /* MediaFlowTests.swift */,
@@ -459,6 +469,7 @@
 				199F14B28CC882C0FF83A29C /* AnalysisView.swift */,
 				8169790DA9A1F97835122FE7 /* Assets.xcassets */,
 				FF400C89CE0A73581FB4FFBB /* CaptureView.swift */,
+				7BC82B3180B284D672C79246 /* CrashReporting.swift */,
 				427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */,
 				BEE63076BBD0A3B76452512D /* FirstUseView.swift */,
 				AD1EEC8D0C2DE67C5DFB4D17 /* HomeChrome.swift */,
@@ -562,6 +573,7 @@
 				FA350145145718663C2C36B2 /* Frameworks */,
 				0BD1D7F22FDAB79D7C46DA1E /* Verify release billing configuration */,
 				33AE75D4F44230DB7AF7F98B /* Select Firebase environment */,
+				494F67393E8752270A85FA81 /* Upload Sentry dSYM */,
 			);
 			buildRules = (
 			);
@@ -574,6 +586,7 @@
 				8750AF34361F6CBA2F436EAB /* FirebaseAuth */,
 				4C783710C920477FE4D5F973 /* GoogleSignIn */,
 				6E4EE3AC59E84FBC025CA224 /* PostHog */,
+				50239184DD8FCCB5308EC3E9 /* Sentry */,
 			);
 			productName = QueepMac;
 			productReference = FB7580BFE06134B21872DC1A /* QueepMac.app */;
@@ -587,6 +600,7 @@
 				1322F790B3A78390152329EE /* Resources */,
 				06288CE663533C8DC69552D8 /* Frameworks */,
 				6A8ACA1630E36E25B2C473D1 /* Select Firebase environment */,
+				B2D538B17B4260AE3783AF02 /* Upload Sentry dSYM */,
 			);
 			buildRules = (
 			);
@@ -596,6 +610,7 @@
 			packageProductDependencies = (
 				70FB7F20F84669C0D56036C3 /* QueepCore */,
 				4D35BA562A69DBA8C0AD000E /* FirebaseAuth */,
+				6D66D27219A46C11853C641B /* Sentry */,
 			);
 			productName = QueepShare;
 			productReference = 96D7F12B5BBB1AB4CC310E2F /* QueepShare.appex */;
@@ -631,6 +646,7 @@
 				62C69CBC781275CD985DF7B5 /* Embed Foundation Extensions */,
 				B33FA6C6D615ACFE2EF24FEB /* Verify release billing configuration */,
 				5980C05A5673C3106041D969 /* Select Firebase environment */,
+				64F145EA62425F84A817E45E /* Upload Sentry dSYM */,
 			);
 			buildRules = (
 			);
@@ -644,6 +660,7 @@
 				9309C2F0B1E82167BA6BE0E2 /* FirebaseAuth */,
 				F8052569BAB41AE1C274D253 /* GoogleSignIn */,
 				96B7AA540794BEEDF0E72245 /* PostHog */,
+				3BC17EF90C01D8CE22BFBB1C /* Sentry */,
 			);
 			productName = QueepiOS;
 			productReference = 4A209CB032567C65928FAABB /* QueepiOS.app */;
@@ -696,6 +713,7 @@
 				64F1396444F606A4C51C9C9B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				DEC19A7D8461EA2DD2363931 /* XCRemoteSwiftPackageReference "posthog-ios" */,
 				13180B658D005DCFB559DBB4 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
+				AA80D2C4C84647670431991E /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 				B50218C0A262FCD5A39A8E33 /* XCLocalSwiftPackageReference "Packages/QueepCore" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -814,6 +832,25 @@
 			shellPath = /bin/sh;
 			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ] || [ \"${CONFIGURATION}\" = \"TestFlight\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
 		};
+		494F67393E8752270A85FA81 /* Upload Sentry dSYM */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Upload Sentry dSYM";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/sh\n# Uploads TestFlight dSYMs so the stack names the tester build.\n# A missing token or CLI warns and lets the archive finish.\nset -u\n\nif [ \"${CONFIGURATION}\" != \"TestFlight\" ]; then\n  exit 0\nfi\n\nif [ -z \"${SENTRY_AUTH_TOKEN:-}\" ]; then\n  echo \"warning: SENTRY_AUTH_TOKEN is unset; TestFlight dSYMs were not uploaded\"\n  exit 0\nfi\n\nexport SENTRY_ORG=gazzoni\nexport SENTRY_PROJECT=queep-apple\n\nif [ \"$(uname -m)\" = \"arm64\" ]; then\n  export PATH=\"/opt/homebrew/bin:${PATH}\"\nfi\n\ncli=\"\"\nif command -v sentry-cli >/dev/null 2>&1; then\n  cli=\"sentry-cli\"\nelse\n  cache=\"${HOME}/Library/Caches/queep/sentry-cli\"\n  if [ ! -x \"${cache}\" ]; then\n    mkdir -p \"$(dirname \"${cache}\")\"\n    curl -fsSL -o \"${cache}\" \\\n      \"https://github.com/getsentry/sentry-cli/releases/download/2.53.0/sentry-cli-Darwin-universal\" \\\n      || { echo \"warning: could not download sentry-cli; TestFlight dSYMs were not uploaded\"; exit 0; }\n    chmod +x \"${cache}\"\n  fi\n  cli=\"${cache}\"\nfi\n\n# The token stays in the environment. Do not print it.\n\"${cli}\" debug-files upload \"${DWARF_DSYM_FOLDER_PATH}\" \\\n  || echo \"warning: sentry-cli debug-files upload failed\"\n";
+		};
 		5980C05A5673C3106041D969 /* Select Firebase environment */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -835,6 +872,25 @@
 			shellPath = /bin/sh;
 			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ] || [ \"${CONFIGURATION}\" = \"TestFlight\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
 		};
+		64F145EA62425F84A817E45E /* Upload Sentry dSYM */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Upload Sentry dSYM";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/sh\n# Uploads TestFlight dSYMs so the stack names the tester build.\n# A missing token or CLI warns and lets the archive finish.\nset -u\n\nif [ \"${CONFIGURATION}\" != \"TestFlight\" ]; then\n  exit 0\nfi\n\nif [ -z \"${SENTRY_AUTH_TOKEN:-}\" ]; then\n  echo \"warning: SENTRY_AUTH_TOKEN is unset; TestFlight dSYMs were not uploaded\"\n  exit 0\nfi\n\nexport SENTRY_ORG=gazzoni\nexport SENTRY_PROJECT=queep-apple\n\nif [ \"$(uname -m)\" = \"arm64\" ]; then\n  export PATH=\"/opt/homebrew/bin:${PATH}\"\nfi\n\ncli=\"\"\nif command -v sentry-cli >/dev/null 2>&1; then\n  cli=\"sentry-cli\"\nelse\n  cache=\"${HOME}/Library/Caches/queep/sentry-cli\"\n  if [ ! -x \"${cache}\" ]; then\n    mkdir -p \"$(dirname \"${cache}\")\"\n    curl -fsSL -o \"${cache}\" \\\n      \"https://github.com/getsentry/sentry-cli/releases/download/2.53.0/sentry-cli-Darwin-universal\" \\\n      || { echo \"warning: could not download sentry-cli; TestFlight dSYMs were not uploaded\"; exit 0; }\n    chmod +x \"${cache}\"\n  fi\n  cli=\"${cache}\"\nfi\n\n# The token stays in the environment. Do not print it.\n\"${cli}\" debug-files upload \"${DWARF_DSYM_FOLDER_PATH}\" \\\n  || echo \"warning: sentry-cli debug-files upload failed\"\n";
+		};
 		6A8ACA1630E36E25B2C473D1 /* Select Firebase environment */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -855,6 +911,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "#!/bin/sh\nset -eu\ndestination=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ \"${CONFIGURATION}\" = \"CloudDevelopment\" ] || [ \"${CONFIGURATION}\" = \"TestFlight\" ]; then\n  source=\"${SRCROOT}/${QUEEP_FIREBASE_CONFIG}\"\n  test -f \"$source\" || { echo \"error: Missing development Firebase configuration\"; exit 1; }\n  /bin/cp \"$source\" \"$destination\"\nelse\n  # Never carry the development Firebase project into a production build.\n  /bin/rm -f \"$destination\"\nfi\n";
+		};
+		B2D538B17B4260AE3783AF02 /* Upload Sentry dSYM */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Upload Sentry dSYM";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/sh\n# Uploads TestFlight dSYMs so the stack names the tester build.\n# A missing token or CLI warns and lets the archive finish.\nset -u\n\nif [ \"${CONFIGURATION}\" != \"TestFlight\" ]; then\n  exit 0\nfi\n\nif [ -z \"${SENTRY_AUTH_TOKEN:-}\" ]; then\n  echo \"warning: SENTRY_AUTH_TOKEN is unset; TestFlight dSYMs were not uploaded\"\n  exit 0\nfi\n\nexport SENTRY_ORG=gazzoni\nexport SENTRY_PROJECT=queep-apple\n\nif [ \"$(uname -m)\" = \"arm64\" ]; then\n  export PATH=\"/opt/homebrew/bin:${PATH}\"\nfi\n\ncli=\"\"\nif command -v sentry-cli >/dev/null 2>&1; then\n  cli=\"sentry-cli\"\nelse\n  cache=\"${HOME}/Library/Caches/queep/sentry-cli\"\n  if [ ! -x \"${cache}\" ]; then\n    mkdir -p \"$(dirname \"${cache}\")\"\n    curl -fsSL -o \"${cache}\" \\\n      \"https://github.com/getsentry/sentry-cli/releases/download/2.53.0/sentry-cli-Darwin-universal\" \\\n      || { echo \"warning: could not download sentry-cli; TestFlight dSYMs were not uploaded\"; exit 0; }\n    chmod +x \"${cache}\"\n  fi\n  cli=\"${cache}\"\nfi\n\n# The token stays in the environment. Do not print it.\n\"${cli}\" debug-files upload \"${DWARF_DSYM_FOLDER_PATH}\" \\\n  || echo \"warning: sentry-cli debug-files upload failed\"\n";
 		};
 		B33FA6C6D615ACFE2EF24FEB /* Verify release billing configuration */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -882,6 +957,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AB5451FB651C8542647AF856 /* CrashReporting.swift in Sources */,
 				2B28F1D37553AF8EB8F37B58 /* ImportedImage.swift in Sources */,
 				5D265085420FB7394B202AAA /* ImportedMedia.swift in Sources */,
 				B75ACBC6954A5C90CC69EBC9 /* IncomingReference.swift in Sources */,
@@ -916,12 +992,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				E4B1C2368954046D42983959 /* AccountDeletionTests.swift in Sources */,
+				8FB1E85D9E086B01D4AC2DE4 /* AnalyticsAcceptanceTests.swift in Sources */,
 				2B11EE24943CB84FDDFAF46E /* CaptureFlowTests.swift in Sources */,
 				EFE14BF78C6513E7C87F0BFC /* CloudSearchTests.swift in Sources */,
 				6B80ECD478746A3AF06AC53E /* CloudShareTests.swift in Sources */,
 				1E52D38AD26B18FB5C72D227 /* CloudSourceTests.swift in Sources */,
 				085A80289A13884C55D5E1AC /* DeletionFixture.swift in Sources */,
-				A1210ACE0000000000000001 /* AnalyticsAcceptanceTests.swift in Sources */,
 				6DB5692A4FE34BED1DB2EB5F /* FirstUseTests.swift in Sources */,
 				DDD93C3BDC2F24406FAA470E /* ImageEditTests.swift in Sources */,
 				241AD404E679EEDB05C6D31F /* MediaFlowTests.swift in Sources */,
@@ -943,6 +1019,7 @@
 				C1B594EFB4201F2316A014CF /* AccountView.swift in Sources */,
 				9E43D657290AB0E8E52F9085 /* AnalysisView.swift in Sources */,
 				94E8917F4CDF140F5313CFF3 /* CaptureView.swift in Sources */,
+				09B9B55EC2E3F24557588A02 /* CrashReporting.swift in Sources */,
 				8A92E8BB0C5AFCEE98C7DD8D /* DeleteAccountView.swift in Sources */,
 				96C23C83A25CBFAAAAD47303 /* FirstUseView.swift in Sources */,
 				3989E01C6E70ECC32E4B4BAD /* HomeChrome.swift in Sources */,
@@ -982,6 +1059,7 @@
 				C55B0D16D835EFE4B70B1A63 /* AccountView.swift in Sources */,
 				B9135461F523B4D98E1EB85B /* AnalysisView.swift in Sources */,
 				53FAAA8A7E9653EAA1821FFA /* CaptureView.swift in Sources */,
+				060B48221E9CE4B4F134FFCE /* CrashReporting.swift in Sources */,
 				625E8DD020ACD90251C09826 /* DeleteAccountView.swift in Sources */,
 				D1B31828DA363105D07C78B3 /* FirstUseView.swift in Sources */,
 				922C2A4A7FC30A5612C1E9C5 /* GlobalShortcut.swift in Sources */,
@@ -1145,6 +1223,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Config/Share.entitlements;
+				ENABLE_DEBUG_DYLIB = NO;
 				INFOPLIST_FILE = "Config/Generated/Share-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Salvar no Queep";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1156,6 +1235,7 @@
 				QUEEP_FIREBASE_CONFIG = "Config/Firebase/Development/Share/GoogleService-Info.plist";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) QUEEP_SHARE";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = TestFlight;
@@ -1166,6 +1246,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Config/Share.entitlements;
+				ENABLE_DEBUG_DYLIB = NO;
 				INFOPLIST_FILE = "Config/Generated/Share-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Salvar no Queep";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1176,6 +1257,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.local.share;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) QUEEP_SHARE";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -1331,6 +1413,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Config/Share.entitlements;
+				ENABLE_DEBUG_DYLIB = NO;
 				INFOPLIST_FILE = "Config/Generated/Share-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Salvar no Queep";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1342,6 +1425,7 @@
 				QUEEP_FIREBASE_CONFIG = "Config/Firebase/Development/Share/GoogleService-Info.plist";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) QUEEP_SHARE";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = CloudDevelopment;
@@ -1449,6 +1533,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Config/Share.entitlements;
+				ENABLE_DEBUG_DYLIB = NO;
 				INFOPLIST_FILE = "Config/Generated/Share-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Salvar no Queep";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1459,6 +1544,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.queep.ios.share;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) QUEEP_SHARE";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -1590,7 +1676,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -1875,6 +1961,14 @@
 				version = 12.19.1;
 			};
 		};
+		AA80D2C4C84647670431991E /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa.git";
+			requirement = {
+				kind = exactVersion;
+				version = 9.26.1;
+			};
+		};
 		DEC19A7D8461EA2DD2363931 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
@@ -1889,6 +1983,11 @@
 		0561B8E204ED34B1D47FE99F /* QueepCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = QueepCore;
+		};
+		3BC17EF90C01D8CE22BFBB1C /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA80D2C4C84647670431991E /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
 		};
 		49C2B2B21B99F3931F3643BE /* RevenueCat */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1905,9 +2004,19 @@
 			package = 701B533620ADC849B7B0BBEF /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAuth;
 		};
+		50239184DD8FCCB5308EC3E9 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA80D2C4C84647670431991E /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
 		542E89D179A6A1FD2BB2B0E0 /* QueepCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = QueepCore;
+		};
+		6D66D27219A46C11853C641B /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA80D2C4C84647670431991E /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
 		};
 		6E4EE3AC59E84FBC025CA224 /* PostHog */ = {
 			isa = XCSwiftPackageProductDependency;

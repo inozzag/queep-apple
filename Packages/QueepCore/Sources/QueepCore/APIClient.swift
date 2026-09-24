@@ -268,6 +268,7 @@ public struct APIClient: Sendable {
         catch is CancellationError { throw CancellationError() }
         catch {
             if Task.isCancelled { throw CancellationError() }
+            APIDiagnostics.report(method: method, path: path, status: nil)
             throw QueepError.unavailable
         }
         guard let http = response as? HTTPURLResponse else { throw QueepError.unavailable }
@@ -291,7 +292,12 @@ public struct APIClient: Sendable {
                 throw QueepError.planRequired(failure.detail)
             }
             throw QueepError.server("Confira seu plano em Conta → Assinatura.")
-        case 403, 413, 415, 429, 503:
+        case 500..<600:
+            APIDiagnostics.report(method: method, path: path, status: http.statusCode)
+            struct Failure: Decodable { let detail: String }
+            let failure = try? JSONDecoder().decode(Failure.self, from: data)
+            throw QueepError.server(failure?.detail ?? "Serviço temporariamente indisponível. Tente novamente.")
+        case 403, 413, 415, 429:
             struct Failure: Decodable { let detail: String }
             let failure = try? JSONDecoder().decode(Failure.self, from: data)
             throw QueepError.server(failure?.detail ?? "Serviço temporariamente indisponível. Tente novamente.")

@@ -3,6 +3,7 @@
 
 #include? "BillingDevelopment.xcconfig"
 
-// Local Debug never sends product analytics, even if a token exists for cloud builds.
+// Local Debug never sends product analytics or crash reports, even if cloud builds have keys.
 QUEEP_POSTHOG_KEY =
 QUEEP_POSTHOG_HOST =
+QUEEP_SENTRY_DSN =

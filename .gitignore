@@ -14,3 +14,4 @@ Config/BillingProduction.xcconfig
 
 Config/BillingTestFlight.xcconfig
 Config/PostHog.xcconfig
+Config/Sentry.xcconfig

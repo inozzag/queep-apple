@@ -5,3 +5,5 @@
 
 QUEEP_POSTHOG_KEY =
 QUEEP_POSTHOG_HOST =
+// Production is not wired to Sentry while TestFlight still uses the development Firebase project.
+QUEEP_SENTRY_DSN =
