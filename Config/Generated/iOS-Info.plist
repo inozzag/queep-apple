@@ -42,6 +42,8 @@
 	<string>$(QUEEP_PRIVACY_URL)</string>
 	<key>QueepRevenueCatKey</key>
 	<string>$(QUEEP_REVENUECAT_PUBLIC_KEY)</string>
+	<key>QueepSentryDSN</key>
+	<string>$(QUEEP_SENTRY_DSN)</string>
 	<key>QueepTermsURL</key>
 	<string>$(QUEEP_TERMS_URL)</string>
 	<key>QueepURLScheme</key>

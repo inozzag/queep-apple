@@ -7,6 +7,8 @@ struct QueepMacApp: App {
     @NSApplicationDelegateAdaptor(MacDelegate.self) private var delegate
     @State private var capture = MacCapture.shared
 
+    init() { CrashReporting.start() }
+
     var body: some Scene {
         Window("Queep", id: "library") {
             RootView().environment(capture.session).environment(capture.library)

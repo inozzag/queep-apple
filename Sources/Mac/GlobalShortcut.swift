@@ -7,6 +7,7 @@ final class MacDelegate: NSObject, NSApplicationDelegate {
     private var handler: EventHandlerRef?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        CrashReporting.start()
         var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
                                   eventKind: UInt32(kEventHotKeyPressed))
         InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in

@@ -7,10 +7,23 @@ import SwiftUI
 import GoogleSignIn
 #endif
 
+@MainActor
+enum SessionDiagnostics {
+    static var userID: String?
+    static var onUserChange: ((String?) -> Void)?
+}
+
 @MainActor @Observable
 final class Session {
     var userID: String? {
-        didSet { if oldValue != userID { planRequirement = nil; onAccountChange?() } }
+        didSet {
+            if oldValue != userID {
+                planRequirement = nil
+                onAccountChange?()
+                SessionDiagnostics.userID = userID
+                SessionDiagnostics.onUserChange?(userID)
+            }
+        }
     }
     var onAccountChange: (() -> Void)?
     var configurationError: String?
@@ -82,11 +95,17 @@ final class Session {
             catch { accountNotice = "Conecte-se à internet e entre novamente para verificar sua conta." }
         }
         #if DEBUG
-        // Test fixtures still authenticate against Firebase; never enabled for cloud builds.
-        if isLocal, ProcessInfo.processInfo.arguments.contains("--ui-testing"),
+        // Explicit UI tests may sign in against the configured Firebase, including CloudDevelopment.
+        // A normal launch never passes these arguments.
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing"),
            let email = ProcessInfo.processInfo.environment["QUEEP_TEST_EMAIL"],
-           let password = ProcessInfo.processInfo.environment["QUEEP_TEST_PASSWORD"] {
-            Task { try await signIn(email: email, password: password, create: false) }
+           let password = ProcessInfo.processInfo.environment["QUEEP_TEST_PASSWORD"],
+           isLocal || ProcessInfo.processInfo.arguments.contains("--ui-testing-cloud") {
+            let create = ProcessInfo.processInfo.arguments.contains("--ui-testing-create")
+            Task {
+                if create { try? signOut() }
+                try await signIn(email: email, password: password, create: create)
+            }
         }
         #endif
     }
@@ -260,7 +279,57 @@ final class Session {
         }
         let state = try await api.accountStatus()
         apply(state, owner: owner)
+        #if DEBUG
+        await probePlanLimitIfNeeded(api, owner: owner)
+        #endif
     }
+
+    #if DEBUG
+    private static var didProbePlanLimit = false
+
+    /// One request against an API that enforces plans. HTTP 402 must not open a Sentry issue.
+    /// The shared development API runs with billing disabled, so the probe can target another host.
+    private func probePlanLimitIfNeeded(_ api: APIClient, owner: String) async {
+        guard !Self.didProbePlanLimit,
+              ProcessInfo.processInfo.arguments.contains("--sentry-test-402") else { return }
+        Self.didProbePlanLimit = true
+        let probe: APIClient
+        if let raw = ProcessInfo.processInfo.environment["QUEEP_SENTRY_402_URL"],
+           let url = URL(string: raw), url.scheme == "https", url.host != nil {
+            probe = APIClient(baseURL: url) { [weak self] in
+                guard let self else { throw QueepError.unauthorized }
+                return try await self.token(for: owner)
+            }
+        } else {
+            probe = api
+        }
+        var lines: [String] = []
+        do {
+            _ = try await probe.createSpace(name: "gaz122")
+            lines.append("space=created")
+        } catch let error as QueepError {
+            lines.append("space=\(error)")
+        } catch {
+            lines.append("space=other \(error)")
+        }
+        if !lines.contains(where: { $0.contains("planRequired") }) {
+            do {
+                _ = try await probe.search("gaz122")
+                lines.append("search=ok")
+            } catch let error as QueepError {
+                lines.append("search=\(error)")
+            } catch {
+                lines.append("search=other \(error)")
+            }
+        }
+        let note = lines.joined(separator: "\n")
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("sentry-402.txt")
+        try? note.data(using: .utf8)?.write(to: url)
+        print("sentry-402: \(note)")
+        fflush(stdout)
+    }
+    #endif
 
     func handleUnauthorized(_ owner: String) async {
         do { try await refreshAccount(owner: owner) }

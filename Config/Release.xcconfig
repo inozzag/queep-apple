@@ -2,3 +2,6 @@
 // Debug's local configuration is deliberately not inherited.
 
 #include? "BillingProduction.xcconfig"
+
+// Production is not wired to Sentry while TestFlight still uses the development Firebase project.
+QUEEP_SENTRY_DSN =

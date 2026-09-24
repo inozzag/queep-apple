@@ -3,3 +3,6 @@ QUEEP_API_URL = https:/$()/queep-api-721281571441.southamerica-east1.run.app
 QUEEP_FIREBASE_PROJECT_ID = queep-dev-hstlx
 
 #include? "BillingDevelopment.xcconfig"
+
+QUEEP_SENTRY_DSN =
+#include? "Sentry.xcconfig"

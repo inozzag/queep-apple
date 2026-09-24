@@ -33,6 +33,8 @@ settings:
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) QUEEP_CLOUD"
       QUEEP_URL_SCHEME: queep-dev
       QUEEP_AUTH_GROUP: app.queep.auth.dev
+      DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+      ENABLE_USER_SCRIPT_SANDBOXING: NO
     CloudDevelopment:
       QUEEP_URL_SCHEME: queep-dev
       SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG QUEEP_CLOUD"
@@ -49,6 +51,9 @@ packages:
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS.git
     exactVersion: 8.0.0
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa.git
+    exactVersion: 9.26.1
 targets:
   QueepMac:
     attributes:
@@ -70,6 +75,7 @@ targets:
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
         GIDClientID: $(QUEEP_GOOGLE_CLIENT_ID)
+        QueepSentryDSN: $(QUEEP_SENTRY_DSN)
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         CFBundleURLTypes:
@@ -86,6 +92,10 @@ targets:
         basedOnDependencyAnalysis: false
         inputFiles: ["$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)"]
         outputFiles: ["$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist"]
+      - path: Scripts/upload-sentry-dsym.sh
+        name: Upload Sentry dSYM
+        basedOnDependencyAnalysis: false
+        showEnvVarsInLog: false
     dependencies:
       - package: RevenueCat
         product: RevenueCat
@@ -94,6 +104,8 @@ targets:
         product: FirebaseAuth
       - package: GoogleSignIn
         product: GoogleSignIn
+      - package: Sentry
+        product: Sentry
     settings:
       base:
         QUEEP_REVENUECAT_PUBLIC_KEY: $(QUEEP_REVENUECAT_MAC_KEY)
@@ -131,6 +143,7 @@ targets:
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
         GIDClientID: $(QUEEP_GOOGLE_CLIENT_ID)
+        QueepSentryDSN: $(QUEEP_SENTRY_DSN)
         UIUserInterfaceStyle: Light
         CFBundleURLTypes:
           - CFBundleURLSchemes:
@@ -147,6 +160,10 @@ targets:
         basedOnDependencyAnalysis: false
         inputFiles: ["$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)"]
         outputFiles: ["$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist"]
+      - path: Scripts/upload-sentry-dsym.sh
+        name: Upload Sentry dSYM
+        basedOnDependencyAnalysis: false
+        showEnvVarsInLog: false
     dependencies:
       - package: RevenueCat
         product: RevenueCat
@@ -157,6 +174,8 @@ targets:
         product: FirebaseAuth
       - package: GoogleSignIn
         product: GoogleSignIn
+      - package: Sentry
+        product: Sentry
     settings:
       base:
         QUEEP_REVENUECAT_PUBLIC_KEY: $(QUEEP_REVENUECAT_IOS_KEY)
@@ -187,10 +206,11 @@ targets:
         QueepURLScheme: $(QUEEP_URL_SCHEME)
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
+        QueepSentryDSN: $(QUEEP_SENTRY_DSN)
         QueepAuthGroup: $(AppIdentifierPrefix)$(QUEEP_AUTH_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.ui-services
-          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionPrincipalClass: ShareViewController
           NSExtensionAttributes:
             NSExtensionActivationRule:
               NSExtensionActivationDictionaryVersion: 2
@@ -206,21 +226,32 @@ targets:
       - Sources/Shared/ImportedImage.swift
       - Sources/Shared/ImportedMedia.swift
       - Sources/Shared/IncomingReference.swift
+      - Sources/Shared/CrashReporting.swift
     postBuildScripts:
       - path: Scripts/copy-firebase-config.sh
         name: Select Firebase environment
         basedOnDependencyAnalysis: false
         inputFiles: ["$(SRCROOT)/$(QUEEP_FIREBASE_CONFIG)"]
         outputFiles: ["$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/GoogleService-Info.plist"]
+      - path: Scripts/upload-sentry-dsym.sh
+        name: Upload Sentry dSYM
+        basedOnDependencyAnalysis: false
+        showEnvVarsInLog: false
     dependencies:
       - package: QueepCore
       - package: Firebase
         product: FirebaseAuth
+      - package: Sentry
+        product: Sentry
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.queep.ios.share
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) QUEEP_SHARE"
         CODE_SIGN_ENTITLEMENTS: Config/Share.entitlements
         APPLICATION_EXTENSION_API_ONLY: YES
+        # PlugInKit looks up the principal class in the appex executable. A debug dylib
+        # hides that class, so the share sheet never offers the extension.
+        ENABLE_DEBUG_DYLIB: NO
         SKIP_INSTALL: YES
         TARGETED_DEVICE_FAMILY: '1,2'
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

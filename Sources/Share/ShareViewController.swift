@@ -5,8 +5,22 @@ import QueepCore
 @MainActor
 @objc(ShareViewController)
 final class ShareViewController: UIViewController {
+    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+        CrashReporting.start()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        CrashReporting.start()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
+        CrashReporting.start()
+        #if DEBUG
+        if CrashReporting.consumeShareTestCrash(extensionContext) { return }
+        #endif
         guard let extensionContext else { return }
         let session = Session()
         let controller = UIHostingController(rootView: ShareView(context: extensionContext)

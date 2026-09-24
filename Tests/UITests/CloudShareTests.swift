@@ -65,4 +65,41 @@ final class CloudShareTests: XCTestCase {
         throw XCTSkip("Requires CloudDevelopment and an existing test account.")
         #endif
     }
+
+    func testShareExtensionCrashMarker() throws {
+        #if QUEEP_CLOUD
+        let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
+        safari.terminate()
+        safari.launch()
+        safari.open(URL(string: "https://example.com/queep-sentry-test-crash")!)
+        XCTAssertTrue(safari.staticTexts["Example Domain"].waitForExistence(timeout: 15), safari.debugDescription)
+        shareCrashPage(safari)
+        // The extension crashes. Open it again so Sentry can send the report.
+        Thread.sleep(forTimeInterval: 3)
+        safari.activate()
+        shareCrashPage(safari)
+        let save = safari.buttons["share.save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 15), safari.debugDescription)
+        Thread.sleep(forTimeInterval: 12)
+        #else
+        throw XCTSkip("Requires CloudDevelopment.")
+        #endif
+    }
+
+    private func shareCrashPage(_ safari: XCUIApplication) {
+        let more = safari.buttons["MoreMenuButton"]
+        XCTAssertTrue(more.waitForExistence(timeout: 15), safari.debugDescription)
+        more.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        let share = safari.buttons["ShareButton"]
+        XCTAssertTrue(share.waitForExistence(timeout: 8), safari.debugDescription)
+        share.tap()
+        // iOS 26 files this extension with the actions, behind View More, not the app row.
+        if !safari.buttons["Salvar no Queep"].exists, !safari.cells["Queep"].exists {
+            let viewMore = safari.cells.matching(
+                NSPredicate(format: "identifier == 'actionGroupCell' AND label == 'View More'")).firstMatch
+            XCTAssertTrue(viewMore.waitForExistence(timeout: 5), safari.debugDescription)
+            viewMore.tap()
+        }
+        safari.tapQueepShare()
+    }
 }

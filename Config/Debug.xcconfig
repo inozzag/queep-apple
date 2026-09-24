@@ -2,3 +2,6 @@
 #include? "Local.xcconfig"
 
 #include? "BillingDevelopment.xcconfig"
+
+// Local Debug (emulator, 127.0.0.1) never sends crash reports, even if a DSN exists for cloud builds.
+QUEEP_SENTRY_DSN =
