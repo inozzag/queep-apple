@@ -103,6 +103,7 @@ final class SubscriptionStore {
             let result = try await api.subscriptionAccess(refresh: refresh)
             guard session.userID == uid else { return }
             access = result
+            ProductAnalytics.identify(uid: uid, plan: result.plan.rawValue)
             if result.plan.rank >= (pendingPlan?.rank ?? 0) { awaitingConfirmation = false; pendingPlan = nil }
             guard key != nil else {
                 storeAvailable = false
@@ -159,6 +160,9 @@ final class SubscriptionStore {
                 message = "Altere seu plano em Gerenciar na App Store para manter uma única assinatura."
                 return
             }
+            if let plan = Self.plan(package)?.rawValue, let period = Self.billingPeriod(package) {
+                ProductAnalytics.purchaseStarted(plan: plan, period: period)
+            }
             let result = try await Purchases.shared.purchase(package: package)
             guard !result.userCancelled, session.userID == uid else { return }
             pendingPlan = Self.plan(package)
@@ -167,6 +171,10 @@ final class SubscriptionStore {
             guard session.userID == uid else { return }
             access = confirmed
             awaitingConfirmation = confirmed.plan.rank < (pendingPlan?.rank ?? 1)
+            ProductAnalytics.identify(uid: uid, plan: confirmed.plan.rawValue)
+            if !awaitingConfirmation, let period = Self.billingPeriod(package) {
+                ProductAnalytics.subscriptionStarted(plan: confirmed.plan.rawValue, period: period, uid: uid)
+            }
             message = confirmed.isDevelopment ? "Compra de teste concluída. O acesso de desenvolvimento permanece liberado."
                 : !awaitingConfirmation ? "Assinatura confirmada. Ela vale também nos seus outros dispositivos."
                 : "Compra recebida. Aguarde alguns segundos e toque em Atualizar assinatura para confirmar."
@@ -180,6 +188,20 @@ final class SubscriptionStore {
         if ["monthly", "yearly"].contains(package.storeProduct.productIdentifier) { return .pro }
         #endif
         return nil
+    }
+
+    static func billingPeriod(_ package: Package) -> String? {
+        switch package.storeProduct.subscriptionPeriod?.unit {
+        case .year: "year"
+        case .month: "month"
+        default: ProductEvent.billingPeriod(productIdentifier: package.storeProduct.productIdentifier)
+        }
+    }
+
+    static func billingPeriod(_ customer: CustomerInfo) -> String? {
+        let identifier = customer.entitlements["queep_max"]?.productIdentifier
+            ?? customer.entitlements["queep_pro"]?.productIdentifier
+        return identifier.flatMap { ProductEvent.billingPeriod(productIdentifier: $0) }
     }
 
     static func isAnnual(_ package: Package) -> Bool {
@@ -212,6 +234,10 @@ final class SubscriptionStore {
             guard session.userID == uid else { return }
             access = confirmed
             awaitingConfirmation = confirmed.plan.rank < (pendingPlan?.rank ?? 0)
+            ProductAnalytics.identify(uid: uid, plan: confirmed.plan.rawValue)
+            if !awaitingConfirmation, let period = Self.billingPeriod(customer) {
+                ProductAnalytics.subscriptionStarted(plan: confirmed.plan.rawValue, period: period, uid: uid)
+            }
             message = confirmed.isDevelopment ? "Restauração solicitada na loja de teste."
                 : confirmed.active ? "Sua assinatura está ativa nesta conta."
                 : "Nenhuma assinatura ativa confirmada. Confira a conta da App Store e tente atualizar em instantes."

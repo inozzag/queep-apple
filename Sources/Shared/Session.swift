@@ -7,6 +7,12 @@ import SwiftUI
 import GoogleSignIn
 #endif
 
+@MainActor
+enum SessionAnalytics {
+    static var recordSignIn: ((Bool, String, Session) async -> Void)?
+    static var reset: (() -> Void)?
+}
+
 @MainActor @Observable
 final class Session {
     var userID: String? {
@@ -82,11 +88,17 @@ final class Session {
             catch { accountNotice = "Conecte-se à internet e entre novamente para verificar sua conta." }
         }
         #if DEBUG
-        // Test fixtures still authenticate against Firebase; never enabled for cloud builds.
-        if isLocal, ProcessInfo.processInfo.arguments.contains("--ui-testing"),
+        // Explicit UI tests may sign in against the configured Firebase, including CloudDevelopment.
+        // A normal launch never passes these arguments, so it does not create or enter an account.
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing"),
            let email = ProcessInfo.processInfo.environment["QUEEP_TEST_EMAIL"],
-           let password = ProcessInfo.processInfo.environment["QUEEP_TEST_PASSWORD"] {
-            Task { try await signIn(email: email, password: password, create: false) }
+           let password = ProcessInfo.processInfo.environment["QUEEP_TEST_PASSWORD"],
+           isLocal || ProcessInfo.processInfo.arguments.contains("--ui-testing-cloud") {
+            let create = ProcessInfo.processInfo.arguments.contains("--ui-testing-create")
+            Task {
+                if create { try? signOut() }
+                try await signIn(email: email, password: password, create: create)
+            }
         }
         #endif
     }
@@ -128,20 +140,30 @@ final class Session {
     func signIn(email: String, password: String, create: Bool) async throws {
         if create {
             _ = try await Auth.auth().createUser(withEmail: email, password: password)
+            try await finishSignIn(created: true)
         } else {
-            _ = try await Auth.auth().signIn(withEmail: email, password: password)
+            let result = try await Auth.auth().signIn(withEmail: email, password: password)
+            try await finishSignIn(created: result.additionalUserInfo?.isNewUser == true)
         }
-        try await finishSignIn()
     }
 
     func signIn(with credential: AuthCredential) async throws {
-        _ = try await Auth.auth().signIn(with: credential)
-        try await finishSignIn()
+        let result = try await Auth.auth().signIn(with: credential)
+        try await finishSignIn(created: result.additionalUserInfo?.isNewUser == true)
     }
 
-    private func finishSignIn() async throws {
+    private func finishSignIn(created: Bool) async throws {
         if let user = Auth.auth().currentUser { try await refreshAccount(owner: user.uid) }
         accountNotice = nil
+        await SessionAnalytics.recordSignIn?(created, analyticsMethod, self)
+    }
+
+    private var analyticsMethod: String {
+        switch signInMethod {
+        case .apple: "apple"
+        case .google: "google"
+        case .password: "email"
+        }
     }
 
     func signOut() throws {
@@ -150,6 +172,7 @@ final class Session {
         #endif
         try Auth.auth().signOut()
         clearAccountState()
+        SessionAnalytics.reset?()
     }
 
     struct Identity: Equatable {
@@ -274,6 +297,7 @@ final class Session {
         }
         try? Auth.auth().signOut()
         clearAccountState()
+        SessionAnalytics.reset?()
         accountNotice = "Sua sessão foi encerrada. Entre novamente se sua conta ainda estiver ativa."
     }
 

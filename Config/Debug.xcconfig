@@ -2,3 +2,7 @@
 #include? "Local.xcconfig"
 
 #include? "BillingDevelopment.xcconfig"
+
+// Local Debug never sends product analytics, even if a token exists for cloud builds.
+QUEEP_POSTHOG_KEY =
+QUEEP_POSTHOG_HOST =

@@ -13,3 +13,4 @@ Config/BillingProduction.xcconfig
 *.log
 
 Config/BillingTestFlight.xcconfig
+Config/PostHog.xcconfig

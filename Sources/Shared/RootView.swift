@@ -40,12 +40,15 @@ struct RootView: View {
                 return
             }
             guard let uid = session.userID, let api = session.client() else { return }
+            await ProductAnalytics.syncIdentity(session)
+            await ProductAnalytics.deliverSharedCaptures(session)
             await library.refresh(api, account: uid)
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(4)) } catch { return }
                 guard phase == .active else { continue }
                 // Account closure must also dismiss details and capture sheets on other devices.
                 await session.handleUnauthorized(uid)
+                await ProductAnalytics.deliverSharedCaptures(session)
                 // Keep polling while a post is open so carousel photos appear after analysis.
                 if library.items.count <= 40 {
                     await library.refresh(api, account: uid)

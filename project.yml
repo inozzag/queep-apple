@@ -49,6 +49,9 @@ packages:
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS.git
     exactVersion: 8.0.0
+  PostHog:
+    url: https://github.com/PostHog/posthog-ios.git
+    exactVersion: 3.81.0
 targets:
   QueepMac:
     attributes:
@@ -70,6 +73,8 @@ targets:
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
         GIDClientID: $(QUEEP_GOOGLE_CLIENT_ID)
+        QueepPostHogKey: $(QUEEP_POSTHOG_KEY)
+        QueepPostHogHost: $(QUEEP_POSTHOG_HOST)
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         CFBundleURLTypes:
@@ -94,6 +99,8 @@ targets:
         product: FirebaseAuth
       - package: GoogleSignIn
         product: GoogleSignIn
+      - package: PostHog
+        product: PostHog
     settings:
       base:
         QUEEP_REVENUECAT_PUBLIC_KEY: $(QUEEP_REVENUECAT_MAC_KEY)
@@ -131,6 +138,13 @@ targets:
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
         GIDClientID: $(QUEEP_GOOGLE_CLIENT_ID)
+        QueepPostHogKey: $(QUEEP_POSTHOG_KEY)
+        QueepPostHogHost: $(QUEEP_POSTHOG_HOST)
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         UIUserInterfaceStyle: Light
         CFBundleURLTypes:
           - CFBundleURLSchemes:
@@ -157,6 +171,8 @@ targets:
         product: FirebaseAuth
       - package: GoogleSignIn
         product: GoogleSignIn
+      - package: PostHog
+        product: PostHog
     settings:
       base:
         QUEEP_REVENUECAT_PUBLIC_KEY: $(QUEEP_REVENUECAT_IOS_KEY)
@@ -206,6 +222,7 @@ targets:
       - Sources/Shared/ImportedImage.swift
       - Sources/Shared/ImportedMedia.swift
       - Sources/Shared/IncomingReference.swift
+      - Sources/Shared/ShareCaptureQueue.swift
     postBuildScripts:
       - path: Scripts/copy-firebase-config.sh
         name: Select Firebase environment

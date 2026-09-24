@@ -37,6 +37,12 @@ enum LibraryPresentation: Identifiable {
     }
 }
 
+@MainActor
+enum LibraryAnalytics {
+    static var searchSubmitted: ((Bool) -> Void)?
+    static var spaceCreated: (() -> Void)?
+}
+
 @MainActor @Observable
 final class LibraryStore {
     var items: [Reference] = []
@@ -203,6 +209,7 @@ final class LibraryStore {
             searchItems = result.items
             for ref in result.items { knownReferences[ref.id] = ref }
             hasPending = result.hasPending
+            LibraryAnalytics.searchSubmitted?(!result.items.isEmpty)
         } catch is CancellationError { }
         catch { if operation == searchGeneration { searchError = error.localizedDescription } }
     }
@@ -281,6 +288,7 @@ final class LibraryStore {
             let saved = try await client.saveSpace(id: space?.id, name: name, sortIndex: sortIndex)
             guard account == accountID else { return false }
             if let index = spaces.firstIndex(where: { $0.id == optimistic.id }) { spaces[index] = saved }
+            if space == nil { LibraryAnalytics.spaceCreated?() }
             persistCache()
             return true
         } catch {

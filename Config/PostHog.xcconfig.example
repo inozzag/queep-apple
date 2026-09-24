@@ -1,0 +1,5 @@
+// Copy to PostHog.xcconfig. Public project token only — never a personal API key.
+// Leave both empty to run the app without sending events.
+// xcconfig treats // as a comment, so write the host as https:/$()/us.i.posthog.com
+QUEEP_POSTHOG_KEY =
+QUEEP_POSTHOG_HOST =

@@ -270,13 +270,18 @@ struct CaptureView: View {
         busy = true
         defer { busy = false }
         do {
-            if let reference { _ = try await api.edit(reference, capture: capture, mutationID: requestID) }
-            else if kind == "media", let media {
-                _ = try await api.uploadMedia(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), file: media.file.url, spaceIDs: captureSpaceID.map { [$0] } ?? [])
+            let saved: Reference?
+            if let reference {
+                _ = try await api.edit(reference, capture: capture, mutationID: requestID)
+                saved = nil
+            } else if kind == "media", let media {
+                saved = try await api.uploadMedia(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), file: media.file.url, spaceIDs: captureSpaceID.map { [$0] } ?? [])
+            } else if kind == "image", let image {
+                saved = try await api.uploadImage(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), data: image.data, spaceIDs: captureSpaceID.map { [$0] } ?? [])
+            } else {
+                saved = try await api.create(id: requestID, capture: capture, spaceIDs: captureSpaceID.map { [$0] } ?? [])
             }
-            else if kind == "image", let image {
-                _ = try await api.uploadImage(id: requestID, title: title.trimmingCharacters(in: .whitespacesAndNewlines), data: image.data, spaceIDs: captureSpaceID.map { [$0] } ?? [])
-            } else { _ = try await api.create(id: requestID, capture: capture, spaceIDs: captureSpaceID.map { [$0] } ?? []) }
+            if let saved { ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library") }
             guard session.userID == uid else { return }
             if let reference { store.discardSearchReference(reference.id) }
             await store.refresh(api, account: uid)
