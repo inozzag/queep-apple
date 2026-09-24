@@ -2,3 +2,6 @@
 // Debug's local configuration is deliberately not inherited.
 
 #include? "BillingProduction.xcconfig"
+
+QUEEP_POSTHOG_KEY =
+QUEEP_POSTHOG_HOST =

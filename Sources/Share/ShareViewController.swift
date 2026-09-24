@@ -109,8 +109,9 @@ private struct ShareView: View {
         sending = true; error = nil
         defer { sending = false }
         do {
-            _ = try await incoming.save(using: client)
+            let reference = try await incoming.save(using: client)
             guard owner == session.userID else { return }
+            ShareCaptureQueue.enqueue(id: reference.id, kind: ProductEvent.kind(kind: reference.kind, url: reference.url))
             saved = true
             context.completeRequest(returningItems: nil)
         } catch { self.error = error.localizedDescription }

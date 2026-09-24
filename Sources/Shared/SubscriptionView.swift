@@ -147,13 +147,27 @@ struct SubscriptionView: View {
     }
 }
 
+private struct PaywallSheet: View {
+    let requirement: PlanRequirement
+    @State private var reported = false
+
+    var body: some View {
+        SubscriptionView(requirement: requirement)
+            .onAppear {
+                guard !reported else { return }
+                reported = true
+                ProductAnalytics.paywallViewed(requirement)
+            }
+    }
+}
+
 private struct SubscriptionGate: ViewModifier {
     @Environment(Session.self) private var session
     var enabled: Bool
     func body(content: Content) -> some View {
         content.sheet(item: Binding(get: { enabled ? session.planRequirement : nil },
                                     set: { session.planRequirement = $0 })) { requirement in
-            SubscriptionView(requirement: requirement)
+            PaywallSheet(requirement: requirement)
         }
     }
 }

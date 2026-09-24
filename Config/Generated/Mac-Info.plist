@@ -41,6 +41,10 @@
 	<string>$(QUEEP_API_URL)</string>
 	<key>QueepFirebaseProjectID</key>
 	<string>$(QUEEP_FIREBASE_PROJECT_ID)</string>
+	<key>QueepPostHogHost</key>
+	<string>$(QUEEP_POSTHOG_HOST)</string>
+	<key>QueepPostHogKey</key>
+	<string>$(QUEEP_POSTHOG_KEY)</string>
 	<key>QueepPrivacyURL</key>
 	<string>$(QUEEP_PRIVACY_URL)</string>
 	<key>QueepRevenueCatKey</key>

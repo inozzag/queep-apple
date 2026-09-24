@@ -64,6 +64,11 @@ struct LibraryView: View {
         }
         .overlay(alignment: .bottom) { archiveToast }
         .sheet(isPresented: $pickingSpaces) { SpacePicker(references: spaceSelection) }
+        .onChange(of: store.presentation?.id) { _, _ in
+            if case .reference(let reference) = store.presentation {
+                ProductAnalytics.referenceOpened(kind: reference.kind, url: reference.url)
+            }
+        }
         .onChange(of: store.selectedSpaceID) { _, _ in
             selecting = false
             selectedIDs = []

@@ -38,6 +38,10 @@
 	<string>$(AppIdentifierPrefix)$(QUEEP_AUTH_GROUP)</string>
 	<key>QueepFirebaseProjectID</key>
 	<string>$(QUEEP_FIREBASE_PROJECT_ID)</string>
+	<key>QueepPostHogHost</key>
+	<string>$(QUEEP_POSTHOG_HOST)</string>
+	<key>QueepPostHogKey</key>
+	<string>$(QUEEP_POSTHOG_KEY)</string>
 	<key>QueepPrivacyURL</key>
 	<string>$(QUEEP_PRIVACY_URL)</string>
 	<key>QueepRevenueCatKey</key>
@@ -46,6 +50,13 @@
 	<string>$(QUEEP_TERMS_URL)</string>
 	<key>QueepURLScheme</key>
 	<string>$(QUEEP_URL_SCHEME)</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
 </dict>

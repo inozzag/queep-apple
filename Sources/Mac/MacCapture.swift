@@ -25,6 +25,7 @@ final class MacCapture {
     }
     /// Island-initiated flows report progress in the island; failures still open the quick panel.
     private var quiet = false
+    private var pendingSource = "shortcut"
     private var owner: String?
     private var quick: NSPanel?
     private var island: NotchIsland?
@@ -88,7 +89,7 @@ final class MacCapture {
         do {
             if let files = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !files.isEmpty {
                 guard files.count == 1 else { throw QueepError.server("Cole uma imagem por vez.") }
-                receive([NSItemProvider(contentsOf: files[0])].compactMap { $0 }, quietly: quietly)
+                receive([NSItemProvider(contentsOf: files[0])].compactMap { $0 }, quietly: quietly, source: "paste")
             } else if let data = board.data(forType: .png) ?? board.data(forType: .tiff) {
                 busy = true
                 if !quiet { show() }
@@ -96,18 +97,18 @@ final class MacCapture {
                     do {
                         let image = try await Task.detached { try ImportedImage.prepare(data: data) }.value
                         busy = false
-                        await send(IncomingReference(text: "", url: nil, image: image.data), account: account)
+                        await send(IncomingReference(text: "", url: nil, image: image.data), account: account, source: "paste")
                     } catch { fail(error) }
                 }
             } else if let text = board.string(forType: .URL) ?? board.string(forType: .string) {
                 let incoming = try IncomingReference.text(text)
                 busy = true
-                Task { await send(incoming, account: account) }
+                Task { await send(incoming, account: account, source: "paste") }
             } else { throw QueepError.server("Copie uma imagem, um link ou um texto primeiro.") }
         } catch { fail(error) }
     }
 
-    func receive(_ providers: [NSItemProvider], quietly: Bool = false) {
+    func receive(_ providers: [NSItemProvider], quietly: Bool = false, source: String = "drag") {
         guard canStart() else { return }
         quiet = quietly
         let account = session.userID
@@ -120,7 +121,7 @@ final class MacCapture {
                     try await client.requireMediaAccess()
                 })
                 busy = false
-                await send(incoming, account: account)
+                await send(incoming, account: account, source: source)
             } catch { fail(error) }
         }
     }
@@ -131,15 +132,16 @@ final class MacCapture {
             let incoming = try IncomingReference.text(draft)
             let account = session.userID
             busy = true
-            Task { await send(incoming, account: account) }
+            Task { await send(incoming, account: account, source: "shortcut") }
         } catch { fail(error) }
     }
 
     func retry() {
         guard let pending, !busy else { return }
         let account = owner
+        let source = pendingSource
         busy = true
-        Task { await send(pending, account: account) }
+        Task { await send(pending, account: account, source: source) }
     }
 
     func discard() { guard !busy else { return }; pending = nil; owner = nil; message = nil; error = nil; quiet = false }
@@ -154,7 +156,7 @@ final class MacCapture {
             switch result {
             case .success(let bytes):
                 busy = true
-                Task { await self.send(IncomingReference(title: "Captura de tela", text: "", url: nil, image: bytes), account: account) }
+                Task { await self.send(IncomingReference(title: "Captura de tela", text: "", url: nil, image: bytes), account: account, source: "shortcut") }
             case .failure(let failure): fail(failure)
             }
         }
@@ -169,17 +171,18 @@ final class MacCapture {
         return true
     }
 
-    private func send(_ incoming: IncomingReference, account: String?) async {
+    private func send(_ incoming: IncomingReference, account: String?, source: String) async {
         guard let account, session.userID == account, let api = session.client() else {
             fail(QueepError.server("A conta mudou. Repita a captura na conta desejada.")); return
         }
         var incoming = incoming
         if pending == nil { incoming.spaceIDs = quiet ? [] : captureSpaceID.map { [$0] } ?? [] }
-        pending = incoming; owner = account; busy = true; error = nil; message = "Salvando…"
+        pending = incoming; pendingSource = source; owner = account; busy = true; error = nil; message = "Salvando…"
         if !quiet { show() }
         do {
-            _ = try await incoming.save(using: api)
+            let saved = try await incoming.save(using: api)
             guard session.userID == account else { pending = nil; busy = false; quiet = false; return }
+            ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: source)
             pending = nil; owner = nil; busy = false; quiet = false; draft = ""; message = Self.savedMessage
             captureSpaceID = nil
             library.reset(for: account)

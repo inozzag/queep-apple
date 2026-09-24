@@ -3,3 +3,7 @@
 #include? "Local.xcconfig"
 QUEEP_FIREBASE_PROJECT_ID = queep-dev-hstlx
 #include? "BillingTestFlight.xcconfig"
+
+QUEEP_POSTHOG_KEY =
+QUEEP_POSTHOG_HOST =
+#include? "PostHog.xcconfig"
