@@ -208,13 +208,11 @@ struct ConversionPaywall: View {
                         .buttonStyle(OnboardingPrimaryButton())
                         .disabled(store.busy)
                         .accessibilityIdentifier("paywall.buy")
-                        if let price = package.storeProduct.localizedPriceString {
-                            Text(priceLine(price, package: package))
-                                .font(.footnote)
-                                .foregroundStyle(Theme.homePreview)
-                                .frame(maxWidth: .infinity)
-                                .multilineTextAlignment(.center)
-                        }
+                        Text(priceLine(package.storeProduct.localizedPriceString, package: package))
+                            .font(.footnote)
+                            .foregroundStyle(Theme.homePreview)
+                            .frame(maxWidth: .infinity)
+                            .multilineTextAlignment(.center)
                         if let message = store.message {
                             Text(message).font(.callout).foregroundStyle(Theme.homePreview)
                         }
