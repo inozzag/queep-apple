@@ -59,6 +59,7 @@ struct OnboardingFlow: View {
     @State private var captured = false
     @State private var error: String?
     @State private var photo: PhotosPickerItem?
+    @State private var showPhotos = false
     @State private var filePicker = false
     @FocusState private var phoneFocused: Bool
 
@@ -256,10 +257,12 @@ struct OnboardingFlow: View {
 
     @ViewBuilder private var galleryButton: some View {
         #if os(iOS)
-        PhotosPicker(selection: $photo, matching: .images, preferredItemEncoding: .current) {
+        Button { showPhotos = true } label: {
             actionLabel("photo.on.rectangle", "Abrir a galeria", "Escolha uma imagem")
         }
+        .buttonStyle(.plain)
         .disabled(busy)
+        .photosPicker(isPresented: $showPhotos, selection: $photo, matching: .images, preferredItemEncoding: .current)
         .accessibilityIdentifier("onboarding.gallery")
         #else
         Button { filePicker = true } label: {
