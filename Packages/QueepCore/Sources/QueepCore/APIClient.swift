@@ -84,8 +84,10 @@ public struct APIClient: Sendable {
                                  method: "POST", body: JSONSerialization.data(withJSONObject: body))
     }
 
-    public func list(cursor: String? = nil, archived: Bool = false, spaceID: String? = nil) async throws -> LibraryPage {
-        var query = [URLQueryItem(name: "archived", value: archived ? "only" : "exclude")]
+    public func list(cursor: String? = nil, archived: Bool = false, spaceID: String? = nil,
+                     limit: Int = 18) async throws -> LibraryPage {
+        var query = [URLQueryItem(name: "archived", value: archived ? "only" : "exclude"),
+                     URLQueryItem(name: "limit", value: String(min(100, max(1, limit))))]
         if let cursor { query.append(.init(name: "cursor", value: cursor)) }
         if let spaceID { query.append(.init(name: "space_id", value: spaceID)) }
         return try await decoded("v1/references", query: query)

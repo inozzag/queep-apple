@@ -2,57 +2,6 @@ import SwiftUI
 import QueepCore
 
 #if os(macOS)
-struct MasonryLayout: Layout {
-    var spacing: CGFloat = Theme.homeGap
-    var forceColumns: Int?
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? 0
-        let columns = columnCount(for: width)
-        guard width > 0, !subviews.isEmpty else { return CGSize(width: width, height: 0) }
-        let columnWidth = self.columnWidth(in: width, columns: columns)
-        var heights = Array(repeating: CGFloat(0), count: columns)
-        for subview in subviews {
-            let column = shortest(heights)
-            let size = subview.sizeThatFits(.init(width: columnWidth, height: nil))
-            heights[column] += size.height + spacing
-        }
-        return CGSize(width: width, height: max(0, (heights.max() ?? 0) - spacing))
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let columns = columnCount(for: bounds.width)
-        let columnWidth = self.columnWidth(in: bounds.width, columns: columns)
-        var heights = Array(repeating: CGFloat(0), count: columns)
-        for subview in subviews {
-            let column = shortest(heights)
-            let size = subview.sizeThatFits(.init(width: columnWidth, height: nil))
-            let x = bounds.minX + CGFloat(column) * (columnWidth + spacing)
-            subview.place(
-                at: CGPoint(x: x, y: bounds.minY + heights[column]),
-                proposal: .init(width: columnWidth, height: size.height)
-            )
-            heights[column] += size.height + spacing
-        }
-    }
-
-    private func columnCount(for width: CGFloat) -> Int {
-        if let forceColumns { return max(1, forceColumns) }
-        if width < 540 { return 1 }
-        if width < 820 { return 2 }
-        if width < 1_100 { return 3 }
-        return 4
-    }
-
-    private func columnWidth(in width: CGFloat, columns: Int) -> CGFloat {
-        max(0, (width - spacing * CGFloat(columns - 1)) / CGFloat(columns))
-    }
-
-    private func shortest(_ heights: [CGFloat]) -> Int {
-        heights.enumerated().min(by: { $0.element < $1.element })?.offset ?? 0
-    }
-}
-
 struct MacLibraryHeader: View {
     @Environment(LibraryStore.self) private var store
     let search: () -> Void
@@ -119,7 +68,7 @@ struct MacLibraryHeader: View {
                 }
             }
         }
-        .padding(.horizontal, 48).padding(.top, 16).padding(.bottom, 18)
+        .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 18)
         .background(alignment: .leading) {
             HStack {
                 Button("Nova nota") { store.startCapture(kind: "note") }.keyboardShortcut("n")
@@ -170,46 +119,6 @@ struct MacLibraryHeader: View {
     private func removeChip(_ term: String) {
         store.removeSearchChip(term)
         if !store.searchChips.isEmpty { search() }
-    }
-}
-
-struct MacLibraryCollection<MenuContent: View>: View {
-    @Environment(\.dynamicTypeSize) private var typeSize
-    let items: [Reference]
-    let more: Bool
-    let loading: Bool
-    let selecting: Bool
-    let selectedIDs: Set<String>
-    let open: (Reference) -> Void
-    let loadMore: () -> Void
-    @ViewBuilder var menu: (Reference) -> MenuContent
-
-    var body: some View {
-        VStack(spacing: 18) {
-            MasonryLayout(forceColumns: typeSize.isAccessibilitySize ? 1 : nil) {
-                ForEach(items) { reference in
-                    LibraryCardCell(reference: reference, open: { open(reference) }) {
-                        menu(reference)
-                    }
-                    .id(reference.id)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .overlay(alignment: .topTrailing) {
-                        if selecting {
-                            Image(systemName: selectedIDs.contains(reference.id) ? "checkmark.circle.fill" : "circle")
-                                .font(.title2)
-                                .foregroundStyle(selectedIDs.contains(reference.id) ? Color.accentColor : .secondary)
-                                .padding(10).accessibilityHidden(true)
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .scrollTargetLayout()
-            if more {
-                Button("Carregar mais", action: loadMore)
-                    .buttonStyle(.bordered).disabled(loading).frame(maxWidth: .infinity)
-            }
-        }
     }
 }
 
