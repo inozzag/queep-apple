@@ -5,7 +5,7 @@ public enum ProductEvent {
     public static let kinds = ["note", "link", "image", "audio", "video", "social"]
     public static let sources = ["library", "shortcut", "share", "drag", "paste"]
     public static let methods = ["apple", "google", "email"]
-    public static let paywallReasons = ["plan_limit", "spaces_required", "media_av_required", "storage_limit"]
+    public static let paywallReasons = ["plan_limit", "spaces_required", "media_av_required", "storage_limit", "first_save"]
 
     public static func kind(kind: String, url: String?) -> String {
         switch kind {

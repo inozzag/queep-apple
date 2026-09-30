@@ -19,6 +19,10 @@ struct LibraryView: View {
     @State private var spaceSelection: [Reference] = []
     @State private var pickingSpaces = false
     @AppStorage("queep.firstSearchHint.dismissed") private var searchHintDismissed = false
+    @State private var onboardingPresented = false
+    @State private var onboardingDismissed = false
+    @State private var sawEmptyLibrary = false
+    @State private var conversionOffer: ConversionFocus?
 
     private var filtered: [Reference] {
         let items = store.searchItems ?? store.items
@@ -89,6 +93,65 @@ struct LibraryView: View {
             selectedIDs = []
             Task { await refresh() }
         }
+        .onAppear {
+            noteEmptyLibrary()
+            presentOnboardingIfNeeded()
+        }
+        .onChange(of: store.hasLoaded) { _, _ in
+            noteEmptyLibrary()
+            presentOnboardingIfNeeded()
+        }
+        .onChange(of: store.items.count) { _, _ in
+            noteEmptyLibrary()
+            considerFirstPaywall()
+        }
+        .onChange(of: onboardingPresented) { _, _ in considerFirstPaywall() }
+        .fullScreenCover(isPresented: $onboardingPresented) {
+            OnboardingFlow {
+                onboardingDismissed = true
+                onboardingPresented = false
+            }
+        }
+        .sheet(item: $conversionOffer) { focus in
+            ConversionPaywall(focus: focus)
+        }
+        .task(id: session.userID) { await restoreOnboarding() }
+    }
+
+    private var uiTesting: Bool { ProcessInfo.processInfo.arguments.contains("--ui-testing") }
+
+    private func presentOnboardingIfNeeded() {
+        guard !onboardingPresented, !onboardingDismissed, !uiTesting, let uid = session.userID else { return }
+        guard !OnboardingProgress.isComplete(uid) else { return }
+        guard store.hasLoaded, store.items.isEmpty, store.error == nil, !searching else { return }
+        onboardingPresented = true
+    }
+
+    private func noteEmptyLibrary() {
+        if store.hasLoaded && store.items.isEmpty && store.error == nil { sawEmptyLibrary = true }
+    }
+
+    private func considerFirstPaywall() {
+        guard !uiTesting, sawEmptyLibrary, !store.items.isEmpty, !onboardingPresented else { return }
+        guard let uid = session.userID, !OnboardingProgress.paywallShown(uid), conversionOffer == nil else { return }
+        OnboardingProgress.markPaywallShown(uid)
+        Task {
+            await SubscriptionStore.shared.load(session)
+            guard session.userID == uid else { return }
+            let access = SubscriptionStore.shared.access
+            let plan = access?.plan ?? .free
+            // Local emulators grant Max, so a development session can still preview the trial sheet.
+            guard plan == .free || access?.isDevelopment == true else { return }
+            conversionOffer = .pro
+        }
+    }
+
+    private func restoreOnboarding() async {
+        guard let uid = session.userID, let api = session.client(), !OnboardingProgress.isComplete(uid) else { return }
+        if let _ = try? await api.onboardingProfile() {
+            OnboardingProgress.markComplete(uid)
+            onboardingDismissed = true
+        }
     }
 
     @ViewBuilder private var libraryStack: some View {
@@ -145,7 +208,7 @@ struct LibraryView: View {
                     Button("Tentar novamente") { Task { await refresh() } }
                 }.card(padding: 14, elevated: false)
             }
-            if store.surface == .home && store.items.count == 1 && !searching && !searchHintDismissed {
+            if store.surface == .home && store.items.count == 1 && !searching && !searchHintDismissed && conversionOffer == nil {
                 HStack(alignment: .top, spacing: 12) {
                     Sparkle()
                     Text("Referência salva. Use a busca da biblioteca para encontrá-la pelo nome ou, depois da análise, pelo assunto e pela aparência.")

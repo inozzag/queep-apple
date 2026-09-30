@@ -102,7 +102,11 @@ enum ProductAnalytics {
     }
 
     static func paywallViewed(_ requirement: PlanRequirement) {
-        guard let properties = ProductEvent.paywall(code: requirement.code, targetPlan: requirement.requiredPlan?.rawValue) else { return }
+        paywallViewed(code: requirement.code, targetPlan: requirement.requiredPlan?.rawValue)
+    }
+
+    static func paywallViewed(code: String, targetPlan: String?) {
+        guard let properties = ProductEvent.paywall(code: code, targetPlan: targetPlan) else { return }
         emit("paywall_viewed", properties.mapValues { $0 as Any })
     }
 

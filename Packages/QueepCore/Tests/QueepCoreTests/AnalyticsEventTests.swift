@@ -36,6 +36,7 @@ import Testing
         "reason": "spaces_required", "target_plan": "pro"
     ])
     #expect(ProductEvent.paywall(code: "media_av_required", targetPlan: nil)?["target_plan"] == "none")
+    #expect(ProductEvent.paywall(code: "first_save", targetPlan: "pro")?["reason"] == "first_save")
     #expect(ProductEvent.paywall(code: "not_a_wall", targetPlan: "max") == nil)
     #expect(ProductEvent.referenceOpened(kind: "image", url: nil) == ["kind": "image"])
     #expect(ProductEvent.spaceCreated(platform: "macos") == ["platform": "macos"])

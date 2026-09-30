@@ -132,7 +132,8 @@ final class SubscriptionStore {
             let eligibility = await Purchases.shared.checkTrialOrIntroDiscountEligibility(packages: packages)
             guard session.userID == uid else { return }
             trialEligible = Set(packages.filter { package in
-                guard Self.plan(package) == .pro, Self.isAnnual(package),
+                guard let plan = Self.plan(package), plan == .pro || plan == .max,
+                      Self.isAnnual(package),
                       eligibility[package]?.status == .eligible,
                       let offer = package.storeProduct.introductoryDiscount,
                       offer.paymentMode == .freeTrial else { return false }
@@ -156,7 +157,9 @@ final class SubscriptionStore {
             let before = try await api.subscriptionAccess(refresh: true)
             guard session.userID == uid else { return }
             access = before
-            guard !before.active || before.isDevelopment else {
+            let target = Self.plan(package)
+            let upgrading = (target?.rank ?? 0) > before.plan.rank
+            guard !before.active || before.isDevelopment || upgrading else {
                 message = "Altere seu plano em Gerenciar na App Store para manter uma única assinatura."
                 return
             }
@@ -207,6 +210,21 @@ final class SubscriptionStore {
     static func isAnnual(_ package: Package) -> Bool {
         package.storeProduct.subscriptionPeriod?.unit == .year
             && package.storeProduct.subscriptionPeriod?.value == 1
+    }
+
+    /// An active Pro trial upgrades to Max at the Max price. It does not start a second free trial.
+    func offersTrial(_ package: Package) -> Bool {
+        guard trialEligible.contains(package.identifier) else { return false }
+        if let access, access.active, !access.isDevelopment, access.plan != .free { return false }
+        return true
+    }
+
+    func package(plan: SubscriptionPlan, annual: Bool) -> Package? {
+        packages.first { Self.plan($0) == plan && Self.isAnnual($0) == annual }
+    }
+
+    func preferredPackage(plan: SubscriptionPlan, annual: Bool) -> Package? {
+        package(plan: plan, annual: annual) ?? packages.first { Self.plan($0) == plan }
     }
 
     func annualDiscount(_ package: Package) -> Int? {

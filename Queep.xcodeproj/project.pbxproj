@@ -97,6 +97,7 @@
 		9469B9D9AFF28A2D10230928 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8169790DA9A1F97835122FE7 /* Assets.xcassets */; };
 		94E8917F4CDF140F5313CFF3 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF400C89CE0A73581FB4FFBB /* CaptureView.swift */; };
 		96C23C83A25CBFAAAAD47303 /* FirstUseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE63076BBD0A3B76452512D /* FirstUseView.swift */; };
+		F8B2D5C03E704B19C2D4E6F8 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C4B92D6F4A08B1C3D5E7 /* OnboardingView.swift */; };
 		99CF636E0C1AB553DD548858 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 50239184DD8FCCB5308EC3E9 /* Sentry */; };
 		9A7B59C222C11C09BEDE43AC /* MediaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90CEA5BFE8E11C59B231D597 /* MediaViews.swift */; };
 		9BA5680DA549BD9A50E61692 /* ImportedMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A3319D8C1AC4186CB05AFBD /* ImportedMedia.swift */; };
@@ -130,6 +131,7 @@
 		CDB696745348653A2A5258F3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A655CD1C2C4FA81E60DCDA17 /* Assets.xcassets */; };
 		D171D7345892DC00167FD700 /* IncomingReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FCC66E4D155E455FEEB017 /* IncomingReference.swift */; };
 		D1B31828DA363105D07C78B3 /* FirstUseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE63076BBD0A3B76452512D /* FirstUseView.swift */; };
+		A9C3E6D14F815C20D3E5F709 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C4B92D6F4A08B1C3D5E7 /* OnboardingView.swift */; };
 		D1E4C876B6403A49612518C2 /* SubscriptionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D8DD2B33C0013545C7F814B /* SubscriptionStore.swift */; };
 		D36B61D13131A00D06E32B6C /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
 		D4946673984E67F651775382 /* ShareCaptureQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC5732EBE146B9340132851F /* ShareCaptureQueue.swift */; };
@@ -258,6 +260,7 @@
 		B04168AAF6D34FFB752A1CD6 /* SpacesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacesViews.swift; sourceTree = "<group>"; };
 		BE3EC29C819B440A82AB3595 /* MacCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacCapture.swift; sourceTree = "<group>"; };
 		BEE63076BBD0A3B76452512D /* FirstUseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstUseView.swift; sourceTree = "<group>"; };
+		E7A1C4B92D6F4A08B1C3D5E7 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C2BB72B8EC2FA6DE61D3B4B7 /* FirstUseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstUseTests.swift; sourceTree = "<group>"; };
 		C525F2515A3AE17962468274 /* AccountRecoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountRecoveryView.swift; sourceTree = "<group>"; };
 		C884AB1D62891FBCDA93B83F /* IncomingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncomingTests.swift; sourceTree = "<group>"; };
@@ -487,6 +490,7 @@
 				75E4F4E442DC8E8DA478A295 /* MacHome.swift */,
 				10A718A6F2A29F803B2585DA /* Markdown.swift */,
 				90CEA5BFE8E11C59B231D597 /* MediaViews.swift */,
+				E7A1C4B92D6F4A08B1C3D5E7 /* OnboardingView.swift */,
 				AB6EDD7AA22087AAA5F95227 /* PostDetailView.swift */,
 				737ADAFAFF16DA72E466A4AA /* ProductAnalytics.swift */,
 				7610F7839B8AEEC870D0C14F /* ProfileDetailView.swift */,
@@ -1038,6 +1042,7 @@
 				26817AC575E5AE868E869DD4 /* MacHome.swift in Sources */,
 				4B25AD6FF7886196DB85EFBF /* Markdown.swift in Sources */,
 				9A7B59C222C11C09BEDE43AC /* MediaViews.swift in Sources */,
+				F8B2D5C03E704B19C2D4E6F8 /* OnboardingView.swift in Sources */,
 				794E1B13F49E5B3721A73BD1 /* PostDetailView.swift in Sources */,
 				FC4926E91BBEF7F184BD646E /* ProductAnalytics.swift in Sources */,
 				F20088A0B4D733C9D4B85455 /* ProfileDetailView.swift in Sources */,
@@ -1081,6 +1086,7 @@
 				40368755A41958B679018D8A /* MacHome.swift in Sources */,
 				E467E8D2FCAC8EA4DDB692BC /* Markdown.swift in Sources */,
 				77CF42808D5F6538283E514D /* MediaViews.swift in Sources */,
+				A9C3E6D14F815C20D3E5F709 /* OnboardingView.swift in Sources */,
 				F9851BDA4A14F94C4F9D50E1 /* NotchIsland.swift in Sources */,
 				4E947E27CC1ABE47DE22812A /* PostDetailView.swift in Sources */,
 				C51355A385B7C03C6EA75C5A /* ProductAnalytics.swift in Sources */,

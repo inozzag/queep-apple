@@ -49,6 +49,26 @@ public struct APIClient: Sendable {
         }
     }
 
+    public struct OnboardingProfile: Decodable, Sendable {
+        public let phone: String
+        public let source: String
+        public let work: String
+    }
+
+    public func onboardingProfile() async throws -> OnboardingProfile? {
+        let data = try await request("v1/account/onboarding", method: "GET")
+        guard !data.isEmpty else { return nil }
+        return try Self.decoder().decode(OnboardingProfile.self, from: data)
+    }
+
+    public func saveOnboarding(phone: String, source: String, work: String) async throws {
+        guard let phone = OnboardingAnswers.phone(phone),
+              OnboardingAnswers.sources.contains(source),
+              OnboardingAnswers.work.contains(work) else { throw QueepError.invalidCapture }
+        let body = try JSONSerialization.data(withJSONObject: ["phone": phone, "source": source, "work": work])
+        _ = try await request("v1/account/onboarding", method: "PUT", body: body)
+    }
+
     public func accountStatus() async throws -> AccountStatus {
         try await decoded("v1/account")
     }
