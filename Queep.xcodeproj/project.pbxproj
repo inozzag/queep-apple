@@ -17,6 +17,7 @@
 		1039CC5CEB1857A90863D1D6 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 70FB7F20F84669C0D56036C3 /* QueepCore */; };
 		1095129D63D080D01757A4BA /* FirstUseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28F7E9ED7DB96983034F1383 /* FirstUseTests.swift */; };
 		11FF8A1D0B75E3E90668C2D9 /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DD8C45948F2A04A479DAE9 /* SubscriptionView.swift */; };
+		1345B0BC4A6D0CDBBC2142BB /* GalleryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AA71CE1552619A0E79450A /* GalleryDetailView.swift */; };
 		159AD3F959B5E4F6BADAC07A /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4D35BA562A69DBA8C0AD000E /* FirebaseAuth */; };
 		1646C9AF3721E4FF85FE630A /* IncomingReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FCC66E4D155E455FEEB017 /* IncomingReference.swift */; };
 		16BBD33A0E1877F0387F34DD /* SocialAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C69E44624BF3502390F7908 /* SocialAuth.swift */; };
@@ -76,6 +77,7 @@
 		72862B11E52F19794B5E76F4 /* QueepiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E15BE1356E67A48F8B24FB6D /* QueepiOSApp.swift */; };
 		77CF42808D5F6538283E514D /* MediaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90CEA5BFE8E11C59B231D597 /* MediaViews.swift */; };
 		794E1B13F49E5B3721A73BD1 /* PostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB6EDD7AA22087AAA5F95227 /* PostDetailView.swift */; };
+		799C2555B738D4B566C4AAED /* GalleryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AA71CE1552619A0E79450A /* GalleryDetailView.swift */; };
 		7EF1F13CA07785B269744334 /* QualityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62AD0AC44B739E3176E9CF5E /* QualityTests.swift */; };
 		84EF50E7F0D78F2323685F5A /* IncomingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C884AB1D62891FBCDA93B83F /* IncomingTests.swift */; };
 		86C87CA4AF9BE15FB1CC3FB6 /* QueepCore in Frameworks */ = {isa = PBXBuildFile; productRef = 542E89D179A6A1FD2BB2B0E0 /* QueepCore */; };
@@ -262,6 +264,7 @@
 		CAAE69E5E9F1233A6C2509B1 /* ShortcutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutTests.swift; sourceTree = "<group>"; };
 		CC5732EBE146B9340132851F /* ShareCaptureQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCaptureQueue.swift; sourceTree = "<group>"; };
 		CFD6DA443D47A0A395264467 /* ImageEditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageEditTests.swift; sourceTree = "<group>"; };
+		D0AA71CE1552619A0E79450A /* GalleryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryDetailView.swift; sourceTree = "<group>"; };
 		D33C902F21A3B93CCCEBCA62 /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
 		DF6C50EC26B5DF5789044626 /* SpacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacesTests.swift; sourceTree = "<group>"; };
 		E1395287258F14C65D8424EE /* ImportedImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedImage.swift; sourceTree = "<group>"; };
@@ -472,6 +475,7 @@
 				7BC82B3180B284D672C79246 /* CrashReporting.swift */,
 				427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */,
 				BEE63076BBD0A3B76452512D /* FirstUseView.swift */,
+				D0AA71CE1552619A0E79450A /* GalleryDetailView.swift */,
 				AD1EEC8D0C2DE67C5DFB4D17 /* HomeChrome.swift */,
 				2E38A0C59BDE7A13369DE54B /* HomeReferenceCard.swift */,
 				4AC004F2CAB38A9F0452FDE1 /* ImageViews.swift */,
@@ -1022,6 +1026,7 @@
 				09B9B55EC2E3F24557588A02 /* CrashReporting.swift in Sources */,
 				8A92E8BB0C5AFCEE98C7DD8D /* DeleteAccountView.swift in Sources */,
 				96C23C83A25CBFAAAAD47303 /* FirstUseView.swift in Sources */,
+				1345B0BC4A6D0CDBBC2142BB /* GalleryDetailView.swift in Sources */,
 				3989E01C6E70ECC32E4B4BAD /* HomeChrome.swift in Sources */,
 				4CD47D18AC192393ADCD2269 /* HomeReferenceCard.swift in Sources */,
 				B05597C3071D416F5763975D /* ImageViews.swift in Sources */,
@@ -1062,6 +1067,7 @@
 				060B48221E9CE4B4F134FFCE /* CrashReporting.swift in Sources */,
 				625E8DD020ACD90251C09826 /* DeleteAccountView.swift in Sources */,
 				D1B31828DA363105D07C78B3 /* FirstUseView.swift in Sources */,
+				799C2555B738D4B566C4AAED /* GalleryDetailView.swift in Sources */,
 				922C2A4A7FC30A5612C1E9C5 /* GlobalShortcut.swift in Sources */,
 				B4CF8C914F6B90D69F00E623 /* HomeChrome.swift in Sources */,
 				1BE814BF09069826C0265142 /* HomeReferenceCard.swift in Sources */,
@@ -1482,7 +1488,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1585,7 +1591,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1672,7 +1678,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1758,7 +1764,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;

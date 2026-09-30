@@ -10,8 +10,7 @@ struct SpaceNavigation: View {
                 tab("Tudo", count: nil, id: nil)
                 ForEach(store.spaces) { space in tab(space.name, count: space.countLabel, id: space.id) }
                 Button { store.presentation = .newSpace } label: {
-                    Label("Novo Space", systemImage: "plus")
-                        .padding(.horizontal, 14).frame(minHeight: 44)
+                    GalleryChip(title: "Novo Space", symbol: "plus")
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("spaces.new")
@@ -24,13 +23,7 @@ struct SpaceNavigation: View {
     private func tab(_ name: String, count: String?, id: String?) -> some View {
         let selected = store.selectedSpaceID == id
         return Button { store.selectSpace(id) } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name).font(.callout.weight(selected ? .semibold : .regular)).lineLimit(1)
-                if let count { Text(count).font(.caption2).foregroundStyle(.secondary) }
-            }
-            .padding(.horizontal, 14).frame(minHeight: 44)
-            .background(selected ? Color.accentColor.opacity(0.12) : Color.gray.opacity(0.06),
-                        in: RoundedRectangle(cornerRadius: 12))
+            GalleryChip(title: name, selected: selected)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(count.map { "\(name), \($0)" } ?? name)

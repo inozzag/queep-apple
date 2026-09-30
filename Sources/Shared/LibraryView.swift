@@ -1,5 +1,10 @@
 import SwiftUI
 import QueepCore
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 struct LibraryView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -28,7 +33,7 @@ struct LibraryView: View {
         NavigationStack {
             libraryStack
             .subscriptionGate(enabled: store.presentation == nil)
-            .sheet(item: $store.presentation) { presentation in
+            .sheet(item: sheetPresentation) { presentation in
                 switch presentation {
                 case .account: AccountView()
                 case .usage: UsagePrivacyView()
@@ -38,13 +43,15 @@ struct LibraryView: View {
                 case .newSpace: SpaceNameSheet()
                 case .capture: CaptureView(reference: nil, initialKind: store.captureKind)
                 case .reference(let reference):
-                    LiveReferenceView(reference: reference) { live in
-                        if live.isSocialProfile { ProfileDetailView(reference: live) }
-                        else if live.isSocialPost { PostDetailView(reference: live) }
-                        else if live.isWebsite { SiteDetailView(reference: live) }
-                        else if live.kind == "image" { ImageDetailView(reference: live) }
-                        else if live.media != nil { MediaDetailView(reference: live) }
-                        else { CaptureView(reference: live) }
+                    if GalleryDetailView.supports(reference) {
+                        GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
+                            #if os(iOS)
+                            .presentationDragIndicator(.hidden)
+                            #endif
+                    } else {
+                        LiveReferenceView(reference: reference) { live in
+                            ReferenceDetail(reference: live)
+                        }
                     }
                 }
             }
@@ -90,9 +97,9 @@ struct LibraryView: View {
         ZStack(alignment: .top) {
             ScrollView {
                 libraryContents
-                    .padding(.horizontal, 48).padding(.bottom, 36)
+                    .padding(.horizontal, 16).padding(.bottom, 36)
                     .padding(.top, max(8, macHeaderHeight))
-                    .frame(maxWidth: 1280).frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity)
             }
             .scrollPosition(id: Binding(get: { store.scrollAnchors[store.filterKey] }, set: {
                 if let id = $0 { store.scrollAnchors[store.filterKey] = id }
@@ -101,6 +108,8 @@ struct LibraryView: View {
                 .homeTopBar()
                 .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
         }
+        .overlay { macGallery }
+        .animation(.easeOut(duration: 0.15), value: macGalleryID)
         .background(Color.white)
         .preferredColorScheme(.light)
         .hideMacWindowTitle()
@@ -122,9 +131,11 @@ struct LibraryView: View {
             if store.surface == .spaces {
                 SpacesOverview()
             } else {
-            if store.surface == .home { SpaceNavigation() }
-            if !store.items.isEmpty && !searching {
-                selectionBar
+            if store.surface == .home || (!store.items.isEmpty && !searching) {
+                HStack(spacing: 8) {
+                    if store.surface == .home { SpaceNavigation() } else { Spacer(minLength: 0) }
+                    if !store.items.isEmpty && !searching { selectionBar.fixedSize() }
+                }
             }
             if let error = store.error {
                 HStack(spacing: 12) {
@@ -188,43 +199,17 @@ struct LibraryView: View {
                     if !searching { Button("Adicionar referência") { store.startCapture() }.buttonStyle(.borderedProminent) }
                 }
             } else {
-                #if os(macOS)
-                MacLibraryCollection(items: filtered, more: !searching && store.nextCursor != nil, loading: store.loading,
-                                     selecting: selecting, selectedIDs: selectedIDs,
-                                     open: { open($0) },
-                                     loadMore: {
+                LibraryGallery(items: filtered, more: !searching && store.nextCursor != nil,
+                               loading: store.loading, failed: store.error != nil,
+                               selecting: selecting, selectedIDs: selectedIDs,
+                               resetID: "\(store.filterKey)|\(store.kindFilter ?? "")|\(searching)",
+                               open: { open($0) },
+                               loadMore: {
                     Task {
                         guard let api = session.client(), let uid = session.userID else { return }
                         await store.refresh(api, account: uid, more: true)
                     }
                 }, menu: { cardMenu($0) })
-                #else
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
-                    ForEach(filtered) { reference in
-                        LibraryCardCell(reference: reference, open: { open(reference) }) {
-                            cardMenu(reference)
-                        }
-                        .id(reference.id)
-                        .overlay(alignment: .topTrailing) {
-                            if selecting {
-                                Image(systemName: selectedIDs.contains(reference.id) ? "checkmark.circle.fill" : "circle")
-                                    .font(.title2)
-                                    .foregroundStyle(selectedIDs.contains(reference.id) ? Color.accentColor : .secondary)
-                                    .padding(10).accessibilityHidden(true)
-                            }
-                        }
-                    }
-                }
-                .scrollTargetLayout()
-                if !searching && store.nextCursor != nil {
-                    Button("Carregar mais") {
-                        Task {
-                            guard let api = session.client(), let uid = session.userID else { return }
-                            await store.refresh(api, account: uid, more: true)
-                        }
-                    }.buttonStyle(.bordered).disabled(store.loading).frame(maxWidth: .infinity)
-                }
-                #endif
             }
             }
         }
@@ -248,34 +233,63 @@ struct LibraryView: View {
     }
 
     private var selectionBar: some View {
-        HStack(spacing: 12) {
-            Button(selecting ? "Cancelar" : "Selecionar") {
-                selecting.toggle()
-                if !selecting { selectedIDs = [] }
-            }
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier("library.select")
+        HStack(spacing: 8) {
             if selecting {
                 Text("\(selectedIDs.count) selecionado\(selectedIDs.count == 1 ? "" : "s")")
-                    .font(.callout).foregroundStyle(Color.muted)
-                Spacer()
-                Button("Space", systemImage: "square.stack.3d.up") {
+                    .font(.system(size: 13, weight: .medium)).tracking(-0.2)
+                    .foregroundStyle(GalleryStyle.secondary)
+                    .padding(.trailing, 4)
+                Button {
                     spaceSelection = filtered.filter { selectedIDs.contains($0.id) }
                     pickingSpaces = true
-                }
-                .disabled(selectedIDs.isEmpty).accessibilityIdentifier("library.spaceSelection")
-                Button(store.surface == .archived ? "Desarquivar" : "Arquivar") {
+                } label: { GalleryChip(title: "Space", symbol: "square.stack.3d.up") }
+                .buttonStyle(.plain)
+                .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
+                .accessibilityIdentifier("library.spaceSelection")
+                Button {
                     let chosen = filtered.filter { selectedIDs.contains($0.id) }
                     archive(chosen, archived: store.surface != .archived)
                     selecting = false
                     selectedIDs = []
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(selectedIDs.isEmpty)
+                } label: { GalleryChip(title: store.surface == .archived ? "Desarquivar" : "Arquivar", selected: true) }
+                .buttonStyle(.plain)
+                .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
                 .accessibilityIdentifier("library.archiveSelection")
             }
+            Button {
+                selecting.toggle()
+                if !selecting { selectedIDs = [] }
+            } label: { GalleryChip(title: selecting ? "Cancelar" : "Selecionar") }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("library.select")
         }
     }
+
+    private var galleryItems: [Reference] { filtered.filter(GalleryDetailView.supports) }
+
+    /// On the Mac the opened picture covers the library like saved.design; everything else is a sheet.
+    private var sheetPresentation: Binding<LibraryPresentation?> {
+        Binding(get: {
+            #if os(macOS)
+            if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) { return nil }
+            #endif
+            return store.presentation
+        }, set: { store.presentation = $0 })
+    }
+
+    #if os(macOS)
+    private var macGalleryID: String? {
+        if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) { return reference.id }
+        return nil
+    }
+
+    @ViewBuilder private var macGallery: some View {
+        if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) {
+            GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
+                .transition(.opacity)
+        }
+    }
+    #endif
 
     @ViewBuilder private var archiveToast: some View {
         if let undo = store.archiveUndo {
@@ -421,6 +435,182 @@ struct CardButtonStyle: ButtonStyle {
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
             .onHover { hovered = $0 }
             .contentShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+    }
+}
+
+/// Masonry with saved.design's breakpoints: two columns on the phone, up to five on a wide window.
+struct MasonryLayout: Layout {
+    var spacing: CGFloat = GalleryStyle.gap
+    var forceColumns: Int?
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? 0
+        let columns = columnCount(for: width)
+        guard width > 0, !subviews.isEmpty else { return CGSize(width: width, height: 0) }
+        let columnWidth = self.columnWidth(in: width, columns: columns)
+        var heights = Array(repeating: CGFloat(0), count: columns)
+        for subview in subviews {
+            let column = shortest(heights)
+            let size = subview.sizeThatFits(.init(width: columnWidth, height: nil))
+            heights[column] += size.height + spacing
+        }
+        return CGSize(width: width, height: max(0, (heights.max() ?? 0) - spacing))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let columns = columnCount(for: bounds.width)
+        let columnWidth = self.columnWidth(in: bounds.width, columns: columns)
+        var heights = Array(repeating: CGFloat(0), count: columns)
+        for subview in subviews {
+            let column = shortest(heights)
+            let size = subview.sizeThatFits(.init(width: columnWidth, height: nil))
+            let x = bounds.minX + CGFloat(column) * (columnWidth + spacing)
+            subview.place(
+                at: CGPoint(x: x, y: bounds.minY + heights[column]),
+                proposal: .init(width: columnWidth, height: size.height)
+            )
+            heights[column] += size.height + spacing
+        }
+    }
+
+    private func columnCount(for width: CGFloat) -> Int {
+        if let forceColumns { return max(1, forceColumns) }
+        if width < 780 { return 2 }
+        if width < 1_170 { return 3 }
+        if width < 1_570 { return 4 }
+        return 5
+    }
+
+    private func columnWidth(in width: CGFloat, columns: Int) -> CGFloat {
+        max(0, (width - spacing * CGFloat(columns - 1)) / CGFloat(columns))
+    }
+
+    private func shortest(_ heights: [CGFloat]) -> Int {
+        heights.enumerated().min(by: { $0.element < $1.element })?.offset ?? 0
+    }
+}
+
+/// Shows 18 references at a time. Reaching the end reveals the next batch, then asks for another page.
+struct LibraryGallery<MenuContent: View>: View {
+    let items: [Reference]
+    let more: Bool
+    let loading: Bool
+    let failed: Bool
+    let selecting: Bool
+    let selectedIDs: Set<String>
+    let resetID: String
+    let open: (Reference) -> Void
+    let loadMore: () -> Void
+    @ViewBuilder var menu: (Reference) -> MenuContent
+
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var shown = GalleryPaging.batch
+    @State private var gate = false
+    @State private var tailY: CGFloat = .greatestFiniteMagnitude
+
+    private var visible: [Reference] { Array(items.prefix(shown)) }
+
+    var body: some View {
+        VStack(spacing: GalleryStyle.gap) {
+            MasonryLayout(spacing: GalleryStyle.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : nil) {
+                ForEach(visible) { reference in
+                    LibraryCardCell(reference: reference, open: { open(reference) }) {
+                        menu(reference)
+                    }
+                    .id(reference.id)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .overlay(alignment: .topTrailing) {
+                        if selecting {
+                            Image(systemName: selectedIDs.contains(reference.id) ? "checkmark.circle.fill" : "circle")
+                                .font(.title2)
+                                .foregroundStyle(selectedIDs.contains(reference.id) ? Color.accentColor : .secondary)
+                                .padding(10).accessibilityHidden(true)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .scrollTargetLayout()
+            if shown < items.count || more {
+                GalleryPageTail { consider($0) }
+                if loading {
+                    ProgressView("Carregando mais referências…")
+                        .controlSize(.small)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("library.loadingMore")
+                }
+            }
+        }
+        .onChange(of: resetID) { _, _ in
+            shown = GalleryPaging.batch
+            gate = false
+        }
+        .onChange(of: items.count) { old, new in
+            if new < old { shown = min(GalleryPaging.batch, new) }
+            if !gate { consider(tailY) }
+        }
+    }
+
+    private func consider(_ y: CGFloat) {
+        tailY = y
+        guard y < viewportHeight + 320 else { return }
+        reveal()
+    }
+
+    private func reveal() {
+        guard !gate else { return }
+        if shown < items.count {
+            gate = true
+            shown = min(items.count, shown + GalleryPaging.batch)
+            release()
+            return
+        }
+        guard more, !loading, !failed else { return }
+        gate = true
+        loadMore()
+        release()
+    }
+
+    private func release() {
+        Task {
+            try? await Task.sleep(for: .milliseconds(450))
+            gate = false
+            consider(tailY)
+        }
+    }
+
+    private var viewportHeight: CGFloat {
+        #if os(macOS)
+        NSScreen.main?.visibleFrame.height ?? 900
+        #else
+        UIScreen.main.bounds.height
+        #endif
+    }
+}
+
+private enum GalleryPaging {
+    static let batch = 18
+}
+
+private struct GalleryTailKey: PreferenceKey {
+    static let defaultValue: CGFloat = .greatestFiniteMagnitude
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+/// Reports its distance from the top of the screen so the gallery can reveal the next batch.
+private struct GalleryPageTail: View {
+    let onMove: (CGFloat) -> Void
+
+    var body: some View {
+        Color.clear
+            .frame(height: 1)
+            .background {
+                GeometryReader { geo in
+                    Color.clear.preference(key: GalleryTailKey.self, value: geo.frame(in: .global).minY)
+                }
+            }
+            .onPreferenceChange(GalleryTailKey.self, perform: onMove)
+            .accessibilityHidden(true)
     }
 }
 

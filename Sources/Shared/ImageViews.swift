@@ -70,6 +70,25 @@ struct ImagePickerSection: View {
     }
 }
 
+/// Keeps gallery previews in memory so scrolling back does not download them again.
+@MainActor
+enum ImageByteCache {
+    private static let store: NSCache<NSString, NSData> = {
+        let cache = NSCache<NSString, NSData>()
+        cache.countLimit = 36
+        cache.totalCostLimit = 48 * 1024 * 1024
+        return cache
+    }()
+
+    static func data(for key: String) -> Data? {
+        store.object(forKey: key as NSString) as Data?
+    }
+
+    static func store(_ data: Data, for key: String) {
+        store.setObject(data as NSData, forKey: key as NSString, cost: data.count)
+    }
+}
+
 struct RemoteImage: View {
     @Environment(Session.self) private var session
     let reference: Reference
@@ -77,14 +96,22 @@ struct RemoteImage: View {
     var fill = false
     var index = 0
     var author = false
+    /// Draws nothing until loaded, so a sharper copy can sit over a preview that is already shown.
+    var quiet = false
     @State private var data: Data?
     @State private var error: String?
     @State private var attempt = 0
+
+    private var cacheKey: String {
+        "\(session.userID ?? "")/\(reference.id)/\(index)/\(author)/\(thumbnail)"
+    }
 
     var body: some View {
         Group {
             if let data {
                 ImagePixels(data: data, fill: fill).accessibilityLabel(reference.displayTitle)
+            } else if quiet {
+                Color.clear
             } else if let error {
                 VStack(spacing: 8) {
                     Label(thumbnail ? "Prévia indisponível" : error, systemImage: "photo.badge.exclamationmark")
@@ -95,8 +122,14 @@ struct RemoteImage: View {
                 else { ProgressView("Carregando imagem…").controlSize(.small).padding() }
             }
         }
-        .task(id: "\(session.userID ?? "")/\(reference.id)/\(index)/\(attempt)/\(author)/\(reference.gallery.count)") {
-            data = nil; error = nil
+        .task(id: "\(cacheKey)/\(attempt)/\(reference.gallery.count)") {
+            if let cached = ImageByteCache.data(for: cacheKey) {
+                data = cached
+                error = nil
+                return
+            }
+            data = nil
+            error = nil
             guard let api = session.client(), let uid = session.userID else { return }
             do {
                 let bytes = try await (author || reference.media == nil
@@ -104,6 +137,7 @@ struct RemoteImage: View {
                                                        role: author ? "author" : "gallery")
                                        : api.mediaData(reference, thumbnail: thumbnail))
                 guard !Task.isCancelled, uid == session.userID else { return }
+                if thumbnail { ImageByteCache.store(bytes, for: cacheKey) }
                 data = bytes
             } catch is CancellationError { }
             catch { if !Task.isCancelled { self.error = error.localizedDescription } }
@@ -145,7 +179,11 @@ struct RemoteImageCarousel: View {
                             HStack(spacing: 0) {
                                 ForEach(gallery.indices, id: \.self) { index in
                                     ZStack {
-                                        RemoteImage(reference: reference, thumbnail: thumbnail, fill: fill, index: index)
+                                        if abs(index - current) <= 1 {
+                                            RemoteImage(reference: reference, thumbnail: thumbnail, fill: fill, index: index)
+                                        } else {
+                                            Color.primary.opacity(0.05)
+                                        }
                                         if showsPlay(at: index) {
                                             Image(systemName: "play.circle.fill")
                                                 .font(.system(size: 40))

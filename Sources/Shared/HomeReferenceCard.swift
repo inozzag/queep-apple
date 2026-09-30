@@ -1,333 +1,245 @@
 import SwiftUI
 import QueepCore
 
-/// Library card from Queep Design V2: post header, swipeable media, AI title, and a dedicated
-/// analyzing state that replaces the preview until the item is ready.
+/// Palette and metrics taken from saved.design, shared by the gallery and the opened item.
+enum GalleryStyle {
+    static let ink = Color(red: 10 / 255, green: 10 / 255, blue: 10 / 255)
+    static let onInk = Color(red: 250 / 255, green: 250 / 255, blue: 250 / 255)
+    static let secondary = Color(red: 105 / 255, green: 105 / 255, blue: 105 / 255)
+    static let tertiary = Color(red: 161 / 255, green: 161 / 255, blue: 161 / 255)
+    static let fill = Color(red: 245 / 255, green: 245 / 255, blue: 245 / 255)
+    static let ring = Color(red: 237 / 255, green: 237 / 255, blue: 237 / 255)
+    static let dot = Color(red: 212 / 255, green: 212 / 255, blue: 212 / 255)
+    static let radius: CGFloat = 16
+    static let gap: CGFloat = 14
+    static let inset: CGFloat = 12
+    #if os(iOS)
+    static let badge: CGFloat = 26
+    static let tileTitle: CGFloat = 15
+    #else
+    static let badge: CGFloat = 28
+    static let tileTitle: CGFloat = 17
+    #endif
+}
+
+extension View {
+    func galleryTile() -> some View {
+        clipShape(RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous)
+                    .strokeBorder(GalleryStyle.ring, lineWidth: 1)
+            }
+    }
+}
+
+/// Gallery tile: the picture is the card, with the source on the bottom left and a hint on the
+/// top right. References without a picture become text tiles of the same family.
 struct HomeReferenceCard: View {
     let reference: Reference
 
-    private var excerpt: String {
-        Markdown.plainText(reference.source?.text.isEmpty == false ? reference.source?.text ?? "" : reference.text)
-    }
-    private var host: String? { reference.url.flatMap { URL(string: $0)?.host?.replacingOccurrences(of: "www.", with: "") } }
     private var isAnalyzing: Bool { reference.status == "queued" || reference.status == "processing" }
+    private var hasVisual: Bool { reference.kind == "video" || !reference.gallery.isEmpty }
+    private var host: String? { reference.url.flatMap { URL(string: $0)?.host?.replacingOccurrences(of: "www.", with: "") } }
+    private var isSocial: Bool { reference.isSocialPost || reference.isSocialProfile }
 
     var body: some View {
         Group {
-            if isAnalyzing {
-                analyzingCard
+            if isAnalyzing && !hasVisual {
+                analyzingTile
+            } else if hasVisual {
+                visualTile
             } else {
-                switch layout {
-                case .photo: photoCard
-                case .note: noteCard.homeSurface()
-                case .post: postCard.homeSurface()
-                case .profile: profileCard.homeSurface()
-                case .website: websiteCard.homeSurface()
-                case .site: siteCard.homeSurface()
-                }
+                textTile
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .overlay(alignment: .topTrailing) { status }
-    }
-
-    private enum Layout { case photo, note, post, profile, website, site }
-
-    private var layout: Layout {
-        if reference.isSocialProfile { return .profile }
-        if reference.isSocialPost { return .post }
-        if reference.isWebsite { return .website }
-        if !reference.gallery.isEmpty || reference.kind == "video" { return .photo }
-        if reference.kind == "note" || reference.kind == "audio" { return .note }
-        if reference.kind == "link" { return .site }
-        return .note
-    }
-
-    @ViewBuilder private var status: some View {
-        if !isAnalyzing, reference.status == "error" {
-            StatusPill(status: reference.status, partial: false).padding(10)
+        .overlay(alignment: .topLeading) {
+            if !isAnalyzing, reference.status == "error" {
+                StatusPill(status: reference.status, partial: false).padding(10)
+            }
         }
     }
 
-    private var analyzingCard: some View {
+    private var analyzingTile: some View {
         HStack(spacing: 12) {
             Text("Enviando novos itens...")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Theme.homePreview)
+                .font(.system(size: 13, weight: .medium))
+                .tracking(-0.2)
+                .foregroundStyle(GalleryStyle.secondary)
                 .lineLimit(1)
             Spacer(minLength: 8)
             HomeSpinningLoader()
         }
-        .padding(.horizontal, 16.4)
-        .padding(.vertical, 14.76)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .homeSurface(highlighted: true)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+        .background(GalleryStyle.fill)
+        .galleryTile()
         .accessibilityIdentifier("library.analyzing")
     }
 
-    private var photoCard: some View {
-        ZStack(alignment: .bottom) {
-            Color.clear
-                .aspectRatio(photoRatio, contentMode: .fit)
-                .frame(maxHeight: 434)
-                .overlay {
-                    ZStack {
-                        RemoteImage(reference: reference, thumbnail: true, fill: true)
-                        if reference.kind == "video" {
-                            Image(systemName: "play.circle.fill").font(.system(size: 40)).foregroundStyle(.white).shadow(radius: 6)
+    private var visualTile: some View {
+        GalleryStyle.fill
+            .aspectRatio(tileAspect, contentMode: .fit)
+            .overlay(alignment: .top) { RemoteImage(reference: reference, thumbnail: true, fill: true) }
+            .galleryTile()
+            .overlay(alignment: .topTrailing) {
+                if let glyph { TileGlyph(symbol: glyph).padding(GalleryStyle.inset) }
+            }
+            .overlay(alignment: .bottomLeading) {
+                SourceBadge(reference: reference).padding(GalleryStyle.inset)
+            }
+            .overlay(alignment: .topLeading) {
+                if isAnalyzing { HomeSpinningLoader().padding(GalleryStyle.inset) }
+            }
+            .accessibilityHidden(true)
+    }
+
+    private var tileAspect: CGFloat {
+        let size: (Int, Int)? = {
+            if let image = reference.gallery.first, image.width > 0, image.height > 0 {
+                return (image.width, image.height)
+            }
+            if let media = reference.media, let width = media.width, let height = media.height, width > 0, height > 0 {
+                return (width, height)
+            }
+            return nil
+        }()
+        guard let size else { return 0.8 }
+        return min(1.8, max(0.62, CGFloat(size.0) / CGFloat(size.1)))
+    }
+
+    private var glyph: String? {
+        if reference.gallery.count > 1 { return "square.on.square" }
+        if reference.kind == "video" || reference.gallery.first?.isVideoPreview == true { return "play.fill" }
+        if reference.url != nil { return "arrow.up.right" }
+        return nil
+    }
+
+    private var textTile: some View {
+        GalleryStyle.fill
+            .aspectRatio(reference.kind == "link" && !isSocial ? 1.25 : 0.95, contentMode: .fit)
+            .overlay(alignment: .topLeading) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(textTitle)
+                        .font(.system(size: GalleryStyle.tileTitle, weight: .medium))
+                        .tracking(-0.4)
+                        .foregroundStyle(GalleryStyle.ink)
+                        .lineLimit(4)
+                        .layoutPriority(1)
+                    if !textBody.isEmpty {
+                        Text(textBody)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(GalleryStyle.secondary)
+                            .lineSpacing(3)
+                    }
+                    Spacer(minLength: 10)
+                    HStack(spacing: 8) {
+                        SourceBadge(reference: reference, size: 22)
+                        if let footnote {
+                            Text(footnote)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(GalleryStyle.secondary)
+                                .lineLimit(1)
                         }
                     }
+                    .layoutPriority(1)
                 }
-                .clipped()
-            if !caption.isEmpty {
-                Text(caption)
-                    .font(.system(size: 11.48))
-                    .foregroundStyle(Theme.homePreview)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .padding(12)
+                .padding(14)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
+            .galleryTile()
+            .accessibilityHidden(true)
+    }
+
+    private var identity: PostIdentity { PostIdentity(reference) }
+
+    private var siteName: String {
+        if let name = reference.source?.title, !name.isEmpty,
+           name.caseInsensitiveCompare("Post") != .orderedSame { return name }
+        if let host { return host }
+        return reference.linkSurface?.brandName ?? "Site"
+    }
+
+    private var textTitle: String {
+        if isSocial {
+            let copy = identity
+            return [copy.title, copy.author, reference.linkSurface?.brandName ?? ""]
+                .first { !$0.isEmpty } ?? reference.displayTitle
         }
-        .background(.white)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous)
-                .strokeBorder(Theme.homeLine)
-        }
-        .shadow(color: Theme.homeShadow, radius: 6, y: 3)
-        .accessibilityHidden(true)
-    }
-
-    private var photoRatio: CGFloat {
-        guard let image = reference.gallery.first, image.width > 0 else { return 0.72 }
-        return min(1.75, max(0.55, CGFloat(image.height) / CGFloat(image.width)))
-    }
-
-    private var caption: String { reference.title }
-
-    private var noteCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            brandTile {
-                Image("HomeStickyNote").resizable().renderingMode(.original).frame(width: 32, height: 32)
-            }
-            VStack(alignment: .leading, spacing: 10) {
-                Text(reference.displayTitle).font(.system(size: 13.94, weight: .semibold)).foregroundStyle(Theme.homeInk)
-                    .lineLimit(2)
-                if !excerpt.isEmpty, excerpt != reference.displayTitle {
-                    Text(excerpt).font(.system(size: 11.48)).foregroundStyle(Theme.homePreview)
-                        .lineLimit(8).fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, 16.4).padding(.vertical, 14.76)
-        .frame(maxWidth: .infinity, maxHeight: 205, alignment: .top)
-        .clipped()
-        .overlay(alignment: .bottom) { fade }
-    }
-
-    private var postCard: some View {
-        let copy = postCopy
-        return VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .bottom, spacing: 9) {
-                HStack(alignment: .bottom, spacing: 0) {
-                    PostBrandMark(surface: reference.linkSurface, size: 32, radius: 6)
-                        .padding(.trailing, -11)
-                    PostAvatar(reference: reference, initials: copy.initials, size: 24)
-                }
-                HStack(spacing: 10) {
-                    if !copy.author.isEmpty {
-                        Text(copy.author)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Theme.homeInk)
-                            .lineLimit(1)
-                    }
-                    if !copy.handle.isEmpty {
-                        Text(copy.handle)
-                            .font(.system(size: 12, weight: .regular))
-                            .foregroundStyle(Theme.homeInk)
-                            .lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            VStack(alignment: .leading, spacing: 16) {
-                if !reference.gallery.isEmpty {
-                    Color.clear
-                        .aspectRatio(mediaRatio, contentMode: .fit)
-                        .overlay {
-                            RemoteImageCarousel(
-                                reference: reference,
-                                thumbnail: true,
-                                fill: true,
-                                height: nil,
-                                showsChrome: false
-                            )
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-                if !copy.title.isEmpty {
-                    Text(copy.title)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Theme.homePreview)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                if !copy.body.isEmpty {
-                    Text(copy.body)
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundStyle(Theme.homePreview)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineLimit(10)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, 16.4).padding(.vertical, 14.76)
-        .frame(maxWidth: .infinity, alignment: .top)
-        .overlay(alignment: .bottom) { fade }
-    }
-
-    private var profileCard: some View {
-        let copy = postCopy
-        return VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .bottom, spacing: 9) {
-                HStack(alignment: .bottom, spacing: 0) {
-                    PostBrandMark(surface: reference.linkSurface, size: 32, radius: 6)
-                        .padding(.trailing, -11)
-                    PostAvatar(reference: reference, initials: copy.initials, size: 24)
-                }
-                HStack(spacing: 10) {
-                    if !copy.author.isEmpty {
-                        Text(copy.author)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Theme.homeInk)
-                            .lineLimit(1)
-                    }
-                    if !copy.handle.isEmpty {
-                        Text(copy.handle)
-                            .font(.system(size: 12, weight: .regular))
-                            .foregroundStyle(Theme.homeInk)
-                            .lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            if !copy.body.isEmpty {
-                Text(copy.body)
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(Theme.homePreview)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(10)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(.horizontal, 16.4).padding(.vertical, 14.76)
-        .frame(maxWidth: .infinity, alignment: .top)
-        .overlay(alignment: .bottom) { fade }
-    }
-
-    private var mediaRatio: CGFloat {
-        guard let image = reference.gallery.first, image.height > 0 else { return 2048 / 1529 }
-        return CGFloat(image.width) / CGFloat(image.height)
-    }
-
-    private var websiteCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .bottom, spacing: 9) {
-                HStack(alignment: .bottom, spacing: 0) {
-                    PostBrandMark(surface: .website, size: 32, radius: 6)
-                        .padding(.trailing, -11)
-                    SiteFavicon(reference: reference, size: 24)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(productName)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.homeInk)
-                        .lineLimit(1)
-                    if let host {
-                        Text(host)
-                            .font(.system(size: 12, weight: .regular))
-                            .foregroundStyle(Theme.homePreview)
-                            .lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            if !reference.gallery.isEmpty {
-                Color.clear
-                    .aspectRatio(mediaRatio, contentMode: .fit)
-                    .frame(maxHeight: 220)
-                    .overlay {
-                        RemoteImage(reference: reference, thumbnail: true, fill: true)
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            if !functionalTitle.isEmpty {
-                Text(functionalTitle)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Theme.homePreview)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(.horizontal, 16.4).padding(.vertical, 14.76)
-        .frame(maxWidth: .infinity, alignment: .top)
-        .overlay(alignment: .bottom) { fade }
-    }
-
-    private var productName: String {
-        if let name = reference.source?.title, !name.isEmpty { return name }
-        return host ?? "Site"
-    }
-
-    private var functionalTitle: String {
-        let value = reference.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if value.isEmpty { return "" }
-        if value.caseInsensitiveCompare(productName) == .orderedSame { return "" }
-        return value
-    }
-
-    private var siteCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            PostBrandMark(surface: reference.linkSurface, size: reference.linkSurface == .medium ? 64 : 48)
-            VStack(alignment: .leading, spacing: 10) {
-                Text(siteTitle).font(.system(size: 13.94, weight: .semibold)).foregroundStyle(Theme.homeInk).lineLimit(2)
-                if let host {
-                    Text(host).font(.system(size: 11.48)).foregroundStyle(Theme.homePreview).lineLimit(1)
-                } else if !excerpt.isEmpty {
-                    Text(excerpt).font(.system(size: 11.48)).foregroundStyle(Theme.homePreview).lineLimit(3)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, 16.4).padding(.vertical, 14.76)
-        .frame(maxWidth: .infinity, minHeight: 140, alignment: .top)
-    }
-
-    private var siteTitle: String {
-        if let surface = reference.linkSurface, reference.title.isEmpty,
-           reference.displayTitle == host || reference.source?.title.isEmpty != false {
-            return surface.brandName
-        }
+        if reference.kind == "link" { return siteName }
         return reference.displayTitle
     }
 
-    private var fade: some View {
-        LinearGradient(colors: [.clear, .white], startPoint: .top, endPoint: .bottom)
-            .frame(height: 36).allowsHitTesting(false)
-            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: Theme.homeRadius, bottomTrailingRadius: Theme.homeRadius, style: .continuous))
+    private var textBody: String {
+        if isSocial { return identity.body }
+        if reference.kind == "link" {
+            let title = reference.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !title.isEmpty, title.caseInsensitiveCompare(siteName) != .orderedSame { return title }
+            return reference.analysis?.summary ?? ""
+        }
+        if reference.kind == "audio" { return reference.analysis?.summary ?? "" }
+        let text = Markdown.plainText(reference.text).trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = reference.displayTitle
+        if text == title { return "" }
+        if text.hasPrefix(title) {
+            return String(text.dropFirst(title.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return text
     }
 
-    private func brandTile<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        content()
-            .frame(width: 48, height: 48)
-            .background(Color(red: 0.929, green: 0.929, blue: 0.929), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    private var footnote: String? {
+        if isSocial {
+            let copy = identity
+            if !copy.handle.isEmpty { return copy.handle }
+            return copy.title.isEmpty || copy.author.isEmpty ? nil : copy.author
+        }
+        if reference.kind == "link" { return host }
+        if let media = reference.media { return "\(reference.kindLabel) · \(media.durationLabel)" }
+        return reference.kindLabel
     }
+}
 
-    private var postCopy: PostIdentity { PostIdentity(reference) }
+/// Where the reference came from: the network mark with the author's avatar, or the site's icon.
+struct SourceBadge: View {
+    let reference: Reference
+    var size: CGFloat = GalleryStyle.badge
+
+    var body: some View {
+        if reference.isSocialPost || reference.isSocialProfile {
+            let identity = PostIdentity(reference)
+            HStack(spacing: -size * 0.3) {
+                PostBrandMark(surface: reference.linkSurface, size: size, radius: size * 0.3)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
+                            .strokeBorder(Color.white, lineWidth: 1.5)
+                    }
+                if reference.authorImage != nil || !identity.initials.isEmpty {
+                    PostAvatar(reference: reference, initials: identity.initials, size: size)
+                }
+            }
+        } else if reference.kind == "link" {
+            if reference.authorImage != nil {
+                SiteFavicon(reference: reference, size: size)
+            } else if let surface = reference.linkSurface, surface != .website {
+                PostBrandMark(surface: surface, size: size, radius: size * 0.3)
+            }
+        }
+    }
+}
+
+private struct TileGlyph: View {
+    let symbol: String
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: GalleryStyle.badge, height: GalleryStyle.badge)
+            .background {
+                Circle().fill(.ultraThinMaterial).environment(\.colorScheme, .dark)
+            }
+            .clipShape(Circle())
+    }
 }
 
 struct PostIdentity {
@@ -512,11 +424,10 @@ struct LibraryCardCell<MenuContent: View>: View {
     var body: some View {
         HomeReferenceCard(reference: reference)
             .frame(maxWidth: .infinity, alignment: .topLeading)
-            .scaleEffect(hovered ? 1.008 : 1)
-            .shadow(color: .black.opacity(hovered ? 0.08 : 0), radius: 16, y: 6)
-            .animation(.easeOut(duration: 0.18), value: hovered)
+            .opacity(hovered ? 0.92 : 1)
+            .animation(.easeOut(duration: 0.15), value: hovered)
             .onHover { hovered = $0 }
-            .contentShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
             .simultaneousGesture(TapGesture().onEnded(open))
             .contextMenu { menu() }
             .accessibilityElement(children: .ignore)
@@ -529,7 +440,7 @@ struct LibraryCardCell<MenuContent: View>: View {
     }
 }
 
-private struct HomeSpinningLoader: View {
+struct HomeSpinningLoader: View {
     @State private var spinning = false
 
     var body: some View {
