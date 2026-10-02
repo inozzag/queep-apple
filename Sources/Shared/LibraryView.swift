@@ -96,6 +96,11 @@ struct LibraryView: View {
         .onAppear {
             noteEmptyLibrary()
             presentOnboardingIfNeeded()
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--preview-paywall") {
+                conversionOffer = .pro
+            }
+            #endif
         }
         .onChange(of: store.hasLoaded) { _, _ in
             noteEmptyLibrary()
@@ -121,6 +126,9 @@ struct LibraryView: View {
     private var uiTesting: Bool { ProcessInfo.processInfo.arguments.contains("--ui-testing") }
 
     private func presentOnboardingIfNeeded() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview-paywall") { return }
+        #endif
         guard !onboardingPresented, !onboardingDismissed, !uiTesting, let uid = session.userID else { return }
         guard !OnboardingProgress.isComplete(uid) else { return }
         guard store.hasLoaded, store.items.isEmpty, store.error == nil, !searching else { return }
