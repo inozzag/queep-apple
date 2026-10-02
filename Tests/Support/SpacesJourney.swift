@@ -48,7 +48,8 @@ extension XCTestCase {
         XCTAssertEqual(status, 200)
         let spaces = try JSONSerialization.jsonObject(with: data) as! [[String: Any]]
         let id = try XCTUnwrap(spaces.first { $0["name"] as? String == name }?["id"] as? String)
-        activateSpaceElement(app.buttons["spaces.all"])
+        XCTAssertTrue(app.buttons["library.home"].waitForExistence(timeout: 10))
+        activateSpaceElement(app.buttons["library.home"])
         let card = app.buttons["reference.\(referenceID)"]
         XCTAssertTrue(card.waitForExistence(timeout: 15))
         activateSpaceElement(card)
@@ -66,9 +67,11 @@ extension XCTestCase {
         await fulfillment(of: [ready], timeout: 10)
         activateSpaceElement(done)
         activateSpaceElement(app.buttons["Fechar"])
-        let tab = app.buttons["spaces.tab.\(id)"]
-        XCTAssertTrue(tab.waitForExistence(timeout: 10))
-        activateSpaceElement(tab)
+        XCTAssertTrue(app.buttons["library.spaces"].waitForExistence(timeout: 10))
+        activateSpaceElement(app.buttons["library.spaces"])
+        let folder = app.buttons["spaces.open.\(id)"]
+        XCTAssertTrue(folder.waitForExistence(timeout: 10))
+        activateSpaceElement(folder)
         XCTAssertTrue(card.waitForExistence(timeout: 15))
         let (pageData, pageStatus) = try await DeletionFixture.send("http://127.0.0.1:8000/v1/references?space_id=\(id)", method: "GET", token: fixture.token)
         XCTAssertEqual(pageStatus, 200)

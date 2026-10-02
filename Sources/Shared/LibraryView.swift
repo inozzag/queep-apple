@@ -234,7 +234,7 @@ struct LibraryView: View {
             search: { Task { await search() } },
             refresh: { await refresh() },
             selecting: selecting,
-            canSelect: !store.items.isEmpty && !searching,
+            canSelect: !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil),
             toggleSelect: {
                 selecting.toggle()
                 if !selecting { selectedIDs = [] }
@@ -255,30 +255,46 @@ struct LibraryView: View {
                     .font(.caption).foregroundStyle(Color.muted).padding(.horizontal, 4)
             }
             #endif
-            if store.surface == .spaces {
+            if store.surface == .spaces, store.selectedSpaceID == nil {
                 SpacesOverview()
             } else {
+            #if os(macOS)
+            if store.surface == .spaces, store.selectedSpaceID != nil {
+                Button { store.selectSpace(nil) } label: {
+                    Label("Spaces", systemImage: "chevron.left")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Theme.homeInk)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Spaces")
+                .accessibilityIdentifier("spaces.back")
+            }
+            #endif
+            if store.surface == .spaces, let space = store.selectedSpace {
+                Text(space.name)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(Theme.homeInk)
+                    .lineLimit(2)
+                    .accessibilityAddTraits(.isHeader)
+            }
             if store.surface == .archived {
                 Text("Arquivados")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Theme.homeInk)
                     .accessibilityAddTraits(.isHeader)
             }
-            if store.surface == .home || (!store.items.isEmpty && !searching) {
+            if !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil) {
+                #if os(macOS)
                 HStack(spacing: 8) {
-                    if store.surface == .home { SpaceNavigation() } else { Spacer(minLength: 0) }
-                    #if os(macOS)
-                    if !store.items.isEmpty && !searching {
-                        if selecting { selectionActions }
-                        Button {
-                            selecting.toggle()
-                            if !selecting { selectedIDs = [] }
-                        } label: { GalleryChip(title: selecting ? "Cancelar" : "Selecionar") }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("library.select")
-                    }
-                    #endif
+                    if selecting { selectionActions }
+                    Button {
+                        selecting.toggle()
+                        if !selecting { selectedIDs = [] }
+                    } label: { GalleryChip(title: selecting ? "Cancelar" : "Selecionar") }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("library.select")
                 }
+                #endif
             }
             #if os(iOS)
             if sendingPhoto {
@@ -329,11 +345,11 @@ struct LibraryView: View {
                 if store.surface == .archived {
                     ContentUnavailableView("Nenhum item arquivado", systemImage: "archivebox",
                         description: Text("Itens arquivados saem da biblioteca ativa e continuam guardados aqui."))
-                } else if store.surface == .home && store.selectedSpaceID == nil && store.hasArchivedItems {
+                } else if store.surface == .spaces && store.selectedSpaceID != nil {
+                    EmptySpaceView()
+                } else if store.surface == .home && store.hasArchivedItems {
                     ContentUnavailableView("Tudo arquivado", systemImage: "archivebox.fill",
                         description: Text("Sua biblioteca ativa está vazia. Em Ajustes, abra Arquivados para restaurar itens."))
-                } else if store.selectedSpaceID != nil {
-                    EmptySpaceView()
                 } else {
                     FirstUseView(scrolls: false)
                 }

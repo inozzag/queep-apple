@@ -43,19 +43,7 @@ struct MacLibraryHeader: View {
                     }
                 }
                 Spacer(minLength: 16)
-                HStack(spacing: 16) {
-                    if store.hasActiveCollection {
-                        Button(action: { store.presentation = .newSpace }) {
-                            HomePillLabel(title: "Novo Space", asset: "HomeCreateSpace")
-                                .homeSurface()
-                        }
-                        .buttonStyle(.plain)
-                        .help("Criar uma coleção pessoal de referências.")
-                        .accessibilityLabel("Novo Space")
-                        .accessibilityIdentifier("library.createSpace")
-                    }
-                    HomeFilterMenu(refresh: refresh)
-                }
+                HomeFilterMenu(refresh: refresh)
             }
         }
         .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 18)

@@ -340,6 +340,7 @@ private extension View {
 
 struct MobileLibraryHeader: View {
     @Environment(Session.self) private var session
+    @Environment(LibraryStore.self) private var store
     let refresh: () -> Void
     var selecting = false
     var canSelect = false
@@ -358,7 +359,40 @@ struct MobileLibraryHeader: View {
                     .foregroundStyle(Color(red: 0.18, green: 0.45, blue: 0.95))
                     .accessibilityLabel("Versão de desenvolvimento local")
             }
-            if canSelect {
+            if store.surface == .spaces, store.selectedSpaceID == nil {
+                Button { store.presentation = .newSpace } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 15, weight: .medium))
+                        Text("Space")
+                            .font(.system(size: 15, weight: .medium))
+                    }
+                    .foregroundStyle(Theme.homeInk)
+                    .padding(.horizontal, 16)
+                    .frame(height: 48)
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .queepGlass(.capsule)
+                .accessibilityIdentifier("spaces.new")
+            } else if store.surface == .spaces {
+                Button { store.selectSpace(nil) } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Spaces")
+                            .font(.system(size: 15, weight: .medium))
+                    }
+                    .foregroundStyle(Theme.homeInk)
+                    .padding(.horizontal, 14)
+                    .frame(height: 48)
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .queepGlass(.capsule)
+                .accessibilityLabel("Spaces")
+                .accessibilityIdentifier("spaces.back")
+            } else if canSelect {
                 Button(action: toggleSelect) {
                     Text(selecting ? "Cancelar" : "Selecionar")
                         .font(.system(size: 15, weight: .medium))
