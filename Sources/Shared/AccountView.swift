@@ -93,6 +93,20 @@ struct AccountView: View {
                     .accessibilityIdentifier("account.usage")
                 }
 
+                #if DEBUG
+                Section {
+                    Button {
+                        FeedNotice.scheduleFromSettings(
+                            isLocal: session.isLocal,
+                            access: SubscriptionStore.shared.access)
+                    } label: {
+                        SettingsRow(title: "Testar aviso do feed", value: nil, symbol: "bell.fill", color: .orange)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("library.testFeedNotice")
+                }
+                #endif
+
                 Section {
                     Button("Sair da conta") {
                         do { try session.signOut() } catch { logoutError = error.localizedDescription }

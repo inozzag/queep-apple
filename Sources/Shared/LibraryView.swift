@@ -142,6 +142,9 @@ struct LibraryView: View {
             if ProcessInfo.processInfo.arguments.contains("--preview-paywall") {
                 conversionOffer = .pro
             }
+            FeedNotice.scheduleAfterLibraryAppears(
+                isLocal: session.isLocal,
+                access: SubscriptionStore.shared.access)
             #endif
         }
         .onChange(of: store.hasLoaded) { _, _ in
