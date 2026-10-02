@@ -487,7 +487,6 @@ struct MobileLibraryNav: View {
         HStack(spacing: 4) {
             tab("Home", "HomeDashboard", .home, "library.home", flexible: width != nil)
             tab("Spaces", "HomeSpaces", .spaces, "library.spaces", flexible: width != nil)
-            tab("Arquivados", "system:archivebox", .archived, "library.archived", flexible: width != nil)
         }
         .padding(5)
         .frame(width: width, height: Theme.homeNav)
@@ -572,14 +571,7 @@ struct MobileLibraryNav: View {
             mode = .standard
         } label: {
             VStack(spacing: 0) {
-                if asset.hasPrefix("system:") {
-                    Image(systemName: String(asset.dropFirst(7)))
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(selected ? Theme.homeInk : Theme.homePreview)
-                        .frame(width: 24, height: 24)
-                } else {
-                    HomeGlyph(asset: asset, size: 24, color: selected ? Theme.homeInk : Theme.homePreview)
-                }
+                HomeGlyph(asset: asset, size: 24, color: selected ? Theme.homeInk : Theme.homePreview)
                 Text(title)
                     .font(.system(size: 10, weight: selected ? .semibold : .regular))
                     .foregroundStyle(selected ? Theme.homeInk : Theme.homePreview)
@@ -598,8 +590,7 @@ struct MobileLibraryNav: View {
         .accessibilityLabel(title)
         .accessibilityIdentifier(identifier)
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .help(surface == .spaces ? "Pastas com filtros."
-              : surface == .archived ? "Itens ocultos da biblioteca ativa." : "Galeria")
+        .help(surface == .spaces ? "Pastas com filtros." : "Galeria")
     }
 
     private func chromeButton(asset: String, identifier: String, label: String, action: @escaping () -> Void) -> some View {

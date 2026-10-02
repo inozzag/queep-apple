@@ -32,16 +32,6 @@ struct MacLibraryHeader: View {
                     .buttonStyle(.plain)
                     .help("Organizar suas referências em Spaces.")
                     .accessibilityIdentifier("library.spaces")
-                    Button(action: { store.show(.archived) }) {
-                        Label("Arquivados", systemImage: "archivebox")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Theme.homeInk)
-                            .padding(.horizontal, 14).frame(height: Theme.homeChrome)
-                            .homeSurface()
-                    }
-                    .buttonStyle(.plain)
-                    .help("Itens ocultos da biblioteca ativa.")
-                    .accessibilityIdentifier("library.archived")
                 }
             }
             HStack(alignment: .top, spacing: 16) {

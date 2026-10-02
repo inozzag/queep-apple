@@ -47,6 +47,17 @@ struct AccountView: View {
                     }
                 }
 
+                Section {
+                    Button {
+                        store.show(.archived)
+                        store.presentation = nil
+                    } label: {
+                        SettingsRow(title: "Arquivados", value: nil, symbol: "archivebox.fill", color: Color(red: 0.45, green: 0.47, blue: 0.52), chevron: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("library.archived")
+                }
+
                 Section("Assinatura e cobrança") {
                     Button {
                         store.presentation = .subscription

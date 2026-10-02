@@ -202,6 +202,12 @@ struct LibraryView: View {
             if store.surface == .spaces {
                 SpacesOverview()
             } else {
+            if store.surface == .archived {
+                Text("Arquivados")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(Theme.homeInk)
+                    .accessibilityAddTraits(.isHeader)
+            }
             if store.surface == .home || (!store.items.isEmpty && !searching) {
                 HStack(spacing: 8) {
                     if store.surface == .home { SpaceNavigation() } else { Spacer(minLength: 0) }
@@ -249,7 +255,7 @@ struct LibraryView: View {
                         description: Text("Itens arquivados saem da biblioteca ativa e continuam guardados aqui."))
                 } else if store.surface == .home && store.selectedSpaceID == nil && store.hasArchivedItems {
                     ContentUnavailableView("Tudo arquivado", systemImage: "archivebox.fill",
-                        description: Text("Sua biblioteca ativa está vazia. Abra Arquivados para restaurar itens."))
+                        description: Text("Sua biblioteca ativa está vazia. Em Ajustes, abra Arquivados para restaurar itens."))
                 } else if store.selectedSpaceID != nil {
                     EmptySpaceView()
                 } else {
