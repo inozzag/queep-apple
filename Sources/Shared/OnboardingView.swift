@@ -40,6 +40,7 @@ enum OnboardingProgress {
         var phone: String
         var source: String?
         var work: String?
+        var workDetail: String?
         var step: Int
     }
 }
@@ -50,9 +51,14 @@ struct OnboardingFlow: View {
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
     @State private var step: Step = .phone
-    @State private var phone = ""
+    @State private var phoneCountry = PhoneNumber.deviceCountry
+    @State private var phoneDigits = ""
+    @State private var countryQuery = ""
+    @State private var showCountries = false
     @State private var source: String?
     @State private var work: String?
+    @State private var workDetail = ""
+    @FocusState private var workFocused: Bool
     @State private var link = ""
     @State private var showLink = false
     @State private var busy = false
@@ -88,9 +94,12 @@ struct OnboardingFlow: View {
         .interactiveDismissDisabled()
         .onAppear(perform: restore)
         .onChange(of: step) { _, _ in persist() }
-        .onChange(of: phone) { _, _ in persist() }
+        .onChange(of: phoneDigits) { _, _ in persist() }
+        .onChange(of: phoneCountry) { _, _ in persist() }
+        .sheet(isPresented: $showCountries) { countrySheet }
         .onChange(of: source) { _, _ in persist() }
         .onChange(of: work) { _, _ in persist() }
+        .onChange(of: workDetail) { _, _ in persist() }
         .onChange(of: photo) { _, selection in
             guard let selection else { return }
             Task { await importPhoto(selection) }
@@ -168,22 +177,34 @@ struct OnboardingFlow: View {
     @ViewBuilder private var stepBody: some View {
         switch step {
         case .phone:
-            TextField("Telefone", text: $phone)
-                .font(.title3)
-                .textContentType(.telephoneNumber)
-                .focused($phoneFocused)
-                #if os(iOS)
-                .keyboardType(.phonePad)
-                #endif
-                .padding(16)
-                .background(Theme.homeFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.homeLine))
-                .accessibilityIdentifier("onboarding.phone")
-                .onAppear { phoneFocused = true }
+            phoneField
         case .source:
             choices(sourceOptions, selection: source) { source = $0 }
         case .work:
-            choices(workOptions, selection: work) { work = $0 }
+            VStack(spacing: 16) {
+                choices(workOptions, selection: work) { picked in
+                    work = picked
+                    if picked == "outro" { workFocused = true }
+                }
+                if work == "outro" {
+                    TextField("Digite sua profissão", text: $workDetail)
+                        .font(.system(size: 17, weight: .medium))
+                        .focused($workFocused)
+                        .submitLabel(.done)
+                        .padding(16)
+                        .background(Theme.homeFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.homeLine))
+                        .accessibilityIdentifier("onboarding.work.other")
+                        .onChange(of: workDetail) { _, value in
+                            if value.count > 40 { workDetail = String(value.prefix(40)) }
+                        }
+                    Text("Se a sua não está na lista, escreva aqui.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.homePreview)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
+                }
+            }
         case .promise:
             QueepLogo(size: 72)
                 .frame(maxWidth: .infinity)
@@ -288,11 +309,136 @@ struct OnboardingFlow: View {
 
     private var canContinue: Bool {
         switch step {
-        case .phone: OnboardingAnswers.phone(phone) != nil
+        case .phone: PhoneNumber.e164(national: phoneDigits, country: phoneCountry) != nil
         case .source: source != nil
-        case .work: work != nil
+        case .work: work == "outro" ? OnboardingAnswers.workDetail(workDetail) != nil : work != nil
         case .promise, .share, .search, .spaces: true
         case .action: false
+        }
+    }
+
+    private var phoneField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 0) {
+                Button { showCountries = true } label: {
+                    HStack(spacing: 6) {
+                        Text(phoneCountry.flag).font(.system(size: 22))
+                        Text(phoneCountry.dialLabel)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Theme.homeInk)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Theme.homePreview)
+                    }
+                    .padding(.leading, 14)
+                    .padding(.trailing, 12)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("País, \(phoneCountry.name), \(phoneCountry.dialLabel)")
+                .accessibilityIdentifier("onboarding.phone.country")
+                Rectangle()
+                    .fill(Theme.homeLine)
+                    .frame(width: 1, height: 22)
+                TextField(phoneCountry.iso == "BR" ? "(11) 98888-7777" : "Número", text: Binding(
+                    get: { PhoneNumber.format(national: phoneDigits, country: phoneCountry) },
+                    set: { phoneDigits = PhoneNumber.nationalDigits($0, country: phoneCountry) }
+                ))
+                .font(.system(size: 17, weight: .medium))
+                .textContentType(.telephoneNumber)
+                .focused($phoneFocused)
+                #if os(iOS)
+                .keyboardType(.numberPad)
+                #endif
+                .padding(.horizontal, 12)
+                .accessibilityIdentifier("onboarding.phone")
+            }
+            .frame(height: 56)
+            .background(Theme.homeFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.homeLine))
+            .onAppear { phoneFocused = true }
+            Text(phoneHint)
+                .font(.system(size: 13))
+                .foregroundStyle(phoneHintIsError ? Color(red: 0.70, green: 0.16, blue: 0.14) : Theme.homePreview)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    private var phoneHint: String {
+        if phoneCountry.iso == "BR" {
+            if phoneDigits.count >= 2, !PhoneNumber.areaCodeIsKnown(String(phoneDigits.prefix(2))) {
+                return "Esse DDD não existe."
+            }
+            if PhoneNumber.e164(national: phoneDigits, country: phoneCountry) != nil {
+                return "Fica salvo como \(phoneCountry.dialLabel) \(PhoneNumber.format(national: phoneDigits, country: phoneCountry))."
+            }
+            if phoneDigits.count >= 8 {
+                return "Confira o DDD e complete o número."
+            }
+            return "DDI \(phoneCountry.dialLabel), DDD e o número. Exemplo: (11) 98888-7777"
+        }
+        if PhoneNumber.e164(national: phoneDigits, country: phoneCountry) != nil {
+            return "Fica salvo como \(phoneCountry.dialLabel) \(PhoneNumber.format(national: phoneDigits, country: phoneCountry))."
+        }
+        if phoneDigits.count >= phoneCountry.nationalRange.lowerBound {
+            return "Esse número não fecha para \(phoneCountry.name)."
+        }
+        return "DDI \(phoneCountry.dialLabel) e o número, sem o código do país."
+    }
+
+    private var phoneHintIsError: Bool {
+        if phoneCountry.iso == "BR", phoneDigits.count >= 2,
+           !PhoneNumber.areaCodeIsKnown(String(phoneDigits.prefix(2))) { return true }
+        if phoneDigits.count >= phoneCountry.nationalRange.lowerBound,
+           PhoneNumber.e164(national: phoneDigits, country: phoneCountry) == nil { return true }
+        return phoneCountry.iso == "BR" && phoneDigits.count >= 8
+            && PhoneNumber.e164(national: phoneDigits, country: phoneCountry) == nil
+    }
+
+    private var countrySheet: some View {
+        NavigationStack {
+            List(filteredCountries) { country in
+                Button {
+                    phoneCountry = country
+                    phoneDigits = PhoneNumber.nationalDigits(phoneDigits, country: country)
+                    showCountries = false
+                } label: {
+                    HStack(spacing: 12) {
+                        Text(country.flag).font(.title3)
+                        Text(country.name).foregroundStyle(Theme.homeInk)
+                        Spacer()
+                        Text(country.dialLabel)
+                            .foregroundStyle(Theme.homePreview)
+                        if country.iso == phoneCountry.iso {
+                            Image(systemName: "checkmark")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(Theme.homeInk)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .searchable(text: $countryQuery, prompt: "Buscar país")
+            .navigationTitle("País")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Fechar") { showCountries = false }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private var filteredCountries: [PhoneCountry] {
+        let query = countryQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return PhoneNumber.countries }
+        return PhoneNumber.countries.filter {
+            $0.name.localizedStandardContains(query)
+                || $0.dial.contains(query.filter(\.isNumber))
+                || $0.iso.localizedStandardContains(query)
         }
     }
 
@@ -366,15 +512,18 @@ struct OnboardingFlow: View {
 
     private func restore() {
         guard let uid = session.userID, let draft = OnboardingProgress.draft(uid) else { return }
-        phone = draft.phone
+        let parsed = PhoneNumber.parts(from: draft.phone)
+        phoneCountry = parsed.0
+        phoneDigits = parsed.1
         source = draft.source
         work = draft.work
+        workDetail = draft.workDetail ?? ""
         if let restored = Step(rawValue: draft.step) { step = restored }
     }
 
     private func persist() {
         guard let uid = session.userID else { return }
-        OnboardingProgress.save(.init(phone: phone, source: source, work: work, step: step.rawValue), uid: uid)
+        OnboardingProgress.save(.init(phone: "\(phoneCountry.iso)|\(phoneDigits)", source: source, work: work, workDetail: workDetail, step: step.rawValue), uid: uid)
     }
 
     private func importPhoto(_ selection: PhotosPickerItem) async {
@@ -447,23 +596,29 @@ struct OnboardingFlow: View {
 
     private func finishSaving() async throws {
         guard let api = session.client(), let uid = session.userID,
+              let phone = PhoneNumber.e164(national: phoneDigits, country: phoneCountry),
               let source, let work else {
             throw QueepError.server("Faltam o telefone ou as respostas.")
         }
-        try await api.saveOnboarding(phone: phone, source: source, work: work)
+        try await api.saveOnboarding(phone: phone, source: source, work: work,
+                                     workDetail: work == "outro" ? workDetail : nil)
         guard session.userID == uid else { return }
         OnboardingProgress.markComplete(uid)
         onComplete()
     }
 
     private var sourceOptions: [(String, String)] {
-        [("anuncio", "Anúncio"), ("twitter", "Twitter"), ("instagram", "Instagram"),
-         ("amigo", "Amigo"), ("ai_chat", "AI Chat")]
+        [("anuncio", "Anúncio"), ("instagram", "Instagram"), ("tiktok", "TikTok"),
+         ("twitter", "Twitter"), ("youtube", "YouTube"), ("google", "Google"),
+         ("linkedin", "LinkedIn"), ("amigo", "Amigo"), ("ai_chat", "AI Chat"),
+         ("podcast", "Podcast"), ("app_store", "App Store")]
     }
 
     private var workOptions: [(String, String)] {
-        [("marketing", "Marketing"), ("design", "Design"), ("produto", "Produto"),
-         ("conteudo", "Conteúdo"), ("educacao", "Educação"), ("outro", "Outro")]
+        [("design", "Design"), ("marketing", "Marketing"), ("conteudo", "Conteúdo"),
+         ("social", "Social media"), ("fotografia", "Fotografia"), ("publicidade", "Publicidade"),
+         ("produto", "Produto"), ("empreendedor", "Empreendedor"), ("educacao", "Educação"),
+         ("outro", "Outro")]
     }
 
     private enum Step: Int, CaseIterable {
@@ -488,7 +643,8 @@ struct OnboardingFlow: View {
         var detail: String? {
             switch self {
             case .phone: "Fica salvo na sua conta."
-            case .source, .work: nil
+            case .source: "Escolha por onde chegou até aqui."
+            case .work: "Escolha a que mais combina. Se não estiver aqui, use Outro."
             case .promise: "Encontrando fácil tudo que você salva."
             case .share: "Três jeitos de mandar uma referência para o Queep."
             case .search: "Descreva o assunto, o nome ou a aparência."
