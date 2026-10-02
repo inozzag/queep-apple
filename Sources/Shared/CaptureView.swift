@@ -9,6 +9,8 @@ struct CaptureView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     let reference: Reference?
+    /// Notes open already as a note. Other new captures (image, media) still choose a kind and a space.
+    private let noteComposer: Bool
     @State private var captureSpaceID: String?
     @State private var kind: String
     @State private var title: String
@@ -29,6 +31,7 @@ struct CaptureView: View {
 
     init(reference: Reference?, initialKind: String = "note") {
         self.reference = reference
+        self.noteComposer = reference == nil && initialKind == "note"
         _kind = State(initialValue: reference?.kind ?? initialKind)
         _title = State(initialValue: reference?.title ?? "")
         _text = State(initialValue: reference?.text ?? "")
@@ -56,7 +59,7 @@ struct CaptureView: View {
                     if let reference {
                         HStack { ReferenceSpaceButton(reference: reference); Spacer(); DocumentActions { moreMenu } }
                     }
-                    if reference == nil {
+                    if reference == nil, !noteComposer {
                         Group {
                             if typeSize.isAccessibilitySize { kindPicker.pickerStyle(.menu) }
                             else { kindPicker.pickerStyle(.segmented).frame(maxWidth: 440) }
@@ -305,5 +308,121 @@ struct CaptureView: View {
     private func archive(_ reference: Reference) {
         guard let api = session.client(), let uid = session.userID else { return }
         store.setArchived([reference], archived: !reference.isArchived, client: api, account: uid)
+    }
+}
+
+/// Posts and Sites share this screen. Both collect a URL and save it through the link capture path.
+struct LinkCaptureView: View {
+    @Environment(Session.self) private var session
+    @Environment(LibraryStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var url = ""
+    @State private var busy = false
+    @State private var error: String?
+    @State private var requestID = UUID()
+    @State private var attempted = false
+    @FocusState private var focused: Bool
+
+    private var capture: Capture { Capture(kind: "link", title: "", text: "", url: url) }
+    private var canSave: Bool { !busy && capture.isValid }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 10) {
+                    Image(systemName: "link").foregroundStyle(Color.muted)
+                    TextField("https://…", text: $url)
+                        .textFieldStyle(.plain)
+                        .textContentType(.URL)
+                        .autocorrectionDisabled()
+                        #if os(iOS)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                        #endif
+                        .focused($focused)
+                        .submitLabel(.done)
+                        .onSubmit { if canSave { Task { await save() } } }
+                        .accessibilityLabel("Endereço do link")
+                        .accessibilityIdentifier("capture.url")
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                if busy {
+                    Label("Salvando…", systemImage: "arrow.up.circle")
+                        .font(.callout).foregroundStyle(Color.muted)
+                }
+                if let error {
+                    Label(error, systemImage: "exclamationmark.circle")
+                        .font(.callout).foregroundStyle(.red)
+                }
+                if attempted {
+                    Text("Envio não confirmado. Tente novamente com o mesmo conteúdo para evitar duplicação.")
+                        .font(.caption).foregroundStyle(Color.muted)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 28)
+            .padding(.top, 24)
+            .frame(maxWidth: 760, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity)
+            .background(Color.card)
+            .navigationTitle("Cole o link")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Fechar", systemImage: "xmark") { dismiss() }
+                        .disabled(busy)
+                        .keyboardShortcut(.cancelAction)
+                        #if os(iOS)
+                        .labelStyle(.iconOnly)
+                        #endif
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        Task { await save() }
+                    } label: {
+                        if busy { ProgressView().controlSize(.small) }
+                        else {
+                            #if os(iOS)
+                            Label(error == nil ? "Salvar" : "Tentar novamente",
+                                  systemImage: error == nil ? "checkmark" : "arrow.clockwise")
+                                .labelStyle(.iconOnly)
+                            #else
+                            Text(error == nil ? "Salvar" : "Tentar novamente")
+                            #endif
+                        }
+                    }
+                    .disabled(!canSave)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .accessibilityIdentifier("capture.save")
+                    .accessibilityLabel(busy ? "Salvando referência" : error == nil ? "Salvar" : "Tentar novamente")
+                }
+            }
+        }
+        .subscriptionGate()
+        .interactiveDismissDisabled(busy)
+        .onAppear { focused = true }
+        #if os(macOS)
+        .frame(minWidth: 420, idealWidth: 480, minHeight: 240, idealHeight: 320)
+        #endif
+    }
+
+    private func save() async {
+        guard canSave, let api = session.client(), let uid = session.userID else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            let saved = try await api.create(id: requestID, capture: capture, spaceIDs: [])
+            ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library")
+            guard session.userID == uid else { return }
+            await store.refresh(api, account: uid)
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+            attempted = true
+        }
     }
 }

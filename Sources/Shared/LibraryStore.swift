@@ -61,6 +61,8 @@ final class LibraryStore {
     var hasLoaded = false
     var captureKind = "note"
     var captureIntent = "note"
+    /// iPhone Galeria presents the system photo library without the capture card.
+    var openPhotoLibrary = false
     var kindFilter: String?
     var presentation: LibraryPresentation?
     var surface: LibrarySurface = .home
@@ -106,6 +108,7 @@ final class LibraryStore {
         loading = false
         hasLoaded = false
         presentation = nil
+        openPhotoLibrary = false
         query = ""
         kindFilter = nil
         searchChips = []

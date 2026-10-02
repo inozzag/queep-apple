@@ -458,6 +458,11 @@ struct iPhoneLibrary<Content: View, Dock: View>: View {
         .onChange(of: store.presentation != nil) { _, open in
             if open { mode = .standard }
         }
+        .overlayPreferenceValue(AddMenuFrameKey.self) { globalFrame in
+            if mode == .add {
+                AddMenuDismissOverlay(mode: $mode, globalFrame: globalFrame)
+            }
+        }
     }
 
     private func removeChip(_ term: String) {
@@ -555,38 +560,14 @@ struct MobileLibraryNav: View {
     }
 
     private var addMenu: some View {
-        VStack(spacing: 2) {
-            addRow("Posts", "HomeHashtag", "library.add.post") {
-                store.startCapture(kind: "link", intent: "post")
-            }
-            addRow("Files", "HomeAttachment", "library.add.files") {
-                store.startCapture(kind: "image")
-            }
-            addRow("Sites", "HomeLink", "library.add.site") {
-                store.startCapture(kind: "link", intent: "site")
-            }
-            addRow("Notes", "HomeFile", "library.add.note") {
-                store.startCapture(kind: "note")
-            }
-            Button {
-                mode = .standard
-            } label: {
-                HStack(spacing: 10) {
-                    HomeGlyph(asset: "HomeBack", size: 18)
-                    Text("Voltar").font(.system(size: 15, weight: .medium)).foregroundStyle(Theme.homePreview)
-                    Spacer(minLength: 0)
+        // Keeps the card's layout slot. The interactive card is drawn above the dismiss scrim.
+        LibraryAddMenu(mode: $mode, exposesAccessibility: false)
+            .background {
+                GeometryReader { geo in
+                    Color.clear.preference(key: AddMenuFrameKey.self, value: geo.frame(in: .global))
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 11)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Voltar")
-            .accessibilityIdentifier("library.nav.back")
-        }
-        .padding(8)
-        .frame(width: 188)
-        .queepGlass(.card)
+            .hidden()
     }
 
     private var searchBar: some View {
@@ -666,29 +647,121 @@ struct MobileLibraryNav: View {
         .accessibilityIdentifier(identifier)
     }
 
-    private func addRow(_ title: String, _ asset: String, _ identifier: String, action: @escaping () -> Void) -> some View {
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        keyboardVisible = false
+    }
+}
+
+private struct AddMenuCardShape: Shape {
+    var rect: CGRect
+    func path(in _: CGRect) -> Path { Path(rect) }
+}
+
+private struct AddMenuFrameKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next.width > 1 { value = next }
+    }
+}
+
+/// Full-screen hit target behind the Mais card. Taps outside the card dismiss the menu
+/// and are not delivered to the gallery, the top bar, or the Home/Spaces tabs.
+private struct AddMenuDismissOverlay: View {
+    @Binding var mode: MobileNavMode
+    var globalFrame: CGRect
+
+    var body: some View {
+        GeometryReader { proxy in
+            let origin = proxy.frame(in: .global).origin
+            let x = globalFrame.minX - origin.x
+            let y = globalFrame.minY - origin.y
+            ZStack(alignment: .topLeading) {
+                Color.white.opacity(0.001)
+                    .contentShape(Rectangle())
+                    .onTapGesture { mode = .standard }
+                    .accessibilityLabel("Fechar")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityIdentifier("library.add.dismiss")
+                    .accessibilitySortPriority(-1)
+                if globalFrame.width > 1 {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Color.clear
+                            .frame(height: max(0, y))
+                            .allowsHitTesting(false)
+                        HStack(alignment: .top, spacing: 0) {
+                            Color.clear
+                                .frame(width: max(0, x))
+                                .allowsHitTesting(false)
+                            LibraryAddMenu(mode: $mode)
+                                .accessibilitySortPriority(1)
+                            Spacer(minLength: 0)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(AddMenuCardShape(rect: CGRect(x: x, y: y, width: globalFrame.width, height: globalFrame.height)))
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct LibraryAddMenu: View {
+    @Environment(LibraryStore.self) private var store
+    @Binding var mode: MobileNavMode
+    var exposesAccessibility = true
+
+    var body: some View {
+        VStack(spacing: 6) {
+            addRow("Posts", "HomeHashtag", "library.add.post") {
+                store.startCapture(kind: "link", intent: "post")
+            }
+            addRow("Galeria", "photo.on.rectangle", "library.add.files", symbol: true) {
+                DispatchQueue.main.async { store.openPhotoLibrary = true }
+            }
+            addRow("Sites", "HomeLink", "library.add.site") {
+                store.startCapture(kind: "link", intent: "site")
+            }
+            addRow("Notes", "HomeFile", "library.add.note") {
+                store.startCapture(kind: "note")
+            }
+        }
+        .padding(10)
+        .frame(width: 204)
+        .queepGlass(.card)
+        .accessibilityHidden(!exposesAccessibility)
+    }
+
+    private func addRow(_ title: String, _ asset: String, _ identifier: String, symbol: Bool = false, action: @escaping () -> Void) -> some View {
         Button {
             mode = .standard
             action()
         } label: {
-            HStack(spacing: 10) {
-                HomeGlyph(asset: asset, size: 20)
-                Text(title).font(.system(size: 15)).foregroundStyle(Theme.homeInk)
+            HStack(spacing: 12) {
+                if symbol {
+                    Image(systemName: asset)
+                        .font(.system(size: 20))
+                        .foregroundStyle(Theme.homePreview)
+                        .frame(width: 22, height: 22)
+                        .accessibilityHidden(true)
+                } else {
+                    HomeGlyph(asset: asset, size: 22)
+                }
+                Text(title).font(.system(size: 16)).foregroundStyle(Theme.homeInk)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 11)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 13)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(identifier)
+        .accessibilityIdentifier(exposesAccessibility ? identifier : "")
         .accessibilityLabel(title)
-    }
-
-    private func dismissKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        keyboardVisible = false
+        .accessibilityHidden(!exposesAccessibility)
     }
 }
 #endif

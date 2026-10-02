@@ -3,6 +3,7 @@ import QueepCore
 #if os(macOS)
 import AppKit
 #else
+import PhotosUI
 import UIKit
 #endif
 
@@ -24,6 +25,10 @@ struct LibraryView: View {
     @State private var onboardingDismissed = false
     @State private var sawEmptyLibrary = false
     @State private var conversionOffer: ConversionFocus?
+    #if os(iOS)
+    @State private var galleryPhoto: PhotosPickerItem?
+    @State private var sendingPhoto = false
+    #endif
 
     private var filtered: [Reference] {
         let items = store.searchItems ?? store.items
@@ -46,7 +51,12 @@ struct LibraryView: View {
                 case .deleteAccount: DeleteAccountView()
                 case .subscription: SubscriptionView()
                 case .newSpace: SpaceNameSheet()
-                case .capture: CaptureView(reference: nil, initialKind: store.captureKind)
+                case .capture:
+                    if store.captureKind == "link" && (store.captureIntent == "post" || store.captureIntent == "site") {
+                        LinkCaptureView()
+                    } else {
+                        CaptureView(reference: nil, initialKind: store.captureKind)
+                    }
                 case .reference(let reference):
                     if GalleryDetailView.supports(reference) {
                         GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
@@ -66,6 +76,15 @@ struct LibraryView: View {
             .alert("Não foi possível concluir", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
                 Button("OK") { actionError = nil }
             } message: { Text(actionError ?? "") }
+            #if os(iOS)
+            .photosPicker(isPresented: $store.openPhotoLibrary, selection: $galleryPhoto,
+                          matching: .images, preferredItemEncoding: .current)
+            .onChange(of: galleryPhoto) { _, item in
+                guard let item else { return }
+                galleryPhoto = nil
+                Task { await sendGalleryPhoto(item) }
+            }
+            #endif
             .confirmationDialog("Excluir permanentemente esta referência?",
                                 isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
                                 titleVisibility: .visible, presenting: pendingDelete) { reference in
@@ -258,6 +277,16 @@ struct LibraryView: View {
                     #endif
                 }
             }
+            #if os(iOS)
+            if sendingPhoto {
+                Label("Enviando imagem…", systemImage: "arrow.up.circle")
+                    .font(.callout)
+                    .foregroundStyle(Color.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .card(padding: 14, elevated: false)
+                    .accessibilityIdentifier("library.sendingPhoto")
+            }
+            #endif
             if let error = store.error {
                 HStack(spacing: 12) {
                     Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
@@ -558,6 +587,31 @@ struct LibraryView: View {
         guard let api = session.client(), let uid = session.userID else { return }
         await store.search(api, account: uid)
     }
+
+    #if os(iOS)
+    private func sendGalleryPhoto(_ selection: PhotosPickerItem) async {
+        guard !sendingPhoto else { return }
+        sendingPhoto = true
+        actionError = nil
+        defer { sendingPhoto = false }
+        do {
+            guard let image = try await selection.loadTransferable(type: ImportedImage.self) else {
+                throw QueepError.server("Não foi possível abrir esta foto.")
+            }
+            guard let api = session.client(), let uid = session.userID else { return }
+            let saved = try await api.uploadImage(id: UUID(), title: "", data: image.data)
+            ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library")
+            guard session.userID == uid else { return }
+            await store.refresh(api, account: uid)
+        } catch is CancellationError {
+        } catch let failure as QueepError {
+            if case .planRequired = failure { return }
+            actionError = failure.localizedDescription
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+    #endif
 }
 
 /// The search reads as a conversation with the library: what it is doing, what it found.
