@@ -378,7 +378,7 @@ struct MobileLibraryHeader: View {
     }
 }
 
-struct iPhoneLibrary<Content: View>: View {
+struct iPhoneLibrary<Content: View, Dock: View>: View {
     @Environment(LibraryStore.self) private var store
     let search: () -> Void
     let refresh: () async -> Void
@@ -386,6 +386,7 @@ struct iPhoneLibrary<Content: View>: View {
     var canSelect = false
     var toggleSelect: () -> Void = {}
     @ViewBuilder var content: Content
+    @ViewBuilder var dock: Dock
     @State private var mode: MobileNavMode = .standard
     @State private var headerHeight: CGFloat = 72
 
@@ -395,7 +396,7 @@ struct iPhoneLibrary<Content: View>: View {
                 content
                     .padding(.horizontal, Theme.homeNavInset)
                     .padding(.top, max(8, headerHeight))
-                    .padding(.bottom, Theme.homeNav + Theme.homeNavBottom + 24)
+                    .padding(.bottom, Theme.homeNav + Theme.homeNavBottom + 24 + (selecting ? 76 : 0))
                     .frame(maxWidth: 1280)
                     .frame(maxWidth: .infinity)
             }
@@ -405,11 +406,17 @@ struct iPhoneLibrary<Content: View>: View {
             }), anchor: .top)
             .scrollDismissesKeyboard(.interactively)
 
-            VStack {
+            VStack(spacing: 10) {
                 Spacer(minLength: 0)
+                if selecting {
+                    dock
+                        .padding(.horizontal, 12)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
                 MobileLibraryNav(mode: $mode, search: search)
             }
             .ignoresSafeArea(.container, edges: .bottom)
+            .animation(.spring(duration: 0.28), value: selecting)
         }
         .overlay(alignment: .top) {
             VStack(spacing: 0) {
