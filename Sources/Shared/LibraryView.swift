@@ -185,7 +185,16 @@ struct LibraryView: View {
         .preferredColorScheme(.light)
         .hideMacWindowTitle()
         #else
-        iPhoneLibrary(search: { Task { await search() } }, refresh: { await refresh() }) {
+        iPhoneLibrary(
+            search: { Task { await search() } },
+            refresh: { await refresh() },
+            selecting: selecting,
+            canSelect: !store.items.isEmpty && !searching,
+            toggleSelect: {
+                selecting.toggle()
+                if !selecting { selectedIDs = [] }
+            }
+        ) {
             libraryContents
         }
         .background(Color.white)
@@ -195,10 +204,12 @@ struct LibraryView: View {
 
     private var libraryContents: some View {
         VStack(alignment: .leading, spacing: 16) {
+            #if os(macOS)
             if session.isLocal {
                 Label("Versão de desenvolvimento local", systemImage: "hammer")
                     .font(.caption).foregroundStyle(Color.muted).padding(.horizontal, 4)
             }
+            #endif
             if store.surface == .spaces {
                 SpacesOverview()
             } else {
@@ -211,7 +222,9 @@ struct LibraryView: View {
             if store.surface == .home || (!store.items.isEmpty && !searching) {
                 HStack(spacing: 8) {
                     if store.surface == .home { SpaceNavigation() } else { Spacer(minLength: 0) }
+                    #if os(macOS)
                     if !store.items.isEmpty && !searching { selectionBar.fixedSize() }
+                    #endif
                 }
             }
             if let error = store.error {

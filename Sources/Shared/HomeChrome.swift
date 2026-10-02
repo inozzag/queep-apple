@@ -339,17 +339,37 @@ private extension View {
 }
 
 struct MobileLibraryHeader: View {
+    @Environment(Session.self) private var session
     let refresh: () -> Void
+    var selecting = false
+    var canSelect = false
+    var toggleSelect: () -> Void = {}
 
     var body: some View {
-        HStack {
-            HomeBrand()
-            Spacer(minLength: 12)
-            HStack(spacing: 16) {
-                HomeFilterMenu(refresh: refresh, chrome: 48, icon: 22, surfaced: false)
-                    .queepGlass(.circle)
-                HomeAccountButton(chrome: 48, surfaced: false)
-                    .queepGlass(.circle)
+        HStack(spacing: 16) {
+            HomeFilterMenu(refresh: refresh, chrome: 48, icon: 22, surfaced: false)
+                .queepGlass(.circle)
+            HomeAccountButton(chrome: 48, surfaced: false)
+                .queepGlass(.circle)
+            Spacer(minLength: 0)
+            if session.isLocal {
+                Image(systemName: "hammer.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.18, green: 0.45, blue: 0.95))
+                    .accessibilityLabel("Versão de desenvolvimento local")
+            }
+            if canSelect {
+                Button(action: toggleSelect) {
+                    Text(selecting ? "Cancelar" : "Selecionar")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Theme.homeInk)
+                        .padding(.horizontal, 16)
+                        .frame(height: 48)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .queepGlass(.capsule)
+                .accessibilityIdentifier("library.select")
             }
         }
         .padding(.horizontal, Theme.homeNavInset)
@@ -362,6 +382,9 @@ struct iPhoneLibrary<Content: View>: View {
     @Environment(LibraryStore.self) private var store
     let search: () -> Void
     let refresh: () async -> Void
+    var selecting = false
+    var canSelect = false
+    var toggleSelect: () -> Void = {}
     @ViewBuilder var content: Content
     @State private var mode: MobileNavMode = .standard
     @State private var headerHeight: CGFloat = 72
@@ -390,17 +413,38 @@ struct iPhoneLibrary<Content: View>: View {
         }
         .overlay(alignment: .top) {
             VStack(spacing: 0) {
-                MobileLibraryHeader(refresh: { Task { await refresh() } })
-                if !store.searchChips.isEmpty {
+                MobileLibraryHeader(
+                    refresh: { Task { await refresh() } },
+                    selecting: selecting,
+                    canSelect: canSelect,
+                    toggleSelect: toggleSelect
+                )
+                if kindTitle != nil || !store.searchChips.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HomeSearchChips(chips: store.searchChips, remove: removeChip)
-                            .padding(.horizontal, Theme.homeNavInset)
+                        HStack(spacing: 8) {
+                            if let kindTitle {
+                                Button { store.kindFilter = nil } label: {
+                                    GalleryChip(title: kindTitle, symbol: "xmark", selected: true)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Remover filtro \(kindTitle)")
+                                .accessibilityIdentifier("library.kindFilter")
+                            }
+                            if !store.searchChips.isEmpty {
+                                HomeSearchChips(chips: store.searchChips, remove: removeChip)
+                            }
+                        }
+                        .padding(.horizontal, Theme.homeNavInset)
                     }
                     .padding(.bottom, 8)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .top)
-            .homeTopBar(fade: 10)
+            .background {
+                GeometryReader { geo in
+                    Color.clear.preference(key: HomeTopBarHeightKey.self, value: geo.size.height)
+                }
+            }
         }
         .onPreferenceChange(HomeTopBarHeightKey.self) { headerHeight = $0 }
         .toolbar(.hidden, for: .navigationBar)
@@ -412,6 +456,16 @@ struct iPhoneLibrary<Content: View>: View {
     private func removeChip(_ term: String) {
         store.removeSearchChip(term)
         if !store.searchChips.isEmpty { search() }
+    }
+
+    private var kindTitle: String? {
+        switch store.kindFilter {
+        case "note": "Notas"
+        case "link": "Links"
+        case "image": "Imagens"
+        case "media": "Áudio e vídeo"
+        default: nil
+        }
     }
 }
 
