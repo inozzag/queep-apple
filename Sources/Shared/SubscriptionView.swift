@@ -313,7 +313,8 @@ struct ConversionPaywall: View {
                         Text(yearly ? "Anual" : "Mensal").font(.headline).foregroundStyle(Theme.homeInk)
                         if store.offersTrial(package) {
                             Text("7 dias grátis").font(.caption.weight(.semibold)).foregroundStyle(Theme.homeInk)
-                        } else if yearly, let discount = store.annualDiscount(package) {
+                        }
+                        if yearly, let discount = store.annualDiscount(package) {
                             Text("Economize \(discount)%").font(.caption).foregroundStyle(Theme.homePreview)
                         }
                     }

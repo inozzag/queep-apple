@@ -47,6 +47,10 @@ final class QualityTests: XCTestCase {
         app.buttons["reference.archive"].click()
         XCTAssertTrue(card.waitForNonExistence(timeout: 10))
 
+        let account = app.descendants(matching: .any).matching(identifier: "person.crop.circle").firstMatch
+        XCTAssertTrue(account.waitForExistence(timeout: 5))
+        account.click()
+        XCTAssertTrue(app.buttons["library.archived"].waitForExistence(timeout: 5))
         app.buttons["library.archived"].click()
         XCTAssertTrue(card.waitForExistence(timeout: 10))
         card.click()

@@ -47,6 +47,17 @@ struct AccountView: View {
                     }
                 }
 
+                Section {
+                    Button {
+                        store.show(.archived)
+                        store.presentation = nil
+                    } label: {
+                        SettingsRow(title: "Arquivados", value: nil, symbol: "archivebox.fill", color: Color(red: 0.45, green: 0.47, blue: 0.52), chevron: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("library.archived")
+                }
+
                 Section("Assinatura e cobrança") {
                     Button {
                         store.presentation = .subscription
@@ -81,6 +92,20 @@ struct AccountView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("account.usage")
                 }
+
+                #if DEBUG
+                Section {
+                    Button {
+                        FeedNotice.scheduleFromSettings(
+                            isLocal: session.isLocal,
+                            access: SubscriptionStore.shared.access)
+                    } label: {
+                        SettingsRow(title: "Testar aviso do feed", value: nil, symbol: "bell.fill", color: .orange)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("library.testFeedNotice")
+                }
+                #endif
 
                 Section {
                     Button("Sair da conta") {

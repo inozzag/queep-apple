@@ -339,17 +339,71 @@ private extension View {
 }
 
 struct MobileLibraryHeader: View {
+    @Environment(Session.self) private var session
+    @Environment(LibraryStore.self) private var store
     let refresh: () -> Void
+    var selecting = false
+    var canSelect = false
+    var toggleSelect: () -> Void = {}
 
     var body: some View {
-        HStack {
-            HomeBrand()
-            Spacer(minLength: 12)
-            HStack(spacing: 16) {
-                HomeFilterMenu(refresh: refresh, chrome: 48, icon: 22, surfaced: false)
-                    .queepGlass(.circle)
-                HomeAccountButton(chrome: 48, surfaced: false)
-                    .queepGlass(.circle)
+        HStack(spacing: 16) {
+            HomeFilterMenu(refresh: refresh, chrome: 48, icon: 22, surfaced: false)
+                .queepGlass(.circle)
+            HomeAccountButton(chrome: 48, surfaced: false)
+                .queepGlass(.circle)
+            Spacer(minLength: 0)
+            if session.isLocal {
+                Image(systemName: "hammer.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.18, green: 0.45, blue: 0.95))
+                    .accessibilityLabel("Versão de desenvolvimento local")
+            }
+            if store.surface == .spaces, store.selectedSpaceID == nil {
+                Button { store.presentation = .newSpace } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 15, weight: .medium))
+                        Text("Space")
+                            .font(.system(size: 15, weight: .medium))
+                    }
+                    .foregroundStyle(Theme.homeInk)
+                    .padding(.horizontal, 16)
+                    .frame(height: 48)
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .queepGlass(.capsule)
+                .accessibilityIdentifier("spaces.new")
+            } else if store.surface == .spaces {
+                Button { store.selectSpace(nil) } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Spaces")
+                            .font(.system(size: 15, weight: .medium))
+                    }
+                    .foregroundStyle(Theme.homeInk)
+                    .padding(.horizontal, 14)
+                    .frame(height: 48)
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .queepGlass(.capsule)
+                .accessibilityLabel("Spaces")
+                .accessibilityIdentifier("spaces.back")
+            } else if canSelect {
+                Button(action: toggleSelect) {
+                    Text(selecting ? "Cancelar" : "Selecionar")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Theme.homeInk)
+                        .padding(.horizontal, 16)
+                        .frame(height: 48)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .queepGlass(.capsule)
+                .accessibilityIdentifier("library.select")
             }
         }
         .padding(.horizontal, Theme.homeNavInset)
@@ -358,11 +412,15 @@ struct MobileLibraryHeader: View {
     }
 }
 
-struct iPhoneLibrary<Content: View>: View {
+struct iPhoneLibrary<Content: View, Dock: View>: View {
     @Environment(LibraryStore.self) private var store
     let search: () -> Void
     let refresh: () async -> Void
+    var selecting = false
+    var canSelect = false
+    var toggleSelect: () -> Void = {}
     @ViewBuilder var content: Content
+    @ViewBuilder var dock: Dock
     @State private var mode: MobileNavMode = .standard
     @State private var headerHeight: CGFloat = 72
 
@@ -372,7 +430,7 @@ struct iPhoneLibrary<Content: View>: View {
                 content
                     .padding(.horizontal, Theme.homeNavInset)
                     .padding(.top, max(8, headerHeight))
-                    .padding(.bottom, Theme.homeNav + Theme.homeNavBottom + 24)
+                    .padding(.bottom, Theme.homeNav + Theme.homeNavBottom + 24 + (selecting ? 76 : 0))
                     .frame(maxWidth: 1280)
                     .frame(maxWidth: .infinity)
             }
@@ -382,36 +440,78 @@ struct iPhoneLibrary<Content: View>: View {
             }), anchor: .top)
             .scrollDismissesKeyboard(.interactively)
 
-            VStack {
+            VStack(spacing: 10) {
                 Spacer(minLength: 0)
+                if selecting {
+                    dock
+                        .padding(.horizontal, 12)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
                 MobileLibraryNav(mode: $mode, search: search)
             }
             .ignoresSafeArea(.container, edges: .bottom)
+            .animation(.spring(duration: 0.28), value: selecting)
         }
         .overlay(alignment: .top) {
             VStack(spacing: 0) {
-                MobileLibraryHeader(refresh: { Task { await refresh() } })
-                if !store.searchChips.isEmpty {
+                MobileLibraryHeader(
+                    refresh: { Task { await refresh() } },
+                    selecting: selecting,
+                    canSelect: canSelect,
+                    toggleSelect: toggleSelect
+                )
+                if kindTitle != nil || !store.searchChips.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HomeSearchChips(chips: store.searchChips, remove: removeChip)
-                            .padding(.horizontal, Theme.homeNavInset)
+                        HStack(spacing: 8) {
+                            if let kindTitle {
+                                Button { store.kindFilter = nil } label: {
+                                    GalleryChip(title: kindTitle, symbol: "xmark", selected: true)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Remover filtro \(kindTitle)")
+                                .accessibilityIdentifier("library.kindFilter")
+                            }
+                            if !store.searchChips.isEmpty {
+                                HomeSearchChips(chips: store.searchChips, remove: removeChip)
+                            }
+                        }
+                        .padding(.horizontal, Theme.homeNavInset)
                     }
                     .padding(.bottom, 8)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .top)
-            .homeTopBar(fade: 10)
+            .background {
+                GeometryReader { geo in
+                    Color.clear.preference(key: HomeTopBarHeightKey.self, value: geo.size.height)
+                }
+            }
         }
         .onPreferenceChange(HomeTopBarHeightKey.self) { headerHeight = $0 }
         .toolbar(.hidden, for: .navigationBar)
         .onChange(of: store.presentation != nil) { _, open in
             if open { mode = .standard }
         }
+        .overlayPreferenceValue(AddMenuFrameKey.self) { globalFrame in
+            if mode == .add {
+                AddMenuDismissOverlay(mode: $mode, globalFrame: globalFrame)
+            }
+        }
     }
 
     private func removeChip(_ term: String) {
         store.removeSearchChip(term)
         if !store.searchChips.isEmpty { search() }
+    }
+
+    private var kindTitle: String? {
+        switch store.kindFilter {
+        case "note": "Notas"
+        case "link": "Links"
+        case "image": "Imagens"
+        case "media": "Áudio e vídeo"
+        default: nil
+        }
     }
 }
 
@@ -487,7 +587,6 @@ struct MobileLibraryNav: View {
         HStack(spacing: 4) {
             tab("Home", "HomeDashboard", .home, "library.home", flexible: width != nil)
             tab("Spaces", "HomeSpaces", .spaces, "library.spaces", flexible: width != nil)
-            tab("Arquivados", "system:archivebox", .archived, "library.archived", flexible: width != nil)
         }
         .padding(5)
         .frame(width: width, height: Theme.homeNav)
@@ -495,38 +594,14 @@ struct MobileLibraryNav: View {
     }
 
     private var addMenu: some View {
-        VStack(spacing: 2) {
-            addRow("Posts", "HomeHashtag", "library.add.post") {
-                store.startCapture(kind: "link", intent: "post")
-            }
-            addRow("Files", "HomeAttachment", "library.add.files") {
-                store.startCapture(kind: "image")
-            }
-            addRow("Sites", "HomeLink", "library.add.site") {
-                store.startCapture(kind: "link", intent: "site")
-            }
-            addRow("Notes", "HomeFile", "library.add.note") {
-                store.startCapture(kind: "note")
-            }
-            Button {
-                mode = .standard
-            } label: {
-                HStack(spacing: 10) {
-                    HomeGlyph(asset: "HomeBack", size: 18)
-                    Text("Voltar").font(.system(size: 15, weight: .medium)).foregroundStyle(Theme.homePreview)
-                    Spacer(minLength: 0)
+        // Keeps the card's layout slot. The interactive card is drawn above the dismiss scrim.
+        LibraryAddMenu(mode: $mode, exposesAccessibility: false)
+            .background {
+                GeometryReader { geo in
+                    Color.clear.preference(key: AddMenuFrameKey.self, value: geo.frame(in: .global))
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 11)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Voltar")
-            .accessibilityIdentifier("library.nav.back")
-        }
-        .padding(8)
-        .frame(width: 188)
-        .queepGlass(.card)
+            .hidden()
     }
 
     private var searchBar: some View {
@@ -572,14 +647,7 @@ struct MobileLibraryNav: View {
             mode = .standard
         } label: {
             VStack(spacing: 0) {
-                if asset.hasPrefix("system:") {
-                    Image(systemName: String(asset.dropFirst(7)))
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(selected ? Theme.homeInk : Theme.homePreview)
-                        .frame(width: 24, height: 24)
-                } else {
-                    HomeGlyph(asset: asset, size: 24, color: selected ? Theme.homeInk : Theme.homePreview)
-                }
+                HomeGlyph(asset: asset, size: 24, color: selected ? Theme.homeInk : Theme.homePreview)
                 Text(title)
                     .font(.system(size: 10, weight: selected ? .semibold : .regular))
                     .foregroundStyle(selected ? Theme.homeInk : Theme.homePreview)
@@ -598,8 +666,7 @@ struct MobileLibraryNav: View {
         .accessibilityLabel(title)
         .accessibilityIdentifier(identifier)
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .help(surface == .spaces ? "Pastas com filtros."
-              : surface == .archived ? "Itens ocultos da biblioteca ativa." : "Galeria")
+        .help(surface == .spaces ? "Pastas com filtros." : "Galeria")
     }
 
     private func chromeButton(asset: String, identifier: String, label: String, action: @escaping () -> Void) -> some View {
@@ -614,29 +681,121 @@ struct MobileLibraryNav: View {
         .accessibilityIdentifier(identifier)
     }
 
-    private func addRow(_ title: String, _ asset: String, _ identifier: String, action: @escaping () -> Void) -> some View {
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        keyboardVisible = false
+    }
+}
+
+private struct AddMenuCardShape: Shape {
+    var rect: CGRect
+    func path(in _: CGRect) -> Path { Path(rect) }
+}
+
+private struct AddMenuFrameKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next.width > 1 { value = next }
+    }
+}
+
+/// Full-screen hit target behind the Mais card. Taps outside the card dismiss the menu
+/// and are not delivered to the gallery, the top bar, or the Home/Spaces tabs.
+private struct AddMenuDismissOverlay: View {
+    @Binding var mode: MobileNavMode
+    var globalFrame: CGRect
+
+    var body: some View {
+        GeometryReader { proxy in
+            let origin = proxy.frame(in: .global).origin
+            let x = globalFrame.minX - origin.x
+            let y = globalFrame.minY - origin.y
+            ZStack(alignment: .topLeading) {
+                Color.white.opacity(0.001)
+                    .contentShape(Rectangle())
+                    .onTapGesture { mode = .standard }
+                    .accessibilityLabel("Fechar")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityIdentifier("library.add.dismiss")
+                    .accessibilitySortPriority(-1)
+                if globalFrame.width > 1 {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Color.clear
+                            .frame(height: max(0, y))
+                            .allowsHitTesting(false)
+                        HStack(alignment: .top, spacing: 0) {
+                            Color.clear
+                                .frame(width: max(0, x))
+                                .allowsHitTesting(false)
+                            LibraryAddMenu(mode: $mode)
+                                .accessibilitySortPriority(1)
+                            Spacer(minLength: 0)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(AddMenuCardShape(rect: CGRect(x: x, y: y, width: globalFrame.width, height: globalFrame.height)))
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct LibraryAddMenu: View {
+    @Environment(LibraryStore.self) private var store
+    @Binding var mode: MobileNavMode
+    var exposesAccessibility = true
+
+    var body: some View {
+        VStack(spacing: 6) {
+            addRow("Posts", "HomeHashtag", "library.add.post") {
+                store.startCapture(kind: "link", intent: "post")
+            }
+            addRow("Galeria", "photo.on.rectangle", "library.add.files", symbol: true) {
+                DispatchQueue.main.async { store.openPhotoLibrary = true }
+            }
+            addRow("Sites", "HomeLink", "library.add.site") {
+                store.startCapture(kind: "link", intent: "site")
+            }
+            addRow("Notes", "HomeFile", "library.add.note") {
+                store.startCapture(kind: "note")
+            }
+        }
+        .padding(10)
+        .frame(width: 204)
+        .queepGlass(.card)
+        .accessibilityHidden(!exposesAccessibility)
+    }
+
+    private func addRow(_ title: String, _ asset: String, _ identifier: String, symbol: Bool = false, action: @escaping () -> Void) -> some View {
         Button {
             mode = .standard
             action()
         } label: {
-            HStack(spacing: 10) {
-                HomeGlyph(asset: asset, size: 20)
-                Text(title).font(.system(size: 15)).foregroundStyle(Theme.homeInk)
+            HStack(spacing: 12) {
+                if symbol {
+                    Image(systemName: asset)
+                        .font(.system(size: 20))
+                        .foregroundStyle(Theme.homePreview)
+                        .frame(width: 22, height: 22)
+                        .accessibilityHidden(true)
+                } else {
+                    HomeGlyph(asset: asset, size: 22)
+                }
+                Text(title).font(.system(size: 16)).foregroundStyle(Theme.homeInk)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 11)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 13)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(identifier)
+        .accessibilityIdentifier(exposesAccessibility ? identifier : "")
         .accessibilityLabel(title)
-    }
-
-    private func dismissKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        keyboardVisible = false
+        .accessibilityHidden(!exposesAccessibility)
     }
 }
 #endif

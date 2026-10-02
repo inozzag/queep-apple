@@ -113,6 +113,16 @@ final class Session {
                 try await signIn(email: email, password: password, create: create)
             }
         }
+        // Local preview of the empty-library onboarding. A normal launch never passes this.
+        if isLocal, ProcessInfo.processInfo.arguments.contains("--preview-onboarding"),
+           let email = ProcessInfo.processInfo.environment["QUEEP_PREVIEW_EMAIL"],
+           let password = ProcessInfo.processInfo.environment["QUEEP_PREVIEW_PASSWORD"] {
+            Task {
+                try? signOut()
+                do { try await signIn(email: email, password: password, create: true) }
+                catch { try? await signIn(email: email, password: password, create: false) }
+            }
+        }
         #endif
     }
 

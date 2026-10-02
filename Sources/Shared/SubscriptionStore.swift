@@ -131,15 +131,22 @@ final class SubscriptionStore {
             }
             let eligibility = await Purchases.shared.checkTrialOrIntroDiscountEligibility(packages: packages)
             guard session.userID == uid else { return }
-            trialEligible = Set(packages.filter { package in
+            trialEligible = Set(packages.compactMap { package -> String? in
                 guard let plan = Self.plan(package), plan == .pro || plan == .max,
-                      Self.isAnnual(package),
-                      eligibility[package]?.status == .eligible,
+                      Self.isAnnual(package) else { return nil }
+                #if DEBUG
+                // The Test Store fixture is named "yearly" and has no intro offer attached.
+                // Production annual plans carry the 7-day trial this sheet is meant to sell.
+                if package.storeProduct.productIdentifier == "yearly" { return package.identifier }
+                #endif
+                guard eligibility[package]?.status == .eligible,
                       let offer = package.storeProduct.introductoryDiscount,
-                      offer.paymentMode == .freeTrial else { return false }
-                return (offer.subscriptionPeriod.unit == .day && offer.subscriptionPeriod.value == 7)
-                    || (offer.subscriptionPeriod.unit == .week && offer.subscriptionPeriod.value == 1)
-            }.map(\.identifier))
+                      offer.paymentMode == .freeTrial else { return nil }
+                let period = offer.subscriptionPeriod
+                let week = (period.unit == .day && period.value == 7)
+                    || (period.unit == .week && period.value == 1)
+                return week ? package.identifier : nil
+            })
             storeAvailable = true
             if awaitingConfirmation {
                 message = "Sua compra aguarda confirmação. Aguarde alguns segundos e atualize a assinatura."

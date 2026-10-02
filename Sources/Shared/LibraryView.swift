@@ -3,6 +3,7 @@ import QueepCore
 #if os(macOS)
 import AppKit
 #else
+import PhotosUI
 import UIKit
 #endif
 
@@ -13,6 +14,7 @@ struct LibraryView: View {
     @State private var logoutError: String?
     @State private var actionError: String?
     @State private var pendingDelete: Reference?
+    @State private var pendingSelectionDelete: [Reference] = []
     @State private var macHeaderHeight: CGFloat = 140
     @State private var selecting = false
     @State private var selectedIDs: Set<String> = []
@@ -23,6 +25,10 @@ struct LibraryView: View {
     @State private var onboardingDismissed = false
     @State private var sawEmptyLibrary = false
     @State private var conversionOffer: ConversionFocus?
+    #if os(iOS)
+    @State private var galleryPhoto: PhotosPickerItem?
+    @State private var sendingPhoto = false
+    #endif
 
     private var filtered: [Reference] {
         let items = store.searchItems ?? store.items
@@ -45,7 +51,12 @@ struct LibraryView: View {
                 case .deleteAccount: DeleteAccountView()
                 case .subscription: SubscriptionView()
                 case .newSpace: SpaceNameSheet()
-                case .capture: CaptureView(reference: nil, initialKind: store.captureKind)
+                case .capture:
+                    if store.captureKind == "link" && (store.captureIntent == "post" || store.captureIntent == "site") {
+                        LinkCaptureView()
+                    } else {
+                        CaptureView(reference: nil, initialKind: store.captureKind)
+                    }
                 case .reference(let reference):
                     if GalleryDetailView.supports(reference) {
                         GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
@@ -65,12 +76,43 @@ struct LibraryView: View {
             .alert("Não foi possível concluir", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
                 Button("OK") { actionError = nil }
             } message: { Text(actionError ?? "") }
+            #if os(iOS)
+            .photosPicker(isPresented: $store.openPhotoLibrary, selection: $galleryPhoto,
+                          matching: .images, preferredItemEncoding: .current)
+            .onChange(of: galleryPhoto) { _, item in
+                guard let item else { return }
+                galleryPhoto = nil
+                Task { await sendGalleryPhoto(item) }
+            }
+            #endif
             .confirmationDialog("Excluir permanentemente esta referência?",
                                 isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
                                 titleVisibility: .visible, presenting: pendingDelete) { reference in
                 Button("Excluir \(reference.kindLabel.lowercased())", role: .destructive) { Task { await remove(reference) } }
             } message: { reference in
                 Text("Arquivar esconde. Excluir apaga da sua conta.\n\n\(reference.displayTitle)")
+            }
+            .confirmationDialog(pendingSelectionDelete.count <= 1
+                                ? "Excluir permanentemente esta referência?"
+                                : "Excluir permanentemente estas \(pendingSelectionDelete.count) referências?",
+                                isPresented: Binding(get: { !pendingSelectionDelete.isEmpty },
+                                                     set: { if !$0 { pendingSelectionDelete = [] } }),
+                                titleVisibility: .visible,
+                                presenting: pendingSelectionDelete.isEmpty ? nil : pendingSelectionDelete) { references in
+                Button(references.count == 1
+                       ? "Excluir \(references[0].kindLabel.lowercased())"
+                       : "Excluir \(references.count)", role: .destructive) {
+                    pendingSelectionDelete = []
+                    selecting = false
+                    selectedIDs = []
+                    Task { await remove(references) }
+                }
+            } message: { references in
+                if references.count == 1 {
+                    Text("Arquivar esconde. Excluir apaga da sua conta.\n\n\(references[0].displayTitle)")
+                } else {
+                    Text("Arquivar esconde. Excluir apaga da sua conta.")
+                }
             }
         }
         .overlay(alignment: .bottom) { archiveToast }
@@ -96,6 +138,14 @@ struct LibraryView: View {
         .onAppear {
             noteEmptyLibrary()
             presentOnboardingIfNeeded()
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--preview-paywall") {
+                conversionOffer = .pro
+            }
+            FeedNotice.scheduleAfterLibraryAppears(
+                isLocal: session.isLocal,
+                access: SubscriptionStore.shared.access)
+            #endif
         }
         .onChange(of: store.hasLoaded) { _, _ in
             noteEmptyLibrary()
@@ -121,6 +171,9 @@ struct LibraryView: View {
     private var uiTesting: Bool { ProcessInfo.processInfo.arguments.contains("--ui-testing") }
 
     private func presentOnboardingIfNeeded() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview-paywall") { return }
+        #endif
         guard !onboardingPresented, !onboardingDismissed, !uiTesting, let uid = session.userID else { return }
         guard !OnboardingProgress.isComplete(uid) else { return }
         guard store.hasLoaded, store.items.isEmpty, store.error == nil, !searching else { return }
@@ -177,9 +230,18 @@ struct LibraryView: View {
         .preferredColorScheme(.light)
         .hideMacWindowTitle()
         #else
-        iPhoneLibrary(search: { Task { await search() } }, refresh: { await refresh() }) {
-            libraryContents
-        }
+        iPhoneLibrary(
+            search: { Task { await search() } },
+            refresh: { await refresh() },
+            selecting: selecting,
+            canSelect: !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil),
+            toggleSelect: {
+                selecting.toggle()
+                if !selecting { selectedIDs = [] }
+            },
+            content: { libraryContents },
+            dock: { if selecting { selectionDock } }
+        )
         .background(Color.white)
         .preferredColorScheme(.light)
         #endif
@@ -187,19 +249,63 @@ struct LibraryView: View {
 
     private var libraryContents: some View {
         VStack(alignment: .leading, spacing: 16) {
+            #if os(macOS)
             if session.isLocal {
                 Label("Versão de desenvolvimento local", systemImage: "hammer")
                     .font(.caption).foregroundStyle(Color.muted).padding(.horizontal, 4)
             }
-            if store.surface == .spaces {
+            #endif
+            if store.surface == .spaces, store.selectedSpaceID == nil {
                 SpacesOverview()
             } else {
-            if store.surface == .home || (!store.items.isEmpty && !searching) {
-                HStack(spacing: 8) {
-                    if store.surface == .home { SpaceNavigation() } else { Spacer(minLength: 0) }
-                    if !store.items.isEmpty && !searching { selectionBar.fixedSize() }
+            #if os(macOS)
+            if store.surface == .spaces, store.selectedSpaceID != nil {
+                Button { store.selectSpace(nil) } label: {
+                    Label("Spaces", systemImage: "chevron.left")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Theme.homeInk)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Spaces")
+                .accessibilityIdentifier("spaces.back")
             }
+            #endif
+            if store.surface == .spaces, let space = store.selectedSpace {
+                Text(space.name)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(Theme.homeInk)
+                    .lineLimit(2)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            if store.surface == .archived {
+                Text("Arquivados")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(Theme.homeInk)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            if !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil) {
+                #if os(macOS)
+                HStack(spacing: 8) {
+                    if selecting { selectionActions }
+                    Button {
+                        selecting.toggle()
+                        if !selecting { selectedIDs = [] }
+                    } label: { GalleryChip(title: selecting ? "Cancelar" : "Selecionar") }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("library.select")
+                }
+                #endif
+            }
+            #if os(iOS)
+            if sendingPhoto {
+                Label("Enviando imagem…", systemImage: "arrow.up.circle")
+                    .font(.callout)
+                    .foregroundStyle(Color.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .card(padding: 14, elevated: false)
+                    .accessibilityIdentifier("library.sendingPhoto")
+            }
+            #endif
             if let error = store.error {
                 HStack(spacing: 12) {
                     Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
@@ -239,11 +345,11 @@ struct LibraryView: View {
                 if store.surface == .archived {
                     ContentUnavailableView("Nenhum item arquivado", systemImage: "archivebox",
                         description: Text("Itens arquivados saem da biblioteca ativa e continuam guardados aqui."))
-                } else if store.surface == .home && store.selectedSpaceID == nil && store.hasArchivedItems {
-                    ContentUnavailableView("Tudo arquivado", systemImage: "archivebox.fill",
-                        description: Text("Sua biblioteca ativa está vazia. Abra Arquivados para restaurar itens."))
-                } else if store.selectedSpaceID != nil {
+                } else if store.surface == .spaces && store.selectedSpaceID != nil {
                     EmptySpaceView()
+                } else if store.surface == .home && store.hasArchivedItems {
+                    ContentUnavailableView("Tudo arquivado", systemImage: "archivebox.fill",
+                        description: Text("Sua biblioteca ativa está vazia. Em Ajustes, abra Arquivados para restaurar itens."))
                 } else {
                     FirstUseView(scrolls: false)
                 }
@@ -267,6 +373,13 @@ struct LibraryView: View {
                                selecting: selecting, selectedIDs: selectedIDs,
                                resetID: "\(store.filterKey)|\(store.kindFilter ?? "")|\(searching)",
                                open: { open($0) },
+                               brush: { id, include in
+                                   if include {
+                                       if selectedIDs.count < 50 { selectedIDs.insert(id) }
+                                   } else {
+                                       selectedIDs.remove(id)
+                                   }
+                               },
                                loadMore: {
                     Task {
                         guard let api = session.client(), let uid = session.userID else { return }
@@ -295,37 +408,104 @@ struct LibraryView: View {
         Button("Excluir…", systemImage: "trash", role: .destructive) { pendingDelete = reference }
     }
 
-    private var selectionBar: some View {
-        HStack(spacing: 8) {
-            if selecting {
-                Text("\(selectedIDs.count) selecionado\(selectedIDs.count == 1 ? "" : "s")")
-                    .font(.system(size: 13, weight: .medium)).tracking(-0.2)
-                    .foregroundStyle(GalleryStyle.secondary)
-                    .padding(.trailing, 4)
-                Button {
-                    spaceSelection = filtered.filter { selectedIDs.contains($0.id) }
-                    pickingSpaces = true
-                } label: { GalleryChip(title: "Space", symbol: "square.stack.3d.up") }
-                .buttonStyle(.plain)
-                .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
-                .accessibilityIdentifier("library.spaceSelection")
-                Button {
-                    let chosen = filtered.filter { selectedIDs.contains($0.id) }
-                    archive(chosen, archived: store.surface != .archived)
-                    selecting = false
-                    selectedIDs = []
-                } label: { GalleryChip(title: store.surface == .archived ? "Desarquivar" : "Arquivar", selected: true) }
-                .buttonStyle(.plain)
-                .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
-                .accessibilityIdentifier("library.archiveSelection")
+    private var selectionCountLabel: String {
+        "\(selectedIDs.count) selecionado\(selectedIDs.count == 1 ? "" : "s")"
+    }
+
+    /// iPhone floating bar. Spaces is the wide primary action; archive and delete stay compact.
+    private var selectionDock: some View {
+        HStack(spacing: 6) {
+            Text(selectionCountLabel)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: 96, alignment: .leading)
+            Button(action: assignSelectionToSpaces) {
+                Text("Spaces")
+                    .font(.system(size: 17, weight: .bold))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
             }
-            Button {
-                selecting.toggle()
-                if !selecting { selectedIDs = [] }
-            } label: { GalleryChip(title: selecting ? "Cancelar" : "Selecionar") }
             .buttonStyle(.plain)
-            .accessibilityIdentifier("library.select")
+            .foregroundStyle(.white)
+            .disabled(selectedIDs.isEmpty)
+            .opacity(selectedIDs.isEmpty ? 0.4 : 1)
+            .accessibilityIdentifier("library.spaceSelection")
+            HStack(spacing: 0) {
+                Button(action: archiveSelection) {
+                    Text(store.surface == .archived ? "Desarquivar" : "Arquivar")
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 6)
+                }
+                .accessibilityIdentifier("library.archiveSelection")
+                Button(action: deleteSelection) {
+                    Text("Excluir")
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 6)
+                }
+                .accessibilityIdentifier("library.deleteSelection")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white)
+            .fixedSize(horizontal: true, vertical: false)
+            .disabled(selectedIDs.isEmpty)
+            .opacity(selectedIDs.isEmpty ? 0.4 : 1)
         }
+        .padding(.leading, 14)
+        .padding(.trailing, 8)
+        .padding(.vertical, 6)
+        .background(Color.black, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.22), radius: 16, y: 6)
+    }
+
+    private var selectionActions: some View {
+        HStack(spacing: 8) {
+            Text(selectionCountLabel)
+                .font(.system(size: 13, weight: .medium)).tracking(-0.2)
+                .foregroundStyle(GalleryStyle.secondary)
+                .padding(.trailing, 4)
+            Button(action: assignSelectionToSpaces) {
+                GalleryChip(title: "Spaces", symbol: "square.stack.3d.up", selected: true)
+            }
+            .buttonStyle(.plain)
+            .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
+            .accessibilityIdentifier("library.spaceSelection")
+            Button(action: archiveSelection) {
+                GalleryChip(title: store.surface == .archived ? "Desarquivar" : "Arquivar")
+            }
+            .buttonStyle(.plain)
+            .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
+            .accessibilityIdentifier("library.archiveSelection")
+            Button(action: deleteSelection) {
+                GalleryChip(title: "Excluir")
+            }
+            .buttonStyle(.plain)
+            .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
+            .accessibilityIdentifier("library.deleteSelection")
+        }
+    }
+
+    private func assignSelectionToSpaces() {
+        spaceSelection = filtered.filter { selectedIDs.contains($0.id) }
+        pickingSpaces = !spaceSelection.isEmpty
+    }
+
+    private func archiveSelection() {
+        let chosen = filtered.filter { selectedIDs.contains($0.id) }
+        archive(chosen, archived: store.surface != .archived)
+        selecting = false
+        selectedIDs = []
+    }
+
+    private func deleteSelection() {
+        pendingSelectionDelete = filtered.filter { selectedIDs.contains($0.id) }
     }
 
     private var galleryItems: [Reference] { filtered.filter(GalleryDetailView.supports) }
@@ -393,13 +573,24 @@ struct LibraryView: View {
     }
 
     private func remove(_ reference: Reference) async {
-        guard let api = session.client(), let uid = session.userID else { return }
-        do {
-            try await api.delete(reference)
-            guard session.userID == uid else { return }
-            store.discardSearchReference(reference.id)
-            await store.refresh(api, account: uid)
-        } catch { actionError = error.localizedDescription }
+        await remove([reference])
+    }
+
+    private func remove(_ references: [Reference]) async {
+        guard let api = session.client(), let uid = session.userID, !references.isEmpty else { return }
+        var failure: String?
+        for reference in references {
+            do {
+                try await api.delete(reference)
+                guard session.userID == uid else { return }
+                store.discardSearchReference(reference.id)
+            } catch {
+                failure = error.localizedDescription
+            }
+        }
+        guard session.userID == uid else { return }
+        await store.refresh(api, account: uid)
+        if let failure { actionError = failure }
     }
 
     private var columns: [GridItem] {
@@ -415,6 +606,31 @@ struct LibraryView: View {
         guard let api = session.client(), let uid = session.userID else { return }
         await store.search(api, account: uid)
     }
+
+    #if os(iOS)
+    private func sendGalleryPhoto(_ selection: PhotosPickerItem) async {
+        guard !sendingPhoto else { return }
+        sendingPhoto = true
+        actionError = nil
+        defer { sendingPhoto = false }
+        do {
+            guard let image = try await selection.loadTransferable(type: ImportedImage.self) else {
+                throw QueepError.server("Não foi possível abrir esta foto.")
+            }
+            guard let api = session.client(), let uid = session.userID else { return }
+            let saved = try await api.uploadImage(id: UUID(), title: "", data: image.data)
+            ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library")
+            guard session.userID == uid else { return }
+            await store.refresh(api, account: uid)
+        } catch is CancellationError {
+        } catch let failure as QueepError {
+            if case .planRequired = failure { return }
+            actionError = failure.localizedDescription
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+    #endif
 }
 
 /// The search reads as a conversation with the library: what it is doing, what it found.
@@ -563,6 +779,7 @@ struct LibraryGallery<MenuContent: View>: View {
     let selectedIDs: Set<String>
     let resetID: String
     let open: (Reference) -> Void
+    var brush: ((String, Bool) -> Void)? = nil
     let loadMore: () -> Void
     @ViewBuilder var menu: (Reference) -> MenuContent
 
@@ -570,6 +787,10 @@ struct LibraryGallery<MenuContent: View>: View {
     @State private var shown = GalleryPaging.batch
     @State private var gate = false
     @State private var tailY: CGFloat = .greatestFiniteMagnitude
+    @State private var cardFrames: [String: CGRect] = [:]
+    @State private var brushRemoves = false
+    @State private var brushArmed = false
+    @State private var brushPoint: CGPoint?
 
     private var visible: [Reference] { Array(items.prefix(shown)) }
 
@@ -590,6 +811,14 @@ struct LibraryGallery<MenuContent: View>: View {
                                 .padding(10).accessibilityHidden(true)
                         }
                     }
+                    .background {
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: GalleryCardFrames.self,
+                                value: [reference.id: proxy.frame(in: .named("galleryBrush"))]
+                            )
+                        }
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -604,6 +833,9 @@ struct LibraryGallery<MenuContent: View>: View {
                 }
             }
         }
+        .coordinateSpace(name: "galleryBrush")
+        .onPreferenceChange(GalleryCardFrames.self) { cardFrames = $0 }
+        .simultaneousGesture(brushGesture)
         .onChange(of: resetID) { _, _ in
             shown = GalleryPaging.batch
             gate = false
@@ -611,6 +843,41 @@ struct LibraryGallery<MenuContent: View>: View {
         .onChange(of: items.count) { old, new in
             if new < old { shown = min(GalleryPaging.batch, new) }
             if !gate { consider(tailY) }
+        }
+    }
+
+    private var brushGesture: some Gesture {
+        DragGesture(minimumDistance: 12, coordinateSpace: .named("galleryBrush"))
+            .onChanged { value in
+                #if os(iOS)
+                guard selecting, brush != nil else { return }
+                if !brushArmed {
+                    brushArmed = true
+                    brushRemoves = hit(value.startLocation).map { selectedIDs.contains($0) } ?? false
+                    brushPoint = value.startLocation
+                }
+                paint(from: brushPoint ?? value.startLocation, to: value.location)
+                brushPoint = value.location
+                #endif
+            }
+            .onEnded { _ in
+                brushArmed = false
+                brushPoint = nil
+            }
+    }
+
+    private func hit(_ point: CGPoint) -> String? {
+        cardFrames.first { $0.value.contains(point) }?.key
+    }
+
+    private func paint(from start: CGPoint, to end: CGPoint) {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let steps = max(1, Int(hypot(dx, dy) / 8))
+        for step in 0...steps {
+            let t = CGFloat(step) / CGFloat(steps)
+            guard let id = hit(CGPoint(x: start.x + dx * t, y: start.y + dy * t)) else { continue }
+            brush?(id, !brushRemoves)
         }
     }
 
@@ -653,6 +920,13 @@ struct LibraryGallery<MenuContent: View>: View {
 
 private enum GalleryPaging {
     static let batch = 18
+}
+
+private struct GalleryCardFrames: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
 }
 
 private struct GalleryTailKey: PreferenceKey {

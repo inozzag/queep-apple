@@ -1,104 +1,172 @@
 import SwiftUI
 import QueepCore
 
-struct SpaceNavigation: View {
+struct SpacesOverview: View {
     @Environment(LibraryStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var columns: [GridItem] {
+        let count = typeSize.isAccessibilitySize ? 1 : 2
+        return Array(repeating: GridItem(.flexible(), spacing: GalleryStyle.gap), count: count)
+    }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                tab("Tudo", count: nil, id: nil)
-                ForEach(store.spaces) { space in tab(space.name, count: space.countLabel, id: space.id) }
+        VStack(alignment: .leading, spacing: 16) {
+            #if os(macOS)
+            HStack {
+                Spacer(minLength: 0)
                 Button { store.presentation = .newSpace } label: {
-                    GalleryChip(title: "Novo Space", symbol: "plus")
+                    Label("Novo Space", systemImage: "plus")
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("spaces.new")
             }
+            #endif
+            if store.spaces.isEmpty {
+                emptySpaces
+            } else {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 22) {
+                    ForEach(store.spaces) { space in
+                        SpaceGalleryCard(space: space)
+                    }
+                }
+            }
+            if let error = store.spaceError {
+                Text(error).foregroundStyle(.red).font(.callout)
+            }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Spaces da biblioteca")
     }
 
-    private func tab(_ name: String, count: String?, id: String?) -> some View {
-        let selected = store.selectedSpaceID == id
-        return Button { store.selectSpace(id) } label: {
-            GalleryChip(title: name, selected: selected)
+    private var emptySpaces: some View {
+        VStack(spacing: 12) {
+            HomeGlyph(asset: "HomeSpaces", size: 28)
+            Text("Crie e organize os seus itens em spaces inteligentes")
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.homePreview)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(count.map { "\(name), \($0)" } ?? name)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier(id.map { "spaces.tab.\($0)" } ?? "spaces.all")
+        .frame(maxWidth: 260)
+        .frame(maxWidth: .infinity)
+        .containerRelativeFrame(.vertical, alignment: .center)
     }
 }
 
-struct SpacesOverview: View {
+/// Pinterest-style board cover: a three-cell mosaic, then the name and a gray meta line.
+private struct SpaceGalleryCard: View {
     @Environment(LibraryStore.self) private var store
     @Environment(Session.self) private var session
-    @State private var editing: Space?
-    @State private var deleting: Space?
+    let space: Space
+    @State private var fetched: [Reference] = []
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Text("Spaces").font(.title.bold())
-                Spacer()
-                Button("Novo Space", systemImage: "plus") { store.presentation = .newSpace }
-                    .buttonStyle(.borderedProminent).accessibilityIdentifier("spaces.new")
-            }
-            Text("Organize referências de clientes, projetos e ideias. Uma referência pode estar em vários Spaces.")
-                .font(.callout).foregroundStyle(.secondary)
-            Button("Tudo", systemImage: "square.grid.2x2") { store.selectSpace(nil) }
-                .accessibilityIdentifier("spaces.all")
-            if store.spaces.isEmpty {
-                ContentUnavailableView("Suas ideias, organizadas", systemImage: "square.stack.3d.up",
-                    description: Text("Crie seu primeiro Space para reunir referências. Disponível a partir do Queep Pro."))
-            }
-            ForEach(Array(store.spaces.enumerated()), id: \.element.id) { index, space in
-                HStack {
-                    Button { store.selectSpace(space.id) } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "square.stack.3d.up")
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(space.name).font(.headline)
-                                Text(space.countLabel).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                        }.frame(minHeight: 44).contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain).accessibilityIdentifier("spaces.open.\(space.id)")
-                    Menu {
-                        Button("Renomear", systemImage: "pencil") { editing = space }
-                        Button("Mover para cima", systemImage: "arrow.up") { reorder(space, to: index - 1) }
-                            .disabled(index == 0)
-                        Button("Mover para baixo", systemImage: "arrow.down") { reorder(space, to: index + 1) }
-                            .disabled(index == store.spaces.count - 1)
-                        Divider()
-                        Button("Excluir Space…", systemImage: "trash", role: .destructive) { deleting = space }
-                    } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
-                    .accessibilityLabel("Opções de \(space.name)")
-                    .disabled(store.spaceMutating)
-                }.card(padding: 14, elevated: false)
-            }
-            if let error = store.spaceError { Text(error).foregroundStyle(.red).font(.callout) }
-        }
-        .sheet(item: $editing) { SpaceNameSheet(space: $0) }
-        .confirmationDialog("Excluir Space?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
-                            titleVisibility: .visible, presenting: deleting) { space in
-            Button("Excluir Space", role: .destructive) {
-                Task {
-                    guard let api = session.client(), let uid = session.userID else { return }
-                    await store.deleteSpace(space, client: api, account: uid)
-                }
-            }
-        } message: { _ in Text("As referências não serão apagadas. Elas continuam em Tudo e nos outros Spaces.") }
+    private var previews: [Reference] {
+        let known = store.spaceThumbnails(space.id)
+        return known.isEmpty ? Array(fetched.prefix(3)) : known
     }
 
-    private func reorder(_ space: Space, to index: Int) {
-        Task {
-            guard let api = session.client(), let uid = session.userID else { return }
-            _ = await store.saveSpace(api, account: uid, space: space, sortIndex: index)
+    private var activityDate: Date {
+        space.updatedAt
+    }
+
+    var body: some View {
+        Button { store.selectSpace(space.id) } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                SpaceMosaic(previews: previews)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(space.name)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(Theme.homeInk)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack(spacing: 12) {
+                        Text(space.countLabel)
+                        Text(SpaceBoardTime.compact(since: activityDate))
+                    }
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.homePreview)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(space.name), \(space.countLabel), \(SpaceBoardTime.compact(since: activityDate))")
+        .accessibilityIdentifier("spaces.open.\(space.id)")
+        .task(id: "\(space.id)-\(space.referenceCount)") {
+            guard space.referenceCount > 0, store.spaceThumbnails(space.id).isEmpty else { return }
+            guard let api = session.client(), session.userID != nil else { return }
+            guard let page = try? await api.list(spaceID: space.id, limit: 12) else { return }
+            fetched = page.items
+                .filter { !$0.isArchived && (!$0.gallery.isEmpty || $0.media != nil) }
+                .sorted { lhs, rhs in
+                    if lhs.createdAt != rhs.createdAt { return lhs.createdAt > rhs.createdAt }
+                    return lhs.id > rhs.id
+                }
+        }
+    }
+}
+
+/// Large tile on the left, two stacked tiles on the right. Missing images stay light gray.
+private struct SpaceMosaic: View {
+    let previews: [Reference]
+    private let gap: CGFloat = 2.5
+    private let placeholder = Color(red: 228 / 255, green: 228 / 255, blue: 231 / 255)
+
+    var body: some View {
+        Color.white
+            .aspectRatio(1.08, contentMode: .fit)
+            .overlay {
+                GeometryReader { geo in
+                    let left = (geo.size.width - gap) * 2 / 3
+                    let right = geo.size.width - gap - left
+                    let top = (geo.size.height - gap) / 2
+                    let bottom = geo.size.height - gap - top
+                    HStack(spacing: gap) {
+                        cell(previews.first)
+                            .frame(width: left, height: geo.size.height)
+                        VStack(spacing: gap) {
+                            cell(previews.count > 1 ? previews[1] : nil)
+                                .frame(width: right, height: top)
+                            cell(previews.count > 2 ? previews[2] : nil)
+                                .frame(width: right, height: bottom)
+                        }
+                        .frame(width: right)
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .accessibilityHidden(true)
+    }
+
+    private func cell(_ reference: Reference?) -> some View {
+        ZStack {
+            placeholder
+            if let reference {
+                RemoteImage(reference: reference, thumbnail: true, fill: true, quiet: true)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+    }
+}
+
+/// Compact Portuguese age, matching a Pinterest board’s “2 a” line.
+enum SpaceBoardTime {
+    static func compact(since date: Date, now: Date = .now) -> String {
+        let seconds = now.timeIntervalSince(date)
+        if seconds < 60 { return "agora" }
+        let minutes = Int(seconds / 60)
+        if minutes < 60 { return "\(minutes) min" }
+        let hours = Int(seconds / 3600)
+        if hours < 24 { return "\(hours) h" }
+        let days = Int(seconds / 86_400)
+        if days < 7 { return "\(max(days, 1)) d" }
+        let weeks = days / 7
+        if weeks < 52 { return "\(weeks) sem" }
+        return "\(max(days / 365, 1)) a"
     }
 }
 
@@ -256,7 +324,7 @@ struct EmptySpaceView: View {
         } description: {
             Text("Selecione referências da biblioteca e use Space para reuni-las aqui.")
         } actions: {
-            Button("Adicionar da biblioteca") { store.selectSpace(nil) }
+            Button("Adicionar da biblioteca") { store.showHome() }
                 .buttonStyle(.borderedProminent).accessibilityIdentifier("spaces.addFromLibrary")
         }
     }

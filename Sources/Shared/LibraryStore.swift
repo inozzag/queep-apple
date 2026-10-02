@@ -53,7 +53,12 @@ final class LibraryStore {
     var scrollAnchors: [String: String] = [:]
     private var cachedPages: [String: LibraryPage] = [:]
     private var knownReferences: [String: Reference] = [:]
-    var filterKey: String { surface.showsArchived ? "archived" : selectedSpaceID ?? "all" }
+    /// Folder open on the Spaces tab. Home always shows the whole library.
+    var scopedSpaceID: String? { surface == .spaces ? selectedSpaceID : nil }
+    var filterKey: String {
+        if surface.showsArchived { return "archived" }
+        return scopedSpaceID ?? "all"
+    }
     var selectedSpace: Space? { spaces.first { $0.id == selectedSpaceID } }
     var nextCursor: String?
     var error: String?
@@ -61,6 +66,8 @@ final class LibraryStore {
     var hasLoaded = false
     var captureKind = "note"
     var captureIntent = "note"
+    /// iPhone Galeria presents the system photo library without the capture card.
+    var openPhotoLibrary = false
     var kindFilter: String?
     var presentation: LibraryPresentation?
     var surface: LibrarySurface = .home
@@ -106,6 +113,7 @@ final class LibraryStore {
         loading = false
         hasLoaded = false
         presentation = nil
+        openPhotoLibrary = false
         query = ""
         kindFilter = nil
         searchChips = []
@@ -118,11 +126,11 @@ final class LibraryStore {
     }
 
     func showHome() {
-        selectSpace(nil)
         searchChips = []
         query = ""
         kindFilter = nil
         clearSearch()
+        if surface != .home { show(.home) }
     }
 
     func show(_ destination: LibrarySurface) {
@@ -142,12 +150,13 @@ final class LibraryStore {
         clearSearch()
     }
 
+    /// Opens or closes a folder on the Spaces tab. Does not filter Home or switch to it.
     func selectSpace(_ id: String?) {
-        guard id != selectedSpaceID || surface != .home else { return }
+        guard id != selectedSpaceID || surface != .spaces else { return }
         rememberPage()
         generation += 1
         selectedSpaceID = id
-        surface = .home
+        if id != nil { surface = .spaces }
         let cached = cachedPages[filterKey]
         items = cached?.items ?? []
         nextCursor = cached?.nextCursor
@@ -204,7 +213,7 @@ final class LibraryStore {
         }
         defer { if operation == searchGeneration { searching = false } }
         do {
-            let result = try await client.search(term, spaceID: selectedSpaceID)
+            let result = try await client.search(term, spaceID: scopedSpaceID)
             guard operation == searchGeneration, account == accountID else { return }
             searchItems = result.items
             for ref in result.items { knownReferences[ref.id] = ref }
@@ -222,7 +231,7 @@ final class LibraryStore {
         do {
             let page = try await client.list(cursor: more ? nextCursor : nil,
                                              archived: surface.showsArchived,
-                                             spaceID: surface.showsArchived ? nil : selectedSpaceID)
+                                             spaceID: surface.showsArchived ? nil : scopedSpaceID)
             guard operation == generation, account == accountID, !spaceMutating else { return }
             if more {
                 let known = Set(items.map(\.id))
@@ -241,7 +250,7 @@ final class LibraryStore {
             error = nil
             rememberPage()
             persistCache()
-            if surface == .home, selectedSpaceID == nil, !more, items.isEmpty {
+            if surface == .home, !more, items.isEmpty {
                 let archived = try await client.list(archived: true)
                 guard operation == generation, account == accountID else { return }
                 hasArchivedItems = !archived.items.isEmpty
@@ -326,6 +335,28 @@ final class LibraryStore {
         items.first { $0.id == id } ?? knownReferences[id] ?? cachedPages.values.lazy.flatMap(\.items).first { $0.id == id }
     }
 
+    /// Newest gallery or media references already in memory for a space, used on the board mosaic.
+    func spaceThumbnails(_ spaceID: String, limit: Int = 3) -> [Reference] {
+        var byID: [String: Reference] = [:]
+        func consider(_ ref: Reference, forcedMember: Bool) {
+            guard !ref.isArchived else { return }
+            guard forcedMember || ref.membershipIDs.contains(spaceID) else { return }
+            guard !ref.gallery.isEmpty || ref.media != nil else { return }
+            if let current = byID[ref.id], current.revision > ref.revision { return }
+            byID[ref.id] = ref
+        }
+        let viewingSpace = scopedSpaceID == spaceID
+        for ref in items { consider(ref, forcedMember: viewingSpace) }
+        for ref in knownReferences.values { consider(ref, forcedMember: false) }
+        for (key, page) in cachedPages {
+            for ref in page.items { consider(ref, forcedMember: key == spaceID) }
+        }
+        return byID.values.sorted { lhs, rhs in
+            if lhs.createdAt != rhs.createdAt { return lhs.createdAt > rhs.createdAt }
+            return lhs.id > rhs.id
+        }.prefix(limit).map { $0 }
+    }
+
     func assignSpace(_ space: Space, references: [Reference], adding: Bool,
                      client: APIClient, account: String) async {
         guard account == accountID, !spaceMutating else { return }
@@ -384,7 +415,8 @@ final class LibraryStore {
             cachedPages[key] = LibraryPage(items: values, nextCursor: page.nextCursor)
         }
         items.removeAll { $0.id == ref.id }
-        let belongs = surface.showsArchived ? ref.isArchived : !ref.isArchived && (selectedSpaceID == nil || ref.membershipIDs.contains(selectedSpaceID!))
+        let inScope = scopedSpaceID.map { ref.membershipIDs.contains($0) } ?? true
+        let belongs = surface.showsArchived ? ref.isArchived : !ref.isArchived && inScope
         if belongs { items.append(ref) }
         items.sort { $0.createdAt == $1.createdAt ? $0.id > $1.id : $0.createdAt > $1.createdAt }
         if let index = searchItems?.firstIndex(where: { $0.id == ref.id }) {

@@ -32,16 +32,6 @@ struct MacLibraryHeader: View {
                     .buttonStyle(.plain)
                     .help("Organizar suas referências em Spaces.")
                     .accessibilityIdentifier("library.spaces")
-                    Button(action: { store.show(.archived) }) {
-                        Label("Arquivados", systemImage: "archivebox")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Theme.homeInk)
-                            .padding(.horizontal, 14).frame(height: Theme.homeChrome)
-                            .homeSurface()
-                    }
-                    .buttonStyle(.plain)
-                    .help("Itens ocultos da biblioteca ativa.")
-                    .accessibilityIdentifier("library.archived")
                 }
             }
             HStack(alignment: .top, spacing: 16) {
@@ -53,19 +43,7 @@ struct MacLibraryHeader: View {
                     }
                 }
                 Spacer(minLength: 16)
-                HStack(spacing: 16) {
-                    if store.hasActiveCollection {
-                        Button(action: { store.presentation = .newSpace }) {
-                            HomePillLabel(title: "Novo Space", asset: "HomeCreateSpace")
-                                .homeSurface()
-                        }
-                        .buttonStyle(.plain)
-                        .help("Criar uma coleção pessoal de referências.")
-                        .accessibilityLabel("Novo Space")
-                        .accessibilityIdentifier("library.createSpace")
-                    }
-                    HomeFilterMenu(refresh: refresh)
-                }
+                HomeFilterMenu(refresh: refresh)
             }
         }
         .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 18)

@@ -113,6 +113,8 @@ final class QualityTests: XCTestCase {
         app.buttons["reference.more"].tap()
         app.buttons["reference.archive"].tap()
         XCTAssertTrue(card.waitForNonExistence(timeout: 10))
+        app.buttons["Conta"].tap()
+        XCTAssertTrue(app.buttons["library.archived"].waitForExistence(timeout: 5))
         app.buttons["library.archived"].tap()
         XCTAssertTrue(card.waitForExistence(timeout: 10))
         card.tap()

@@ -133,6 +133,8 @@
 		D1B31828DA363105D07C78B3 /* FirstUseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE63076BBD0A3B76452512D /* FirstUseView.swift */; };
 		A9C3E6D14F815C20D3E5F709 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C4B92D6F4A08B1C3D5E7 /* OnboardingView.swift */; };
 		D1E4C876B6403A49612518C2 /* SubscriptionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D8DD2B33C0013545C7F814B /* SubscriptionStore.swift */; };
+		F1EED0C1CE0A11EDBEEF0002 /* FeedNotice.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EED0C1CE0A11EDBEEF0001 /* FeedNotice.swift */; };
+		F1EED0C1CE0A11EDBEEF0003 /* FeedNotice.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EED0C1CE0A11EDBEEF0001 /* FeedNotice.swift */; };
 		D36B61D13131A00D06E32B6C /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
 		D4946673984E67F651775382 /* ShareCaptureQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC5732EBE146B9340132851F /* ShareCaptureQueue.swift */; };
 		D6DCA284EF2864CB23B9DE8E /* AccountRecoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C525F2515A3AE17962468274 /* AccountRecoveryView.swift */; };
@@ -215,6 +217,7 @@
 		316CD0F3D2B3FC139105EAAB /* AccountDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionTests.swift; sourceTree = "<group>"; };
 		380E6333B84BD8A72A67B64F /* AnalyticsAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsAcceptanceTests.swift; sourceTree = "<group>"; };
 		427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteAccountView.swift; sourceTree = "<group>"; };
+		F1EED0C1CE0A11EDBEEF0001 /* FeedNotice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedNotice.swift; sourceTree = "<group>"; };
 		448A171EFDE10BD4B0D93D7B /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		448EA832C6163EA29684639B /* LibrarySpacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySpacesTests.swift; sourceTree = "<group>"; };
 		4A209CB032567C65928FAABB /* QueepiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = QueepiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -477,6 +480,7 @@
 				FF400C89CE0A73581FB4FFBB /* CaptureView.swift */,
 				7BC82B3180B284D672C79246 /* CrashReporting.swift */,
 				427AFFD7F5A621917DC05963 /* DeleteAccountView.swift */,
+				F1EED0C1CE0A11EDBEEF0001 /* FeedNotice.swift */,
 				BEE63076BBD0A3B76452512D /* FirstUseView.swift */,
 				D0AA71CE1552619A0E79450A /* GalleryDetailView.swift */,
 				AD1EEC8D0C2DE67C5DFB4D17 /* HomeChrome.swift */,
@@ -1029,6 +1033,7 @@
 				94E8917F4CDF140F5313CFF3 /* CaptureView.swift in Sources */,
 				09B9B55EC2E3F24557588A02 /* CrashReporting.swift in Sources */,
 				8A92E8BB0C5AFCEE98C7DD8D /* DeleteAccountView.swift in Sources */,
+				F1EED0C1CE0A11EDBEEF0002 /* FeedNotice.swift in Sources */,
 				96C23C83A25CBFAAAAD47303 /* FirstUseView.swift in Sources */,
 				1345B0BC4A6D0CDBBC2142BB /* GalleryDetailView.swift in Sources */,
 				3989E01C6E70ECC32E4B4BAD /* HomeChrome.swift in Sources */,
@@ -1071,6 +1076,7 @@
 				53FAAA8A7E9653EAA1821FFA /* CaptureView.swift in Sources */,
 				060B48221E9CE4B4F134FFCE /* CrashReporting.swift in Sources */,
 				625E8DD020ACD90251C09826 /* DeleteAccountView.swift in Sources */,
+				F1EED0C1CE0A11EDBEEF0003 /* FeedNotice.swift in Sources */,
 				D1B31828DA363105D07C78B3 /* FirstUseView.swift in Sources */,
 				799C2555B738D4B566C4AAED /* GalleryDetailView.swift in Sources */,
 				922C2A4A7FC30A5612C1E9C5 /* GlobalShortcut.swift in Sources */,
