@@ -23,9 +23,9 @@ final class CapturePin {
     private var exitTask: Task<Void, Never>?
     private let capture: MacCapture
 
-    private let pinSize = CGSize(width: 52, height: 72)
-    private let cardSize = CGSize(width: 328, height: 276)
-    private let gap: CGFloat = 12
+    private let pinSize = CGSize(width: 32, height: 38)
+    private let cardSize = CGSize(width: 259, height: 156)
+    private let gap: CGFloat = 16
     private let shadowPad: CGFloat = 20
     private let positionKey = "queep.pin.center"
 
@@ -201,7 +201,7 @@ private struct PinDragSurface: NSViewRepresentable {
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: PinDragView, context: Context) -> CGSize? {
-        proposal.replacingUnspecifiedDimensions(by: CGSize(width: 52, height: 72))
+        proposal.replacingUnspecifiedDimensions(by: CGSize(width: 32, height: 38))
     }
 }
 
@@ -268,7 +268,7 @@ private struct PinChrome: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 16) {
             if state == .expanded, pin.opensLeading {
                 PinCard(notice: notice, targeted: targeted).transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .trailing)))
             }
@@ -319,19 +319,31 @@ private struct PinMark: View {
     let notice: Notice?
 
     var body: some View {
-        VStack(spacing: 5) {
+        ZStack(alignment: .top) {
             Image("HomeLogo")
                 .resizable()
                 .renderingMode(.original)
                 .aspectRatio(690 / 670, contentMode: .fit)
-                .frame(width: 30)
+                .frame(width: 18.53, height: 18)
+                .padding(.top, 10)
                 .accessibilityHidden(true)
             status
+                .padding(.top, 28)
         }
-        .frame(width: 52, height: 72)
-        .background(Color(red: 41 / 255, green: 37 / 255, blue: 33 / 255), in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.08), lineWidth: 1))
-        .shadow(color: .black.opacity(0.28), radius: 12, y: 6)
+        .frame(width: 32, height: 38)
+        .background {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(red: 41 / 255, green: 37 / 255, blue: 33 / 255).opacity(0.9))
+                }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color(red: 57 / 255, green: 54 / 255, blue: 50 / 255), lineWidth: 0.75)
+        }
+        .shadow(color: .black.opacity(0.22), radius: 6, y: 3)
         .overlay {
             PinDragSurface(center: { pin.center() }, move: { pin.drag(to: $0) }, end: { pin.endDrag() })
                 .accessibilityHidden(true)
@@ -351,14 +363,14 @@ private struct PinMark: View {
 
     @ViewBuilder private var status: some View {
         if capture.busy {
-            ProgressView().controlSize(.mini)
+            ProgressView().controlSize(.mini).scaleEffect(0.6)
         } else if case .failed = notice {
             Image(systemName: "exclamationmark")
-                .font(.system(size: 11, weight: .bold))
+                .font(.system(size: 7, weight: .bold))
                 .foregroundStyle(Color(red: 1, green: 0.66, blue: 0.36))
         } else if notice == .saved {
             Image(systemName: "checkmark")
-                .font(.system(size: 12, weight: .bold))
+                .font(.system(size: 7, weight: .bold))
                 .foregroundStyle(Color(red: 0.67, green: 0.8, blue: 0.48))
         }
     }
@@ -368,7 +380,6 @@ private struct PinCard: View {
     @Environment(MacCapture.self) private var capture
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var library
-    @Environment(CapturePin.self) private var pin
     let notice: Notice?
     let targeted: Bool
 
@@ -386,86 +397,94 @@ private struct PinCard: View {
         return "Queep"
     }
 
-    private var preview: String {
-        if targeted { return "Imagem, link, texto, áudio ou vídeo." }
-        if capture.busy { return capture.message ?? "A análise continua na nuvem." }
-        if capture.pending != nil { return capture.error ?? "Repita ou descarte na captura rápida." }
-        if case .failed(let reason) = notice { return reason }
-        if session.userID == nil { return "Abra a biblioteca e entre na sua conta." }
-        if let latest {
-            let body = latest.text.isEmpty ? (latest.transcript ?? latest.source?.text ?? "") : latest.text
-            if !body.isEmpty { return body }
-            return "\(latest.kindLabel) · \(latest.statusLabel)"
-        }
-        return "Solte algo aqui, cole o que está copiado ou capture a tela."
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
+            HStack(spacing: 6) {
                 Image("HomeLogo")
                     .resizable()
                     .renderingMode(.original)
                     .aspectRatio(690 / 670, contentMode: .fit)
-                    .frame(width: 28)
+                    .frame(width: 33.99, height: 33.02)
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
-                    if let latest, !targeted, !capture.busy, notice == nil, capture.pending == nil {
-                        Text("\(latest.kindLabel) · \(latest.statusLabel)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.5))
-                            .lineLimit(1)
+                VStack(alignment: .leading, spacing: 4.5) {
+                    Text(title)
+                        .font(.system(size: 9.756, weight: .bold))
+                        .foregroundStyle(Color(red: 220 / 255, green: 220 / 255, blue: 220 / 255))
+                        .lineLimit(1)
+                    Button(action: openLast) {
+                        HStack(spacing: 1.5) {
+                            Text("Open last save")
+                                .font(.system(size: 8.255))
+                                .foregroundStyle(Color(red: 147 / 255, green: 145 / 255, blue: 143 / 255))
+                            Image("PinOpenArrow")
+                                .resizable()
+                                .frame(width: 9.756, height: 9.756)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Open last save")
+                }
+                Spacer(minLength: 0)
+            }
+            VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    PinAction("Create Note", asset: "PinEdit", id: "island.quick") { capture.show() }
+                    PinAction("Clipboard", asset: "PinClipboard", id: "island.paste", disabled: !canSave) {
+                        capture.paste(quietly: true)
                     }
                 }
-                Spacer(minLength: 0)
-            }
-            Text(preview)
-                .font(.system(size: 14))
-                .foregroundStyle(Color(red: 0.86, green: 0.84, blue: 0.8))
-                .lineLimit(6)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(14)
-                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            HStack(spacing: 8) {
-                PinAction("Captura rápida", symbol: "square.and.pencil", id: "island.quick") { capture.show() }
-                PinAction("Colar e salvar", symbol: "doc.on.clipboard", id: "island.paste", disabled: !canSave) {
-                    capture.paste(quietly: true)
+                HStack(spacing: 6) {
+                    PinAction("Screenshot", asset: "PinScreenshot", id: "island.screenshot", disabled: !canSave) {
+                        capture.captureScreen(quietly: true)
+                    }
+                    PinAction("Open Home", asset: "PinDashboard", id: "island.library") { capture.showLibrary() }
                 }
-                PinAction("Capturar tela", symbol: "camera.viewfinder", id: "island.screenshot", disabled: !canSave) {
-                    capture.captureScreen(quietly: true)
-                }
-                PinAction("Abrir biblioteca", symbol: "books.vertical.fill", id: "island.library") { capture.showLibrary() }
-                Spacer(minLength: 0)
             }
         }
-        .padding(16)
-        .frame(width: 328, height: 276, alignment: .topLeading)
-        .background(Color(red: 41 / 255, green: 37 / 255, blue: 33 / 255), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).strokeBorder(.white.opacity(0.08), lineWidth: 1))
-        .shadow(color: .black.opacity(0.32), radius: 18, y: 8)
+        .padding(18)
+        .frame(width: 259, height: 156, alignment: .topLeading)
+        .background(Color(red: 41 / 255, green: 37 / 255, blue: 33 / 255), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: .black.opacity(0.28), radius: 12, y: 6)
+    }
+
+    private func openLast() {
+        capture.showLibrary()
+        if let latest { library.presentation = .reference(latest) }
     }
 }
 
 private struct PinAction: View {
     let label: String
-    let symbol: String
+    let asset: String
     let id: String
     var disabled = false
     let action: () -> Void
     @State private var hovered = false
 
-    init(_ label: String, symbol: String, id: String, disabled: Bool = false, action: @escaping () -> Void) {
-        self.label = label; self.symbol = symbol; self.id = id; self.disabled = disabled; self.action = action
+    init(_ label: String, asset: String, id: String, disabled: Bool = false, action: @escaping () -> Void) {
+        self.label = label; self.asset = asset; self.id = id; self.disabled = disabled; self.action = action
     }
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(disabled ? 0.35 : 1))
-                .frame(width: 32, height: 32)
-                .background(.white.opacity(hovered && !disabled ? 0.22 : 0.1), in: Circle())
-                .contentShape(Circle())
+            HStack(spacing: 12) {
+                Image(asset)
+                    .resizable()
+                    .frame(width: 15.009, height: 15.009)
+                Text(label)
+                    .font(.system(size: 9.756))
+                    .foregroundStyle(Color(red: 220 / 255, green: 220 / 255, blue: 220 / 255))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12.3)
+            .frame(maxWidth: .infinity, minHeight: 34.52, maxHeight: 34.52, alignment: .leading)
+            .background(Color(red: 57 / 255, green: 54 / 255, blue: 50 / 255), in: RoundedRectangle(cornerRadius: 12.3, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12.3, style: .continuous)
+                    .strokeBorder(Color(red: 57 / 255, green: 54 / 255, blue: 50 / 255), lineWidth: 0.75)
+            }
+            .opacity(disabled ? 0.4 : hovered ? 0.82 : 1)
         }
         .buttonStyle(.plain).disabled(disabled)
         .onHover { hovered = $0 }
