@@ -218,9 +218,18 @@ struct LibraryView: View {
                     .frame(maxWidth: .infinity)
             }
             .libraryScrollPosition()
-            MacLibraryHeader(search: { Task { await search() } }, refresh: { Task { await refresh() } })
-                .homeTopBar()
-                .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
+            MacLibraryHeader(
+                search: { Task { await search() } },
+                refresh: { Task { await refresh() } },
+                selecting: selecting,
+                canSelect: !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil),
+                toggleSelect: {
+                    selecting.toggle()
+                    if !selecting { selectedIDs = [] }
+                }
+            )
+            .homeTopBar(fade: 32)
+            .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
         }
         .overlay { macGallery }
         .animation(.easeOut(duration: 0.15), value: macGalleryID)
@@ -281,19 +290,11 @@ struct LibraryView: View {
                     .foregroundStyle(Theme.homeInk)
                     .accessibilityAddTraits(.isHeader)
             }
-            if !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil) {
-                #if os(macOS)
-                HStack(spacing: 8) {
-                    if selecting { selectionActions }
-                    Button {
-                        selecting.toggle()
-                        if !selecting { selectedIDs = [] }
-                    } label: { GalleryChip(title: selecting ? "Cancelar" : "Selecionar") }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("library.select")
-                }
-                #endif
+            #if os(macOS)
+            if selecting {
+                selectionActions
             }
+            #endif
             #if os(iOS)
             if sendingPhoto {
                 Label("Enviando imagem…", systemImage: "arrow.up.circle")

@@ -56,7 +56,7 @@ struct HomeTopScrim: View {
 }
 
 extension View {
-    func homeTopBar(fade: CGFloat = 56) -> some View {
+    func homeTopBar(fade: CGFloat = 32) -> some View {
         background(alignment: .top) {
             Color.clear
                 .overlay(alignment: .top) {

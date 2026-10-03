@@ -6,6 +6,9 @@ struct MacLibraryHeader: View {
     @Environment(LibraryStore.self) private var store
     let search: () -> Void
     let refresh: () -> Void
+    var selecting = false
+    var canSelect = false
+    var toggleSelect: () -> Void = {}
     @State private var addOpen = false
 
     var body: some View {
@@ -43,7 +46,16 @@ struct MacLibraryHeader: View {
                     }
                 }
                 Spacer(minLength: 16)
-                HomeFilterMenu(refresh: refresh)
+                HStack(spacing: 8) {
+                    if canSelect || selecting {
+                        Button(action: toggleSelect) {
+                            GalleryChip(title: selecting ? "Cancelar" : "Selecionar")
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("library.select")
+                    }
+                    HomeFilterMenu(refresh: refresh)
+                }
             }
         }
         .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 18)

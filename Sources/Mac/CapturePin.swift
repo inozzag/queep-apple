@@ -23,10 +23,10 @@ final class CapturePin {
     private var exitTask: Task<Void, Never>?
     private let capture: MacCapture
 
-    private let pinSize = CGSize(width: 32, height: 38)
-    private let cardSize = CGSize(width: 259, height: 156)
-    private let gap: CGFloat = 16
-    private let shadowPad: CGFloat = 20
+    private let pinSize = PinLayout.pin
+    private let cardSize = PinLayout.card
+    private let gap = PinLayout.gap
+    private let shadowPad = PinLayout.shadowPad
     private let positionKey = "queep.pin.center"
 
     init(capture: MacCapture) { self.capture = capture }
@@ -114,9 +114,14 @@ final class CapturePin {
         host.sizingOptions = []
         host.frame = tracking.bounds
         host.autoresizingMask = [.width, .height]
+        // Shadows draw into the pad around the pin and card. Clipping the host
+        // cuts them off, and a layer-backed ancestor flattens the backdrop blur.
+        host.clipsToBounds = false
+        tracking.clipsToBounds = false
         tracking.addSubview(host)
         tracking.autoresizingMask = [.width, .height]
         panel.contentView = tracking
+        panel.contentView?.clipsToBounds = false
         self.panel = panel
     }
 
@@ -201,7 +206,7 @@ private struct PinDragSurface: NSViewRepresentable {
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: PinDragView, context: Context) -> CGSize? {
-        proposal.replacingUnspecifiedDimensions(by: CGSize(width: 32, height: 38))
+        proposal.replacingUnspecifiedDimensions(by: PinLayout.pin)
     }
 }
 
@@ -211,6 +216,8 @@ private final class PinDragView: NSView {
     var end: () -> Void = {}
     private var originMouse: CGPoint?
     private var originCenter: CGPoint?
+
+    override var isOpaque: Bool { false }
 
     override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
     override func mouseDown(with event: NSEvent) {
@@ -268,7 +275,7 @@ private struct PinChrome: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 16) {
+        HStack(alignment: .center, spacing: PinLayout.gap) {
             if state == .expanded, pin.opensLeading {
                 PinCard(notice: notice, targeted: targeted).transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .trailing)))
             }
@@ -277,7 +284,7 @@ private struct PinChrome: View {
                 PinCard(notice: notice, targeted: targeted).transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .leading)))
             }
         }
-        .padding(20)
+        .padding(PinLayout.shadowPad)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: pin.opensLeading ? .trailing : .leading)
         .environment(\.colorScheme, .dark)
         .onDrop(of: [UTType.url, .image, .plainText, .movie, .audio], isTargeted: $targeted) { providers in
@@ -319,39 +326,33 @@ private struct PinMark: View {
     let notice: Notice?
 
     var body: some View {
-        ZStack(alignment: .top) {
-            Image("HomeLogo")
-                .resizable()
-                .renderingMode(.original)
-                .aspectRatio(690 / 670, contentMode: .fit)
-                .frame(width: 18.53, height: 18)
-                .padding(.top, 10)
-                .accessibilityHidden(true)
-            status
-                .padding(.top, 28)
-        }
-        .frame(width: 32, height: 38)
-        .background {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color(red: 41 / 255, green: 37 / 255, blue: 33 / 255).opacity(0.9))
-                }
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color(red: 57 / 255, green: 54 / 255, blue: 50 / 255), lineWidth: 0.75)
-        }
-        .shadow(color: .black.opacity(0.22), radius: 6, y: 3)
-        .overlay {
-            PinDragSurface(center: { pin.center() }, move: { pin.drag(to: $0) }, end: { pin.endDrag() })
-                .accessibilityHidden(true)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label)
-        .accessibilityHint("Arraste para mover. Passe o mouse para colar, capturar a tela ou abrir a biblioteca.")
-        .accessibilityIdentifier("island")
+        Image("HomeLogo")
+            .resizable()
+            .renderingMode(.original)
+            .aspectRatio(690 / 670, contentMode: .fit)
+            .frame(width: 18.53, height: 18)
+            .accessibilityHidden(true)
+            .frame(width: PinLayout.pin.width, height: PinLayout.pin.height)
+            .overlay(alignment: .bottom) {
+                status
+                    .padding(.bottom, 3)
+                    .allowsHitTesting(false)
+            }
+            .overlay {
+                PinDragSurface(center: { pin.center() }, move: { pin.drag(to: $0) }, end: { pin.endDrag() })
+                    .accessibilityHidden(true)
+            }
+            .modifier(PinPlate(
+                cornerRadius: 10,
+                fillOpacity: PinLayout.pinFillOpacity,
+                shadowRadius: 12,
+                shadowY: 5,
+                shadowOpacity: 0.40
+            ))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityHint("Arraste para mover. Passe o mouse para colar, capturar a tela ou abrir a biblioteca.")
+            .accessibilityIdentifier("island")
     }
 
     private var label: String {
@@ -442,9 +443,14 @@ private struct PinCard: View {
             }
         }
         .padding(18)
-        .frame(width: 259, height: 156, alignment: .topLeading)
-        .background(Color(red: 41 / 255, green: 37 / 255, blue: 33 / 255), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: .black.opacity(0.28), radius: 12, y: 6)
+        .frame(width: PinLayout.card.width, height: PinLayout.card.height, alignment: .topLeading)
+        .modifier(PinPlate(
+            cornerRadius: 24,
+            fillOpacity: PinLayout.cardFillOpacity,
+            shadowRadius: 18,
+            shadowY: 8,
+            shadowOpacity: 0.36
+        ))
     }
 
     private func openLast() {
@@ -472,7 +478,7 @@ private struct PinAction: View {
                     .resizable()
                     .frame(width: 15.009, height: 15.009)
                 Text(label)
-                    .font(.system(size: 9.756))
+                    .font(.system(size: 13))
                     .foregroundStyle(Color(red: 220 / 255, green: 220 / 255, blue: 220 / 255))
                     .lineLimit(1)
                 Spacer(minLength: 0)
@@ -490,5 +496,121 @@ private struct PinAction: View {
         .onHover { hovered = $0 }
         .animation(.easeOut(duration: 0.15), value: hovered)
         .help(label).accessibilityLabel(label).accessibilityIdentifier(id)
+    }
+}
+
+/// Shared pin geometry. `shadowPad` is the transparent margin inside the panel so
+/// drop shadows are inside the window instead of clipped at its edge.
+private enum PinLayout {
+    static let pin = CGSize(width: 32, height: 38)
+    static let card = CGSize(width: 350, height: 156)
+    static let gap: CGFloat = 16
+    static let shadowPad: CGFloat = 56
+    /// #292521 over the backdrop blur. 0.9 hid the blur; this lets it read.
+    static let pinFillOpacity: CGFloat = 0.55
+    static let cardFillOpacity: CGFloat = 0.68
+}
+
+/// Frosted plate. The blur is not a child of the shadow: a shadow pass flattens
+/// `NSVisualEffectView` and the nonactivating panel otherwise leaves the material inactive.
+private struct PinPlate: ViewModifier {
+    var cornerRadius: CGFloat
+    var fillOpacity: CGFloat
+    var shadowRadius: CGFloat
+    var shadowY: CGFloat
+    var shadowOpacity: CGFloat
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                DesktopBlur(cornerRadius: cornerRadius)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay {
+                        shape.fill(Color(red: 41 / 255, green: 37 / 255, blue: 33 / 255).opacity(fillOpacity))
+                    }
+                    .clipShape(shape)
+                    .overlay {
+                        shape.strokeBorder(Color(red: 57 / 255, green: 54 / 255, blue: 50 / 255), lineWidth: 0.75)
+                    }
+                    .allowsHitTesting(false)
+            }
+            .background {
+                shape
+                    .fill(Color.black)
+                    .shadow(color: .black.opacity(shadowOpacity), radius: shadowRadius, y: shadowY)
+                    .allowsHitTesting(false)
+            }
+    }
+}
+
+/// Backdrop blur that stays active on a nonactivating panel. SwiftUI's material
+/// follows window-active state, so on this panel it renders flat and looks hidden.
+private struct DesktopBlur: NSViewRepresentable {
+    var cornerRadius: CGFloat
+
+    func makeNSView(context: Context) -> ActiveDesktopBlurView {
+        let view = ActiveDesktopBlurView()
+        view.pinCornerRadius = cornerRadius
+        return view
+    }
+
+    func updateNSView(_ view: ActiveDesktopBlurView, context: Context) {
+        view.pinCornerRadius = cornerRadius
+        view.reveal()
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: ActiveDesktopBlurView, context: Context) -> CGSize? {
+        proposal.replacingUnspecifiedDimensions()
+    }
+}
+
+private final class ActiveDesktopBlurView: NSVisualEffectView {
+    var pinCornerRadius: CGFloat = 0 {
+        didSet { applyShape() }
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        material = .popover
+        blendingMode = .behindWindow
+        state = .active
+        isEmphasized = true
+        appearance = NSAppearance(named: .darkAqua)
+        wantsLayer = true
+        reveal()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        reveal()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        reveal()
+    }
+
+    override func layout() {
+        super.layout()
+        reveal()
+    }
+
+    func reveal() {
+        state = .active
+        blendingMode = .behindWindow
+        material = .popover
+        isHidden = false
+        alphaValue = 1
+        applyShape()
+    }
+
+    private func applyShape() {
+        layer?.cornerRadius = pinCornerRadius
+        layer?.cornerCurve = .continuous
+        layer?.masksToBounds = true
     }
 }
