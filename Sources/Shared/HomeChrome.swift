@@ -435,9 +435,7 @@ struct iPhoneLibrary<Content: View, Dock: View>: View {
                     .frame(maxWidth: .infinity)
             }
             .refreshable { await refresh() }
-            .scrollPosition(id: Binding(get: { store.scrollAnchors[store.filterKey] }, set: {
-                if let id = $0 { store.scrollAnchors[store.filterKey] = id }
-            }), anchor: .top)
+            .libraryScrollPosition()
             .scrollDismissesKeyboard(.interactively)
 
             VStack(spacing: 10) {

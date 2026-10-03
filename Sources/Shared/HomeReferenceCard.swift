@@ -412,7 +412,7 @@ struct PostBrandMark: View {
     }
 }
 
-/// Tap opens the item; horizontal pans stay with the media carousel.
+/// A plain button opens the item and leaves the library pan with the scroll view.
 struct LibraryCardCell<MenuContent: View>: View {
     let reference: Reference
     let open: () -> Void
@@ -422,21 +422,23 @@ struct LibraryCardCell<MenuContent: View>: View {
     private var isAnalyzing: Bool { reference.status == "queued" || reference.status == "processing" }
 
     var body: some View {
-        HomeReferenceCard(reference: reference)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .opacity(hovered ? 0.92 : 1)
-            .animation(.easeOut(duration: 0.15), value: hovered)
-            .onHover { hovered = $0 }
-            .contentShape(RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
-            .simultaneousGesture(TapGesture().onEnded(open))
-            .contextMenu { menu() }
-            .accessibilityElement(children: .ignore)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityLabel(isAnalyzing ? "Enviando novos itens" : reference.displayTitle)
-            .accessibilityIdentifier("reference.\(reference.id)")
-            .accessibilityValue("\(reference.kindLabel), \(reference.statusLabel)")
-            .accessibilityHint("Abrir \(reference.kindLabel.lowercased())")
-            .accessibilityAction(named: "Abrir", open)
+        Button(action: open) {
+            HomeReferenceCard(reference: reference)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .opacity(hovered ? 0.92 : 1)
+                .animation(.easeOut(duration: 0.15), value: hovered)
+                .contentShape(RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovered = $0 }
+        .contextMenu { menu() }
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(isAnalyzing ? "Enviando novos itens" : reference.displayTitle)
+        .accessibilityIdentifier("reference.\(reference.id)")
+        .accessibilityValue("\(reference.kindLabel), \(reference.statusLabel)")
+        .accessibilityHint("Abrir \(reference.kindLabel.lowercased())")
+        .accessibilityAction(named: "Abrir", open)
     }
 }
 

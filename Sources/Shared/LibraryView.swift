@@ -217,9 +217,7 @@ struct LibraryView: View {
                     .padding(.top, max(8, macHeaderHeight))
                     .frame(maxWidth: .infinity)
             }
-            .scrollPosition(id: Binding(get: { store.scrollAnchors[store.filterKey] }, set: {
-                if let id = $0 { store.scrollAnchors[store.filterKey] = id }
-            }), anchor: .top)
+            .libraryScrollPosition()
             MacLibraryHeader(search: { Task { await search() } }, refresh: { Task { await refresh() } })
                 .homeTopBar()
                 .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
@@ -786,7 +784,8 @@ struct LibraryGallery<MenuContent: View>: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var shown = GalleryPaging.batch
     @State private var gate = false
-    @State private var tailY: CGFloat = .greatestFiniteMagnitude
+    /// Scroll position of the page tail. A class so each pan tick does not invalidate the gallery.
+    @State private var tail = GalleryTailPosition()
     @State private var cardFrames: [String: CGRect] = [:]
     @State private var brushRemoves = false
     @State private var brushArmed = false
@@ -812,11 +811,13 @@ struct LibraryGallery<MenuContent: View>: View {
                         }
                     }
                     .background {
-                        GeometryReader { proxy in
-                            Color.clear.preference(
-                                key: GalleryCardFrames.self,
-                                value: [reference.id: proxy.frame(in: .named("galleryBrush"))]
-                            )
+                        if selecting {
+                            GeometryReader { proxy in
+                                Color.clear.preference(
+                                    key: GalleryCardFrames.self,
+                                    value: [reference.id: proxy.frame(in: .named("galleryBrush"))]
+                                )
+                            }
                         }
                     }
                 }
@@ -834,15 +835,17 @@ struct LibraryGallery<MenuContent: View>: View {
             }
         }
         .coordinateSpace(name: "galleryBrush")
-        .onPreferenceChange(GalleryCardFrames.self) { cardFrames = $0 }
-        .simultaneousGesture(brushGesture)
+        .onPreferenceChange(GalleryCardFrames.self) { frames in
+            if frames != cardFrames { cardFrames = frames }
+        }
+        .modifier(SelectionBrush(enabled: selecting, gesture: brushGesture))
         .onChange(of: resetID) { _, _ in
             shown = GalleryPaging.batch
             gate = false
         }
         .onChange(of: items.count) { old, new in
             if new < old { shown = min(GalleryPaging.batch, new) }
-            if !gate { consider(tailY) }
+            if !gate { consider(tail.y) }
         }
     }
 
@@ -882,7 +885,7 @@ struct LibraryGallery<MenuContent: View>: View {
     }
 
     private func consider(_ y: CGFloat) {
-        tailY = y
+        tail.y = y
         guard y < viewportHeight + 320 else { return }
         reveal()
     }
@@ -905,7 +908,7 @@ struct LibraryGallery<MenuContent: View>: View {
         Task {
             try? await Task.sleep(for: .milliseconds(450))
             gate = false
-            consider(tailY)
+            consider(tail.y)
         }
     }
 
@@ -920,6 +923,60 @@ struct LibraryGallery<MenuContent: View>: View {
 
 private enum GalleryPaging {
     static let batch = 18
+}
+
+/// Holds the page-tail offset without publishing a SwiftUI update on every scroll tick.
+private final class GalleryTailPosition {
+    var y: CGFloat = .greatestFiniteMagnitude
+}
+
+/// Installs the selection drag only while Selecionar is on. A drag left on the gallery
+/// wins the pan and the library stops scrolling.
+private struct SelectionBrush<G: Gesture>: ViewModifier {
+    var enabled: Bool
+    var gesture: G
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        if enabled {
+            content.simultaneousGesture(gesture)
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+}
+
+extension View {
+    /// Restores the top card per filter without writing the anchor through the observed
+    /// store on every tick. That write was reapplying `scrollPosition` and cancelling the pan.
+    func libraryScrollPosition() -> some View {
+        modifier(LibraryScrollPosition())
+    }
+}
+
+private struct LibraryScrollPosition: ViewModifier {
+    @Environment(LibraryStore.self) private var store
+    @State private var id: String?
+    @State private var filter = ""
+
+    func body(content: Content) -> some View {
+        content
+            .scrollPosition(id: $id, anchor: .top)
+            .onChange(of: store.filterKey, initial: true) { _, key in
+                filter = key
+                let saved = store.scrollAnchors[key]
+                if id != saved { id = saved }
+            }
+            .onChange(of: id) { _, newID in
+                guard filter == store.filterKey, let newID else { return }
+                if store.scrollAnchors[filter] != newID {
+                    store.scrollAnchors[filter] = newID
+                }
+            }
+    }
 }
 
 private struct GalleryCardFrames: PreferenceKey {
