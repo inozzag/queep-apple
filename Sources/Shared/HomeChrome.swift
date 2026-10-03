@@ -16,7 +16,7 @@ struct HomeBrand: View {
     }
 }
 
-/// Nine-dot mark from `queep-logo.svg`, used on sign-in and the Mac menu bar.
+/// Gradient mark from `queep-logo-nobg.svg`, used on sign-in and onboarding.
 struct QueepLogo: View {
     var size: CGFloat = 72
 
@@ -24,8 +24,8 @@ struct QueepLogo: View {
         Image("HomeLogo")
             .resizable()
             .renderingMode(.original)
-            .aspectRatio(828 / 778, contentMode: .fit)
-            .frame(width: size, height: size * 778 / 828)
+            .aspectRatio(690 / 670, contentMode: .fit)
+            .frame(width: size, height: size * 670 / 690)
             .accessibilityHidden(true)
     }
 }

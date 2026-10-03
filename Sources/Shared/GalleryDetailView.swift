@@ -469,6 +469,55 @@ struct GalleryDetailView: View {
     }
 }
 
+/// Poster first, then the stored mp4 when the save actually has one.
+private struct PreviewClip: View {
+    @Environment(Session.self) private var session
+    let reference: Reference
+    let index: Int
+    @State private var player: AVPlayer?
+    @State private var file: TemporaryMediaFile?
+
+    var body: some View {
+        ZStack {
+            RemoteImage(reference: reference, thumbnail: true, fill: true, index: index)
+            if let player {
+                VideoPlayer(player: player)
+            } else {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 48, height: 48)
+                    .background { Circle().fill(.ultraThinMaterial).environment(\.colorScheme, .dark) }
+                    .clipShape(Circle())
+                    .allowsHitTesting(false)
+            }
+        }
+        .task(id: "\(reference.id)/\(index)") { await load() }
+        .onDisappear { clear() }
+    }
+
+    private func load() async {
+        guard let api = session.client(), let owner = session.userID else { return }
+        do {
+            let data = try await api.imageData(reference, index: index, role: "clip")
+            guard !Task.isCancelled, owner == session.userID, !data.isEmpty else { return }
+            let temporary = TemporaryMediaFile(extension: "mp4")
+            try data.write(to: temporary.url, options: .atomic)
+            file = temporary
+            player = AVPlayer(url: temporary.url)
+        } catch is CancellationError {
+        } catch {
+            clear()
+        }
+    }
+
+    private func clear() {
+        player?.pause()
+        player = nil
+        file = nil
+    }
+}
+
 /// Media at a fixed height, keeping each picture's proportions; the current one sits centered.
 private struct GallerySlides: View {
     let reference: Reference
@@ -548,19 +597,12 @@ private struct GallerySlides: View {
                     RemoteImage(reference: reference, thumbnail: true, fill: true)
                     ProgressView().controlSize(.small)
                 }
+            } else if reference.gallery.indices.contains(index), reference.gallery[index].isVideoPreview {
+                PreviewClip(reference: reference, index: index)
             } else {
                 RemoteImage(reference: reference, thumbnail: true, fill: true, index: index)
                 if abs(index - current) <= 1 {
                     RemoteImage(reference: reference, fill: true, index: index, quiet: true)
-                }
-                if reference.gallery[index].isVideoPreview {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 48, height: 48)
-                        .background { Circle().fill(.ultraThinMaterial).environment(\.colorScheme, .dark) }
-                        .clipShape(Circle())
-                        .allowsHitTesting(false)
                 }
             }
         }

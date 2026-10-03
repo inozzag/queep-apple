@@ -156,7 +156,7 @@
 		F487741FE2762A0E66C39774 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 9309C2F0B1E82167BA6BE0E2 /* FirebaseAuth */; };
 		F5916405D574C2053446FEAF /* ImportedImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1395287258F14C65D8424EE /* ImportedImage.swift */; };
 		F8B2D6D608432E8B48305D21 /* RedesignSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1AB3CF993634E016B72674 /* RedesignSnapshotTests.swift */; };
-		F9851BDA4A14F94C4F9D50E1 /* NotchIsland.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4CFE300E72E10FA54DA919 /* NotchIsland.swift */; };
+		F9851BDA4A14F94C4F9D50E1 /* CapturePin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC4CFE300E72E10FA54DA919 /* CapturePin.swift */; };
 		FC4926E91BBEF7F184BD646E /* ProductAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 737ADAFAFF16DA72E466A4AA /* ProductAnalytics.swift */; };
 		FD80C5C6D0BA77A153C77FC6 /* AccountRecoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C525F2515A3AE17962468274 /* AccountRecoveryView.swift */; };
 /* End PBXBuildFile section */
@@ -285,7 +285,7 @@
 		F5248E32C4C74CAF8EC35CBD /* QueepMacUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QueepMacUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB448BA8DA1B01BF66B860DC /* IslandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslandTests.swift; sourceTree = "<group>"; };
 		FB7580BFE06134B21872DC1A /* QueepMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QueepMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		FC4CFE300E72E10FA54DA919 /* NotchIsland.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchIsland.swift; sourceTree = "<group>"; };
+		FC4CFE300E72E10FA54DA919 /* CapturePin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapturePin.swift; sourceTree = "<group>"; };
 		FF400C89CE0A73581FB4FFBB /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -369,7 +369,7 @@
 			children = (
 				91246D1B12DC2DEBD9F44C7A /* GlobalShortcut.swift */,
 				BE3EC29C819B440A82AB3595 /* MacCapture.swift */,
-				FC4CFE300E72E10FA54DA919 /* NotchIsland.swift */,
+				FC4CFE300E72E10FA54DA919 /* CapturePin.swift */,
 				E6C6461CEA92A238D3E64FFA /* QueepMacApp.swift */,
 				259B81A4876BC372ECB2E2E0 /* ScreenCapture.swift */,
 			);
@@ -1093,7 +1093,7 @@
 				E467E8D2FCAC8EA4DDB692BC /* Markdown.swift in Sources */,
 				77CF42808D5F6538283E514D /* MediaViews.swift in Sources */,
 				A9C3E6D14F815C20D3E5F709 /* OnboardingView.swift in Sources */,
-				F9851BDA4A14F94C4F9D50E1 /* NotchIsland.swift in Sources */,
+				F9851BDA4A14F94C4F9D50E1 /* CapturePin.swift in Sources */,
 				4E947E27CC1ABE47DE22812A /* PostDetailView.swift in Sources */,
 				C51355A385B7C03C6EA75C5A /* ProductAnalytics.swift in Sources */,
 				93810B6A0EAD5519B3C09DBA /* ProfileDetailView.swift in Sources */,
@@ -1500,7 +1500,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1603,7 +1603,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1690,7 +1690,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1776,7 +1776,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;

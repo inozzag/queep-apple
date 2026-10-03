@@ -18,17 +18,17 @@ final class MacCapture {
     var error: String?
     var pending: IncomingReference?
     var shortcutIssues: [String] = []
-    /// Set by the library window so the island can reopen it through SwiftUI's scene.
+    /// Set by the library window so the pin can reopen it through SwiftUI's scene.
     var openLibrary: (() -> Void)?
-    var islandEnabled = UserDefaults.standard.object(forKey: "queep.shelf.enabled") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(islandEnabled, forKey: "queep.shelf.enabled"); island?.update(enabled: islandEnabled) }
+    var pinEnabled = UserDefaults.standard.object(forKey: "queep.shelf.enabled") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(pinEnabled, forKey: "queep.shelf.enabled"); pin?.update(enabled: pinEnabled) }
     }
-    /// Island-initiated flows report progress in the island; failures still open the quick panel.
+    /// Pin-initiated flows report progress on the pin; failures still open the quick panel.
     private var quiet = false
     private var pendingSource = "shortcut"
     private var owner: String?
     private var quick: NSPanel?
-    private var island: NotchIsland?
+    private var pin: CapturePin?
     private var screenObserver: NSObjectProtocol?
     private let screenshot = ScreenCapture()
 
@@ -43,11 +43,11 @@ final class MacCapture {
     }
 
     func install() {
-        island = NotchIsland(capture: self)
-        island?.update(enabled: islandEnabled)
+        pin = CapturePin(capture: self)
+        pin?.update(enabled: pinEnabled)
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
-        ) { [weak self] _ in Task { @MainActor in self?.island?.update(enabled: self?.islandEnabled ?? false) } }
+        ) { [weak self] _ in Task { @MainActor in self?.pin?.update(enabled: self?.pinEnabled ?? false) } }
     }
 
     func show() {

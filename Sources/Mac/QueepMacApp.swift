@@ -92,7 +92,7 @@ private final class TitleHidingView: NSView {
     }
 }
 
-/// Hands the scene's window opener to the capture controller so the island can reopen the library.
+/// Hands the scene's window opener to the capture controller so the pin can reopen the library.
 private struct LibraryOpener: View {
     @Environment(\.openWindow) private var openWindow
     let capture: MacCapture
@@ -114,7 +114,7 @@ private struct QueepMenu: View {
         Button("Captura rápida · ⌘⇧Espaço") { capture.show() }
         Button("Colar e salvar") { capture.paste() }.disabled(session.userID == nil)
         Button("Capturar tela · ⌘⇧7") { capture.captureScreen() }.disabled(session.userID == nil)
-        Toggle("Ilha de captura no topo da tela", isOn: Binding(get: { capture.islandEnabled }, set: { capture.islandEnabled = $0 }))
+        Toggle("Pin de captura na tela", isOn: Binding(get: { capture.pinEnabled }, set: { capture.pinEnabled = $0 }))
         ForEach(capture.shortcutIssues, id: \.self) { Text($0) }
         Divider()
         Toggle("Iniciar com o Mac", isOn: Binding(

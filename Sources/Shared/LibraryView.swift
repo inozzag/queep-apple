@@ -156,12 +156,12 @@ struct LibraryView: View {
             considerFirstPaywall()
         }
         .onChange(of: onboardingPresented) { _, _ in considerFirstPaywall() }
-        .fullScreenCover(isPresented: $onboardingPresented) {
+        .modifier(OnboardingCover(isPresented: $onboardingPresented) {
             OnboardingFlow {
                 onboardingDismissed = true
                 onboardingPresented = false
             }
-        }
+        })
         .sheet(item: $conversionOffer) { focus in
             ConversionPaywall(focus: focus)
         }
@@ -976,6 +976,20 @@ private struct LibraryScrollPosition: ViewModifier {
                     store.scrollAnchors[filter] = newID
                 }
             }
+    }
+}
+
+/// iOS presents onboarding edge to edge. macOS has no full-screen cover, so it uses a sheet.
+private struct OnboardingCover<Cover: View>: ViewModifier {
+    @Binding var isPresented: Bool
+    @ViewBuilder var cover: () -> Cover
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        content.fullScreenCover(isPresented: $isPresented, content: cover)
+        #else
+        content.sheet(isPresented: $isPresented, content: cover)
+        #endif
     }
 }
 

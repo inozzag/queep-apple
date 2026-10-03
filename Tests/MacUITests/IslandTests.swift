@@ -2,7 +2,7 @@ import XCTest
 
 @MainActor
 final class IslandTests: XCTestCase {
-    /// The island stays hidden behind the notch, opens while the pointer rests on it and closes when it leaves.
+    /// The pin stays on screen, opens while the pointer rests on it and closes when it leaves.
     func testIslandOpensOnHoverAndClosesWhenLeaving() {
         let app = XCUIApplication()
         app.launch()
