@@ -457,7 +457,7 @@ struct ImageDetailView: View {
             _ = try await api.editMetadata(reference, title: title, text: text, mutationID: mutationID)
             guard session.userID == uid else { return }
             store.discardSearchReference(reference.id)
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }
@@ -470,7 +470,7 @@ struct ImageDetailView: View {
             try await api.delete(reference)
             guard session.userID == uid else { return }
             store.discardSearchReference(reference.id)
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }

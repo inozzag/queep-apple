@@ -47,7 +47,7 @@ final class RedesignSnapshotTests: XCTestCase {
         }
 
         app.buttons["library.add"].click()
-        let note = app.menuItems["Nota"]
+        let note = app.buttons["library.add.note"]
         if note.waitForExistence(timeout: 3) { note.click() }
         let editor = app.textViews["capture.text"]
         XCTAssertTrue(editor.waitForExistence(timeout: 10), app.debugDescription)

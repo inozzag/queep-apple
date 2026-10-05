@@ -76,9 +76,19 @@ final class MacCapture {
     }
 
     func showLibrary() {
-        if let openLibrary { openLibrary() }
-        else { NSApp.windows.first(where: { $0.identifier?.rawValue == "library" })?.makeKeyAndOrderFront(nil) }
+        CloseAndHide.restoreDockIcon()
+        if let openLibrary {
+            openLibrary()
+        } else {
+            let window = NSApp.windows.first { $0.identifier?.rawValue == "library" } ?? CloseAndHide.libraryWindow
+            window?.makeKeyAndOrderFront(nil)
+        }
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Re-orders the existing pin after an activation-policy change. Does not alter pin layout or gestures.
+    func showPinIfEnabled() {
+        pin?.update(enabled: pinEnabled)
     }
 
     func paste(quietly: Bool = false) {
@@ -186,7 +196,7 @@ final class MacCapture {
             pending = nil; owner = nil; busy = false; quiet = false; draft = ""; message = Self.savedMessage
             captureSpaceID = nil
             library.reset(for: account)
-            await library.refresh(api, account: account)
+            await library.refresh(api, account: account, force: true)
         } catch { fail(error) }
     }
 

@@ -62,7 +62,12 @@ final class LibraryStore {
     var selectedSpace: Space? { spaces.first { $0.id == selectedSpaceID } }
     var nextCursor: String?
     var error: String?
+    /// True only for the first load of an empty library. A refresh that already has rows stays quiet.
     var loading = false
+    /// True while a later page is in flight. Independent from a background refresh.
+    var loadingMore = false
+    /// True during a non-blocking refresh. Existing rows stay on screen.
+    var refreshing = false
     var hasLoaded = false
     var captureKind = "note"
     var captureIntent = "note"
@@ -87,6 +92,38 @@ final class LibraryStore {
     private var searchGeneration = 0
     private var accountID: String?
     private var generation = 0
+    private var refreshToken: UUID?
+    private var moreToken: UUID?
+    /// Set when the last page failed so a visible tail cannot retry on its own.
+    private var moreFailed = false
+    private var fetchedAt: [String: Date] = [:]
+    /// Cursor that belongs to the cached first page, not to a later page the user scrolled into.
+    private var diskCursors: [String: String] = [:]
+    private var firstPageItems: [String: [Reference]] = [:]
+    private var paginatedFilters: Set<String> = []
+    private static let staleInterval: TimeInterval = 60
+    static let cachedPageLimit = 18
+    private static let cachedFilterLimit = 8
+
+    var hasPendingAnalysis: Bool {
+        items.contains { $0.status == "queued" || $0.status == "processing" }
+    }
+
+    private func isStale(_ key: String) -> Bool {
+        guard let at = fetchedAt[key] else { return true }
+        return Date().timeIntervalSince(at) >= Self.staleInterval
+    }
+
+    /// Drops in-flight library requests so a cancelled or superseded fetch cannot leave the spinner up.
+    private func invalidateRequests() {
+        generation += 1
+        refreshToken = nil
+        moreToken = nil
+        loading = false
+        loadingMore = false
+        refreshing = false
+        moreFailed = false
+    }
 
     func startCapture(kind: String = "note", intent: String? = nil) {
         captureKind = kind
@@ -98,7 +135,7 @@ final class LibraryStore {
         // Reopening a window must not cancel the capture that opened it.
         guard account != accountID else { return }
         if let previous = cacheURL { try? FileManager.default.removeItem(at: previous) }
-        generation += 1
+        invalidateRequests()
         accountID = account
         spaces = []
         selectedSpaceID = nil
@@ -107,10 +144,13 @@ final class LibraryStore {
         cachedPages = [:]
         knownReferences = [:]
         scrollAnchors = [:]
+        fetchedAt = [:]
+        diskCursors = [:]
+        firstPageItems = [:]
+        paginatedFilters = []
         items = []
         nextCursor = nil
         error = nil
-        loading = false
         hasLoaded = false
         presentation = nil
         openPhotoLibrary = false
@@ -136,13 +176,12 @@ final class LibraryStore {
     func show(_ destination: LibrarySurface) {
         guard destination != surface else { return }
         rememberPage()
-        generation += 1
+        invalidateRequests()
         surface = destination
         let cached = cachedPages[filterKey]
         items = cached?.items ?? []
         nextCursor = cached?.nextCursor
         hasLoaded = cached != nil
-        loading = false
         error = nil
         searchChips = []
         query = ""
@@ -154,14 +193,13 @@ final class LibraryStore {
     func selectSpace(_ id: String?) {
         guard id != selectedSpaceID || surface != .spaces else { return }
         rememberPage()
-        generation += 1
+        invalidateRequests()
         selectedSpaceID = id
         if id != nil { surface = .spaces }
         let cached = cachedPages[filterKey]
         items = cached?.items ?? []
         nextCursor = cached?.nextCursor
         hasLoaded = cached != nil
-        loading = false
         error = nil
         clearSearch()
         persistCache()
@@ -223,23 +261,34 @@ final class LibraryStore {
         catch { if operation == searchGeneration { searchError = error.localizedDescription } }
     }
 
-    func refresh(_ client: APIClient, account: String, more: Bool = false) async {
-        guard account == accountID, !loading, !spaceMutating else { return }
+    /// Reloads the current filter. `more` appends the next page. `force` bypasses the freshness window
+    /// (pull to refresh, retry, and edits). A fresh cache paints immediately and skips the network.
+    func refresh(_ client: APIClient, account: String, more: Bool = false, force: Bool = false) async {
+        guard account == accountID, !spaceMutating else { return }
+        if more {
+            await loadMore(client, account: account)
+            return
+        }
+        if !force, hasLoaded, !isStale(filterKey) { return }
+        guard refreshToken == nil, moreToken == nil else { return }
+        let token = UUID()
+        refreshToken = token
         let operation = generation
-        loading = true
-        defer { if operation == generation { loading = false } }
+        let blocking = items.isEmpty && !hasLoaded
+        if blocking { loading = true } else { refreshing = true }
+        defer {
+            if refreshToken == token {
+                refreshToken = nil
+                loading = false
+                refreshing = false
+            }
+        }
         do {
-            let page = try await client.list(cursor: more ? nextCursor : nil,
+            let page = try await client.list(cursor: nil,
                                              archived: surface.showsArchived,
                                              spaceID: surface.showsArchived ? nil : scopedSpaceID)
-            guard operation == generation, account == accountID, !spaceMutating else { return }
-            if more {
-                let known = Set(items.map(\.id))
-                items += page.items.filter { !known.contains($0.id) }
-            } else { items = page.items }
-            for ref in page.items { knownReferences[ref.id] = ref }
-            nextCursor = page.nextCursor
-            hasLoaded = true
+            guard operation == generation, account == accountID, !spaceMutating, refreshToken == token else { return }
+            applyFirstPage(page)
             if let matches = searchItems {
                 let fresh = Dictionary(uniqueKeysWithValues: page.items.map { ($0.id, $0) })
                 searchItems = matches.compactMap { previous in
@@ -247,19 +296,90 @@ final class LibraryStore {
                     return current.revision == previous.revision && current.status == "ready" ? current : nil
                 }
             }
-            error = nil
-            rememberPage()
-            persistCache()
-            if surface == .home, !more, items.isEmpty {
+            if surface == .home, items.isEmpty {
                 let archived = try await client.list(archived: true)
-                guard operation == generation, account == accountID else { return }
+                guard operation == generation, account == accountID, refreshToken == token else { return }
                 hasArchivedItems = !archived.items.isEmpty
             } else if surface == .archived, !items.isEmpty {
                 hasArchivedItems = true
             }
-            if !more { await refreshSpaces(client, account: account) }
+            await refreshSpaces(client, account: account)
         } catch is CancellationError { }
-        catch { if operation == generation { self.error = error.localizedDescription } }
+        catch { if operation == generation, refreshToken == token { self.error = error.localizedDescription } }
+    }
+
+    /// Next page. One pagination at a time. A first-page refresh does not count as that request.
+    private func loadMore(_ client: APIClient, account: String) async {
+        guard account == accountID, !spaceMutating else { return }
+        guard let cursor = nextCursor, !cursor.isEmpty else { return }
+        guard hasLoaded, !moreFailed, error == nil else { return }
+        // A first-page refresh in flight, including the 60-second freshness skip, must not block this.
+        guard moreToken == nil, !loadingMore else { return }
+        let token = UUID()
+        moreToken = token
+        loadingMore = true
+        let operation = generation
+        let previousCount = items.count
+        defer {
+            if moreToken == token {
+                moreToken = nil
+                loadingMore = false
+            }
+        }
+        do {
+            let page = try await client.list(cursor: cursor,
+                                             archived: surface.showsArchived,
+                                             spaceID: surface.showsArchived ? nil : scopedSpaceID)
+            guard operation == generation, account == accountID, !spaceMutating, moreToken == token else { return }
+            let known = Set(items.map(\.id))
+            let fresh = page.items.filter { !known.contains($0.id) }
+            if !fresh.isEmpty {
+                items += fresh
+                paginatedFilters.insert(filterKey)
+            }
+            // A cursor that does not move, or a page with nothing new, must not be requested again.
+            if fresh.isEmpty || page.nextCursor == nil || page.nextCursor == cursor || items.count == previousCount {
+                nextCursor = nil
+            } else {
+                nextCursor = page.nextCursor
+            }
+            for ref in page.items { knownReferences[ref.id] = ref }
+            error = nil
+            moreFailed = false
+            hasLoaded = true
+            rememberPage()
+            persistCache()
+        } catch is CancellationError { }
+        catch {
+            if operation == generation, moreToken == token {
+                moreFailed = true
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    /// Installs a first page without blanking rows that are already on screen.
+    private func applyFirstPage(_ page: LibraryPage) {
+        let incoming = Array(page.items.prefix(Self.cachedPageLimit))
+        let keepTail = paginatedFilters.contains(filterKey) && items.count > page.items.count
+        if keepTail {
+            let incomingIDs = Set(page.items.map(\.id))
+            items = page.items + items.filter { !incomingIDs.contains($0.id) }
+        } else {
+            items = page.items
+            nextCursor = page.nextCursor
+            paginatedFilters.remove(filterKey)
+        }
+        for ref in page.items { knownReferences[ref.id] = ref }
+        firstPageItems[filterKey] = incoming
+        if let cursor = page.nextCursor { diskCursors[filterKey] = cursor }
+        else { diskCursors.removeValue(forKey: filterKey) }
+        fetchedAt[filterKey] = Date()
+        hasLoaded = true
+        error = nil
+        moreFailed = false
+        rememberPage()
+        persistCache()
     }
 
     func refreshSpaces(_ client: APIClient, account: String) async {
@@ -288,8 +408,7 @@ final class LibraryStore {
         spaces.removeAll { $0.id == optimistic.id }
         spaces.insert(optimistic, at: min(sortIndex ?? optimistic.sortIndex, spaces.count))
         for i in spaces.indices { spaces[i].sortIndex = i }
-        generation += 1
-        loading = false
+        invalidateRequests()
         spaceMutating = true
         spaceError = nil
         defer { if account == accountID { spaceMutating = false } }
@@ -310,8 +429,7 @@ final class LibraryStore {
 
     func deleteSpace(_ space: Space, client: APIClient, account: String) async {
         guard account == accountID, !spaceMutating else { return }
-        generation += 1
-        loading = false
+        invalidateRequests()
         spaceMutating = true
         spaceError = nil
         defer { if account == accountID { spaceMutating = false } }
@@ -320,6 +438,10 @@ final class LibraryStore {
             guard account == accountID else { return }
             spaces.removeAll { $0.id == space.id }
             cachedPages.removeValue(forKey: space.id)
+            firstPageItems.removeValue(forKey: space.id)
+            diskCursors.removeValue(forKey: space.id)
+            fetchedAt.removeValue(forKey: space.id)
+            paginatedFilters.remove(space.id)
             let saved = items + cachedPages.values.flatMap(\.items) + Array(knownReferences.values)
             let all = Array(Dictionary(saved.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }).values)
             for var ref in all {
@@ -360,8 +482,7 @@ final class LibraryStore {
     func assignSpace(_ space: Space, references: [Reference], adding: Bool,
                      client: APIClient, account: String) async {
         guard account == accountID, !spaceMutating else { return }
-        generation += 1
-        loading = false
+        invalidateRequests()
         spaceMutating = true
         spaceError = nil
         defer { if account == accountID { spaceMutating = false; persistCache() } }
@@ -413,6 +534,13 @@ final class LibraryStore {
             if belongs { values.append(ref) }
             values.sort { $0.createdAt == $1.createdAt ? $0.id > $1.id : $0.createdAt > $1.createdAt }
             cachedPages[key] = LibraryPage(items: values, nextCursor: page.nextCursor)
+            if var saved = firstPageItems[key] {
+                let wasCached = saved.contains { $0.id == ref.id }
+                saved.removeAll { $0.id == ref.id }
+                if belongs && wasCached { saved.append(ref) }
+                saved.sort { $0.createdAt == $1.createdAt ? $0.id > $1.id : $0.createdAt > $1.createdAt }
+                firstPageItems[key] = Array(saved.prefix(Self.cachedPageLimit))
+            }
         }
         items.removeAll { $0.id == ref.id }
         let inScope = scopedSpaceID.map { ref.membershipIDs.contains($0) } ?? true
@@ -425,10 +553,16 @@ final class LibraryStore {
         rememberPage()
     }
 
+    private struct StoredPage: Codable {
+        var items: [Reference]
+        var nextCursor: String?
+        var fetchedAt: Date?
+    }
+
     private struct Cache: Codable {
         var spaces: [Space]
         var selectedSpaceID: String?
-        var pages: [String: LibraryPage]
+        var pages: [String: StoredPage]
         var anchors: [String: String]
     }
 
@@ -442,13 +576,30 @@ final class LibraryStore {
     private func rememberPage() {
         guard hasLoaded else { return }
         cachedPages[filterKey] = LibraryPage(items: items, nextCursor: nextCursor)
+        guard !paginatedFilters.contains(filterKey) else { return }
+        firstPageItems[filterKey] = Array(items.prefix(Self.cachedPageLimit))
+        if let nextCursor { diskCursors[filterKey] = nextCursor }
+        else { diskCursors.removeValue(forKey: filterKey) }
     }
 
     private func persistCache() {
         guard let url = cacheURL else { return }
+        let ranked = cachedPages.keys.sorted { lhs, rhs in
+            let left = fetchedAt[lhs] ?? .distantPast
+            let right = fetchedAt[rhs] ?? .distantPast
+            if left != right { return left > right }
+            return lhs < rhs
+        }
+        var pages: [String: StoredPage] = [:]
+        for key in ranked.prefix(Self.cachedFilterLimit) {
+            guard let page = cachedPages[key] else { continue }
+            let items = Array((firstPageItems[key] ?? page.items).prefix(Self.cachedPageLimit))
+            let cursor = diskCursors[key] ?? (paginatedFilters.contains(key) ? nil : page.nextCursor)
+            pages[key] = StoredPage(items: items, nextCursor: cursor, fetchedAt: fetchedAt[key])
+        }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let cache = Cache(spaces: spaces, selectedSpaceID: selectedSpaceID, pages: cachedPages, anchors: scrollAnchors)
+            let cache = Cache(spaces: spaces, selectedSpaceID: selectedSpaceID, pages: pages, anchors: scrollAnchors)
             try JSONEncoder().encode(cache).write(to: url, options: .atomic)
             var directory = url.deletingLastPathComponent()
             var values = URLResourceValues()
@@ -462,8 +613,15 @@ final class LibraryStore {
               let cache = try? JSONDecoder().decode(Cache.self, from: data) else { return }
         spaces = cache.spaces
         selectedSpaceID = cache.selectedSpaceID
-        cachedPages = cache.pages
         scrollAnchors = cache.anchors
+        cachedPages = [:]
+        for (key, page) in cache.pages {
+            let items = Array(page.items.prefix(Self.cachedPageLimit))
+            cachedPages[key] = LibraryPage(items: items, nextCursor: page.nextCursor)
+            firstPageItems[key] = items
+            if let cursor = page.nextCursor { diskCursors[key] = cursor }
+            if let at = page.fetchedAt { fetchedAt[key] = at }
+        }
         if let page = cachedPages[filterKey] {
             items = page.items
             nextCursor = page.nextCursor
@@ -475,8 +633,7 @@ final class LibraryStore {
                      client: APIClient, account: String) {
         guard account == accountID, !references.isEmpty else { return }
         let originals = references.map { reference($0.id) ?? $0 }
-        generation += 1
-        loading = false
+        invalidateRequests()
         let ids = Set(references.map(\.id))
         let optimistic = references.map { reference in
             var copy = reference
@@ -527,5 +684,76 @@ final class LibraryStore {
         }
         rememberPage()
         persistCache()
+    }
+}
+
+/// Whether the tail of the loaded list is close enough to the visible bottom to request another page.
+enum LibraryEndTrigger {
+    static let threshold: CGFloat = 160
+
+    /// Points of loaded content still below the visible bottom. Zero means the end is on screen.
+    /// A content size that has not been laid out must not look like the end.
+    static func distanceToEnd(contentHeight: CGFloat, contentOffsetY: CGFloat, containerHeight: CGFloat) -> CGFloat {
+        guard contentHeight > 1, containerHeight > 1,
+              contentHeight.isFinite, contentOffsetY.isFinite, containerHeight.isFinite else {
+            return .greatestFiniteMagnitude
+        }
+        return contentHeight - contentOffsetY - containerHeight
+    }
+
+    /// Distance still below the visible bottom, using whichever scroll signal has actually moved.
+    /// A visible rect that is the entire tall content (not the viewport) is ignored so a stale
+    /// full-content frame cannot look like the end while the reader is still in the middle.
+    static func resolvedDistance(contentHeight: CGFloat,
+                                 contentOffsetY: CGFloat,
+                                 containerHeight: CGFloat,
+                                 visibleMaxY: CGFloat,
+                                 visibleHeight: CGFloat) -> CGFloat {
+        guard contentHeight > 1, containerHeight > 1,
+              contentHeight.isFinite, containerHeight.isFinite else {
+            return .greatestFiniteMagnitude
+        }
+        let byOffset = distanceToEnd(contentHeight: contentHeight,
+                                     contentOffsetY: contentOffsetY,
+                                     containerHeight: containerHeight)
+        let contentFits = contentHeight <= containerHeight + 1
+        let visibleIsViewport = visibleHeight > 1 && visibleHeight <= containerHeight * 1.25
+        guard (visibleIsViewport || contentFits), visibleMaxY.isFinite else { return byOffset }
+        let byVisible = contentHeight - visibleMaxY
+        guard byVisible.isFinite else { return byOffset }
+        guard byOffset.isFinite else { return byVisible }
+        return min(byOffset, byVisible)
+    }
+
+    /// True when the tail is already on screen or within one viewport of the visible bottom.
+    /// Farther than that — the middle of a longer list — must not request a page.
+    static func shouldPage(distanceToEnd: CGFloat, containerHeight: CGFloat) -> Bool {
+        guard distanceToEnd.isFinite, containerHeight > 1, containerHeight.isFinite else { return false }
+        return distanceToEnd <= containerHeight
+    }
+
+    /// Request another page only near the end, with a cursor, and while no page is already in flight.
+    /// A background refresh is not in flight for this decision.
+    static func shouldRequestNextPage(distanceToEnd: CGFloat,
+                                      containerHeight: CGFloat,
+                                      hasCursor: Bool,
+                                      inFlight: Bool) -> Bool {
+        guard hasCursor, !inFlight else { return false }
+        return shouldPage(distanceToEnd: distanceToEnd, containerHeight: containerHeight)
+    }
+
+    /// How many loaded rows to show after the list count changes.
+    /// When every loaded row was already on screen, an appended page is shown immediately.
+    /// A longer list the reader has not reached yet stays on the local batch.
+    static func nextShownCount(shown: Int, previousCount: Int, newCount: Int) -> Int {
+        if newCount < shown || shown >= previousCount { return max(0, newCount) }
+        return shown
+    }
+
+    static func isNearEnd(tailMinY: CGFloat, viewport: CGRect) -> Bool {
+        guard viewport.width > 1, viewport.height > 1, tailMinY.isFinite else { return false }
+        if tailMinY > viewport.maxY + threshold { return false }
+        if tailMinY < viewport.minY - threshold { return false }
+        return true
     }
 }

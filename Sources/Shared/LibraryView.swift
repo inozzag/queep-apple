@@ -1,10 +1,8 @@
 import SwiftUI
+import PhotosUI
 import QueepCore
 #if os(macOS)
 import AppKit
-#else
-import PhotosUI
-import UIKit
 #endif
 
 struct LibraryView: View {
@@ -16,6 +14,12 @@ struct LibraryView: View {
     @State private var pendingDelete: Reference?
     @State private var pendingSelectionDelete: [Reference] = []
     @State private var macHeaderHeight: CGFloat = 140
+    @State private var libraryViewport = CGRect.null
+    @State private var libraryScroll = LibraryScrollLive()
+    @State private var libraryScrollTick = 0
+    #if os(macOS)
+    @State private var macAddOpen = false
+    #endif
     @State private var selecting = false
     @State private var selectedIDs: Set<String> = []
     @State private var spaceSelection: [Reference] = []
@@ -25,10 +29,8 @@ struct LibraryView: View {
     @State private var onboardingDismissed = false
     @State private var sawEmptyLibrary = false
     @State private var conversionOffer: ConversionFocus?
-    #if os(iOS)
     @State private var galleryPhoto: PhotosPickerItem?
     @State private var sendingPhoto = false
-    #endif
 
     private var filtered: [Reference] {
         let items = store.searchItems ?? store.items
@@ -76,7 +78,6 @@ struct LibraryView: View {
             .alert("Não foi possível concluir", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
                 Button("OK") { actionError = nil }
             } message: { Text(actionError ?? "") }
-            #if os(iOS)
             .photosPicker(isPresented: $store.openPhotoLibrary, selection: $galleryPhoto,
                           matching: .images, preferredItemEncoding: .current)
             .onChange(of: galleryPhoto) { _, item in
@@ -84,7 +85,6 @@ struct LibraryView: View {
                 galleryPhoto = nil
                 Task { await sendGalleryPhoto(item) }
             }
-            #endif
             .confirmationDialog("Excluir permanentemente esta referência?",
                                 isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
                                 titleVisibility: .visible, presenting: pendingDelete) { reference in
@@ -126,14 +126,14 @@ struct LibraryView: View {
             selecting = false
             selectedIDs = []
             Task {
-                await refresh()
+                await refresh(force: false)
                 if !store.searchChips.isEmpty { await search() }
             }
         }
         .onChange(of: store.surface) { _, _ in
             selecting = false
             selectedIDs = []
-            Task { await refresh() }
+            Task { await refresh(force: false) }
         }
         .onAppear {
             noteEmptyLibrary()
@@ -166,6 +166,14 @@ struct LibraryView: View {
             ConversionPaywall(focus: focus)
         }
         .task(id: session.userID) { await restoreOnboarding() }
+        .onPreferenceChange(LibraryViewportKey.self) { frame in
+            guard frame.width > 1, frame.height > 1 else { return }
+            guard abs(frame.minX - libraryViewport.minX) > 0.5
+                    || abs(frame.minY - libraryViewport.minY) > 0.5
+                    || abs(frame.width - libraryViewport.width) > 0.5
+                    || abs(frame.height - libraryViewport.height) > 0.5 else { return }
+            libraryViewport = frame
+        }
     }
 
     private var uiTesting: Bool { ProcessInfo.processInfo.arguments.contains("--ui-testing") }
@@ -213,25 +221,41 @@ struct LibraryView: View {
         ZStack(alignment: .top) {
             ScrollView {
                 libraryContents
-                    .padding(.horizontal, 16).padding(.bottom, 36)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 36 + (selecting ? 76 : 0))
                     .padding(.top, max(8, macHeaderHeight))
                     .frame(maxWidth: .infinity)
             }
+            .modifier(MacScrollGeometryPublisher(live: libraryScroll) {
+                libraryScrollTick += 1
+            })
             .libraryScrollPosition()
+            .libraryViewport()
             MacLibraryHeader(
                 search: { Task { await search() } },
-                refresh: { Task { await refresh() } },
+                refresh: { Task { await refresh(force: true) } },
                 selecting: selecting,
                 canSelect: !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil),
                 toggleSelect: {
                     selecting.toggle()
                     if !selecting { selectedIDs = [] }
-                }
+                },
+                addOpen: $macAddOpen
             )
-            .homeTopBar(fade: 32)
+            .homeTopBar()
             .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
         }
+        .queepThingsMenu(isPresented: $macAddOpen)
+        .overlay(alignment: .bottom) {
+            if selecting {
+                selectionDock
+                    .fixedSize(horizontal: true, vertical: true)
+                    .padding(.bottom, 16)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
         .overlay { macGallery }
+        .animation(.spring(duration: 0.28), value: selecting)
         .animation(.easeOut(duration: 0.15), value: macGalleryID)
         .background(Color.white)
         .preferredColorScheme(.light)
@@ -239,7 +263,7 @@ struct LibraryView: View {
         #else
         iPhoneLibrary(
             search: { Task { await search() } },
-            refresh: { await refresh() },
+            refresh: { await refresh(force: true) },
             selecting: selecting,
             canSelect: !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil),
             toggleSelect: {
@@ -290,12 +314,6 @@ struct LibraryView: View {
                     .foregroundStyle(Theme.homeInk)
                     .accessibilityAddTraits(.isHeader)
             }
-            #if os(macOS)
-            if selecting {
-                selectionActions
-            }
-            #endif
-            #if os(iOS)
             if sendingPhoto {
                 Label("Enviando imagem…", systemImage: "arrow.up.circle")
                     .font(.callout)
@@ -304,13 +322,12 @@ struct LibraryView: View {
                     .card(padding: 14, elevated: false)
                     .accessibilityIdentifier("library.sendingPhoto")
             }
-            #endif
             if let error = store.error {
                 HStack(spacing: 12) {
                     Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
                     Text(error).font(.callout).fixedSize(horizontal: false, vertical: true)
                     Spacer()
-                    Button("Tentar novamente") { Task { await refresh() } }
+                    Button("Tentar novamente") { Task { await refresh(force: true) } }
                 }.card(padding: 14, elevated: false)
             }
             if store.surface == .home && store.items.count == 1 && !searching && !searchHintDismissed && conversionOffer == nil {
@@ -368,9 +385,15 @@ struct LibraryView: View {
                 }
             } else {
                 LibraryGallery(items: filtered, more: !searching && store.nextCursor != nil,
-                               loading: store.loading, failed: store.error != nil,
+                               loading: store.loadingMore,
+                               busy: store.loading || store.loadingMore || store.refreshing,
+                               failed: store.error != nil,
+                               viewport: libraryViewport,
                                selecting: selecting, selectedIDs: selectedIDs,
                                resetID: "\(store.filterKey)|\(store.kindFilter ?? "")|\(searching)",
+                               scrollLive: libraryScroll,
+                               scrollTick: libraryScrollTick,
+                               onScrollPage: { libraryScrollTick += 1 },
                                open: { open($0) },
                                brush: { id, include in
                                    if include {
@@ -424,8 +447,11 @@ struct LibraryView: View {
                 Text("Spaces")
                     .font(.system(size: 17, weight: .bold))
                     .lineLimit(1)
-                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 6)
+                    #if os(iOS)
+                    .frame(maxWidth: .infinity)
+                    #endif
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -462,33 +488,6 @@ struct LibraryView: View {
         .padding(.vertical, 6)
         .background(Color.black, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .shadow(color: .black.opacity(0.22), radius: 16, y: 6)
-    }
-
-    private var selectionActions: some View {
-        HStack(spacing: 8) {
-            Text(selectionCountLabel)
-                .font(.system(size: 13, weight: .medium)).tracking(-0.2)
-                .foregroundStyle(GalleryStyle.secondary)
-                .padding(.trailing, 4)
-            Button(action: assignSelectionToSpaces) {
-                GalleryChip(title: "Spaces", symbol: "square.stack.3d.up", selected: true)
-            }
-            .buttonStyle(.plain)
-            .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
-            .accessibilityIdentifier("library.spaceSelection")
-            Button(action: archiveSelection) {
-                GalleryChip(title: store.surface == .archived ? "Desarquivar" : "Arquivar")
-            }
-            .buttonStyle(.plain)
-            .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
-            .accessibilityIdentifier("library.archiveSelection")
-            Button(action: deleteSelection) {
-                GalleryChip(title: "Excluir")
-            }
-            .buttonStyle(.plain)
-            .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
-            .accessibilityIdentifier("library.deleteSelection")
-        }
     }
 
     private func assignSelectionToSpaces() {
@@ -588,7 +587,7 @@ struct LibraryView: View {
             }
         }
         guard session.userID == uid else { return }
-        await store.refresh(api, account: uid)
+        await store.refresh(api, account: uid, force: true)
         if let failure { actionError = failure }
     }
 
@@ -596,9 +595,9 @@ struct LibraryView: View {
         typeSize.isAccessibilitySize ? [.init(.flexible())] : [.init(.adaptive(minimum: 240, maximum: 360), spacing: 18)]
     }
 
-    private func refresh() async {
+    private func refresh(force: Bool) async {
         guard let api = session.client(), let uid = session.userID else { return }
-        await store.refresh(api, account: uid)
+        await store.refresh(api, account: uid, force: force)
     }
 
     private func search() async {
@@ -606,7 +605,6 @@ struct LibraryView: View {
         await store.search(api, account: uid)
     }
 
-    #if os(iOS)
     private func sendGalleryPhoto(_ selection: PhotosPickerItem) async {
         guard !sendingPhoto else { return }
         sendingPhoto = true
@@ -620,7 +618,7 @@ struct LibraryView: View {
             let saved = try await api.uploadImage(id: UUID(), title: "", data: image.data)
             ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library")
             guard session.userID == uid else { return }
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
         } catch is CancellationError {
         } catch let failure as QueepError {
             if case .planRequired = failure { return }
@@ -629,7 +627,6 @@ struct LibraryView: View {
             actionError = error.localizedDescription
         }
     }
-    #endif
 }
 
 /// The search reads as a conversation with the library: what it is doing, what it found.
@@ -773,10 +770,16 @@ struct LibraryGallery<MenuContent: View>: View {
     let items: [Reference]
     let more: Bool
     let loading: Bool
+    /// True while any library request is in flight, including a background refresh.
+    let busy: Bool
     let failed: Bool
+    let viewport: CGRect
     let selecting: Bool
     let selectedIDs: Set<String>
     let resetID: String
+    var scrollLive = LibraryScrollLive()
+    var scrollTick = 0
+    var onScrollPage: () -> Void = {}
     let open: (Reference) -> Void
     var brush: ((String, Bool) -> Void)? = nil
     let loadMore: () -> Void
@@ -785,7 +788,7 @@ struct LibraryGallery<MenuContent: View>: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var shown = GalleryPaging.batch
     @State private var gate = false
-    /// Scroll position of the page tail. A class so each pan tick does not invalidate the gallery.
+    /// Latest tail position. A class so scroll ticks do not invalidate the gallery.
     @State private var tail = GalleryTailPosition()
     @State private var cardFrames: [String: CGRect] = [:]
     @State private var brushRemoves = false
@@ -843,11 +846,26 @@ struct LibraryGallery<MenuContent: View>: View {
         .onChange(of: resetID) { _, _ in
             shown = GalleryPaging.batch
             gate = false
+            scrollLive.armAgain()
         }
+        #if os(macOS)
+        .onChange(of: scrollTick, initial: true) { _, _ in reconsider() }
+        .modifier(LegacyMacScrollProbe(live: scrollLive, onPage: onScrollPage))
+        #endif
         .onChange(of: items.count) { old, new in
-            if new < old { shown = min(GalleryPaging.batch, new) }
-            if !gate { consider(tail.y) }
+            // A page that arrives while the end gate is closed must still be shown.
+            // `items` on a later retry is the array from before the append.
+            let next = LibraryEndTrigger.nextShownCount(shown: shown, previousCount: old, newCount: new)
+            if next != shown { shown = next }
+            #if os(macOS)
+            reconsider()
+            #endif
         }
+        .onChange(of: viewport) { _, _ in reconsider() }
+        .onChange(of: busy) { _, busy in
+            if !busy { reconsider() }
+        }
+        .onChange(of: more) { _, _ in reconsider() }
     }
 
     private var brushGesture: some Gesture {
@@ -886,9 +904,27 @@ struct LibraryGallery<MenuContent: View>: View {
     }
 
     private func consider(_ y: CGFloat) {
-        tail.y = y
-        guard y < viewportHeight + 320 else { return }
+        tail.minY = y
+        #if os(iOS)
+        guard !gate else { return }
+        guard LibraryEndTrigger.isNearEnd(tailMinY: y, viewport: viewport) else { return }
         reveal()
+        #endif
+    }
+
+    /// `distance` is loaded content still below the visible bottom of the library scroll view.
+    private func considerScrollDistance(_ distance: CGFloat, containerHeight: CGFloat) {
+        guard !gate else { return }
+        guard LibraryEndTrigger.shouldPage(distanceToEnd: distance, containerHeight: containerHeight) else { return }
+        reveal()
+    }
+
+    private func reconsider() {
+        #if os(macOS)
+        considerScrollDistance(scrollLive.distance, containerHeight: scrollLive.containerHeight)
+        #else
+        consider(tail.minY)
+        #endif
     }
 
     private func reveal() {
@@ -896,29 +932,26 @@ struct LibraryGallery<MenuContent: View>: View {
         if shown < items.count {
             gate = true
             shown = min(items.count, shown + GalleryPaging.batch)
-            release()
+            disarm()
             return
         }
-        guard more, !loading, !failed else { return }
+        guard !failed else { return }
+        guard LibraryEndTrigger.shouldRequestNextPage(distanceToEnd: scrollLive.distance,
+                                                       containerHeight: scrollLive.containerHeight,
+                                                       hasCursor: more,
+                                                       inFlight: loading) else { return }
         gate = true
         loadMore()
-        release()
+        disarm()
     }
 
-    private func release() {
-        Task {
-            try? await Task.sleep(for: .milliseconds(450))
+    /// Lets layout publish a new tail position before another page can start.
+    private func disarm() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
             gate = false
-            consider(tail.y)
+            reconsider()
         }
-    }
-
-    private var viewportHeight: CGFloat {
-        #if os(macOS)
-        NSScreen.main?.visibleFrame.height ?? 900
-        #else
-        UIScreen.main.bounds.height
-        #endif
     }
 }
 
@@ -928,8 +961,198 @@ private enum GalleryPaging {
 
 /// Holds the page-tail offset without publishing a SwiftUI update on every scroll tick.
 private final class GalleryTailPosition {
-    var y: CGFloat = .greatestFiniteMagnitude
+    var minY: CGFloat = .greatestFiniteMagnitude
 }
+
+/// Latest Mac scroll measurement. A class so offset ticks do not redraw the gallery.
+@MainActor
+final class LibraryScrollLive {
+    var distance: CGFloat = .greatestFiniteMagnitude
+    var containerHeight: CGFloat = 0
+    private var signaled = false
+    private var contentHeight: CGFloat = 0
+
+    func apply(distance: CGFloat, containerHeight: CGFloat, contentHeight: CGFloat, onPage: () -> Void) {
+        self.distance = distance
+        self.containerHeight = containerHeight
+        let page = LibraryEndTrigger.shouldPage(distanceToEnd: distance, containerHeight: containerHeight)
+        let grew = contentHeight > self.contentHeight + 24
+        self.contentHeight = contentHeight
+        if page && (!signaled || grew) {
+            signaled = true
+            onPage()
+        } else if !page {
+            signaled = false
+        }
+    }
+
+    func armAgain() {
+        signaled = false
+        contentHeight = 0
+    }
+}
+
+/// macOS 15+ reads the scroll view's own geometry. Clip-view KVO does not fire while SwiftUI tracks.
+private struct MacScrollGeometryPublisher: ViewModifier {
+    var live: LibraryScrollLive
+    var onPage: () -> Void
+
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        if #available(macOS 15.0, *) {
+            content.libraryScrollGeometry(live: live, onPage: onPage)
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+}
+
+#if os(macOS)
+@available(macOS 15.0, *)
+private struct LibraryScrollMeasurement: Equatable {
+    var distance: CGFloat
+    var containerHeight: CGFloat
+    var contentHeight: CGFloat
+
+    init(geometry geo: ScrollGeometry) {
+        contentHeight = geo.contentSize.height
+        containerHeight = geo.containerSize.height
+        distance = LibraryEndTrigger.resolvedDistance(
+            contentHeight: geo.contentSize.height,
+            contentOffsetY: geo.contentOffset.y,
+            containerHeight: geo.containerSize.height,
+            visibleMaxY: geo.visibleRect.maxY,
+            visibleHeight: geo.visibleRect.height)
+    }
+}
+
+@available(macOS 15.0, *)
+private extension View {
+    func libraryScrollGeometry(live: LibraryScrollLive, onPage: @escaping () -> Void) -> some View {
+        onScrollGeometryChange(for: LibraryScrollMeasurement.self) { geo in
+            LibraryScrollMeasurement(geometry: geo)
+        } action: { _, sample in
+            live.apply(distance: sample.distance,
+                       containerHeight: sample.containerHeight,
+                       contentHeight: sample.contentHeight,
+                       onPage: onPage)
+        }
+    }
+}
+
+/// macOS 14 has no scroll-geometry callback. The probe has to sit inside the scrolled content
+/// and listen for clip-view bounds notifications — KVO on `bounds` never arrives during tracking.
+private struct LegacyMacScrollProbe: ViewModifier {
+    var live: LibraryScrollLive
+    var onPage: () -> Void
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content
+        } else {
+            content.background {
+                LibraryScrollEndProbe { distance, container, contentHeight in
+                    live.apply(distance: distance,
+                               containerHeight: container,
+                               contentHeight: contentHeight,
+                               onPage: onPage)
+                }
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+            }
+        }
+    }
+}
+
+private struct LibraryScrollEndProbe: NSViewRepresentable {
+    var onMeasure: (CGFloat, CGFloat, CGFloat) -> Void
+
+    func makeNSView(context: Context) -> LibraryScrollEndView {
+        let view = LibraryScrollEndView()
+        view.onMeasure = onMeasure
+        return view
+    }
+
+    func updateNSView(_ view: LibraryScrollEndView, context: Context) {
+        view.onMeasure = onMeasure
+        view.attachIfNeeded()
+    }
+}
+
+private final class LibraryScrollEndView: NSView {
+    var onMeasure: ((CGFloat, CGFloat, CGFloat) -> Void)?
+    private var attachedClip = false
+    private var attachedDocument = false
+    private var scheduled = false
+    private var latest: (CGFloat, CGFloat, CGFloat) = (.greatestFiniteMagnitude, 0, 0)
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        attachIfNeeded()
+    }
+
+    override func layout() {
+        super.layout()
+        attachIfNeeded()
+        note()
+    }
+
+    func attachIfNeeded() {
+        guard let scroll = enclosingScrollView else { return }
+        if !attachedClip {
+            attachedClip = true
+            let clip = scroll.contentView
+            clip.postsBoundsChangedNotifications = true
+            NotificationCenter.default.addObserver(self, selector: #selector(scrollChanged),
+                                                   name: NSView.boundsDidChangeNotification, object: clip)
+        }
+        if !attachedDocument, let document = scroll.documentView {
+            attachedDocument = true
+            document.postsFrameChangedNotifications = true
+            NotificationCenter.default.addObserver(self, selector: #selector(scrollChanged),
+                                                   name: NSView.frameDidChangeNotification, object: document)
+        }
+        note()
+    }
+
+    @objc private func scrollChanged(_ notification: Notification) {
+        note()
+    }
+
+    private func note() {
+        guard let scroll = enclosingScrollView, let document = scroll.documentView else { return }
+        let clip = scroll.contentView.bounds
+        let visible = scroll.documentVisibleRect
+        let contentHeight = max(document.frame.height, document.bounds.height)
+        var offset = clip.origin.y
+        if abs(offset) < 0.5, document.frame.origin.y < -1 {
+            offset = -document.frame.origin.y
+        }
+        let visibleMaxY = document.isFlipped ? visible.maxY : (contentHeight - visible.minY)
+        latest = (LibraryEndTrigger.resolvedDistance(contentHeight: contentHeight,
+                                                     contentOffsetY: offset,
+                                                     containerHeight: clip.height,
+                                                     visibleMaxY: visibleMaxY,
+                                                     visibleHeight: visible.height),
+                  clip.height,
+                  contentHeight)
+        guard !scheduled else { return }
+        scheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.scheduled = false
+            self.onMeasure?(self.latest.0, self.latest.1, self.latest.2)
+        }
+    }
+}
+#endif
 
 /// Installs the selection drag only while Selecionar is on. A drag left on the gallery
 /// wins the pan and the library stops scrolling.
@@ -1006,7 +1229,23 @@ private struct GalleryTailKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
-/// Reports its distance from the top of the screen so the gallery can reveal the next batch.
+private struct LibraryViewportKey: PreferenceKey {
+    static let defaultValue = CGRect.null
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
+}
+
+extension View {
+    /// Publishes the scroll view's visible frame so paging uses the window, not the whole screen.
+    func libraryViewport() -> some View {
+        background {
+            GeometryReader { geo in
+                Color.clear.preference(key: LibraryViewportKey.self, value: geo.frame(in: .global))
+            }
+        }
+    }
+}
+
+/// Reports its position in screen space. The gallery compares that with the scroll view's frame.
 private struct GalleryPageTail: View {
     let onMove: (CGFloat) -> Void
 

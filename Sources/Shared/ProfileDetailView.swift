@@ -200,7 +200,7 @@ struct ProfileDetailView: View {
             try await api.delete(live)
             guard session.userID == uid else { return }
             store.discardSearchReference(live.id)
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }

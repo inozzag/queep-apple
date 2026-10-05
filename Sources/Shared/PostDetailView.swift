@@ -286,7 +286,7 @@ struct PostDetailView: View {
             guard session.userID == uid else { return }
             latest = updated
             store.discardSearchReference(live.id)
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }
@@ -311,7 +311,7 @@ struct PostDetailView: View {
             guard session.userID == uid else { return }
             clearAudio()
             store.discardSearchReference(live.id)
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }

@@ -2,8 +2,8 @@ import XCTest
 
 @MainActor
 final class IslandTests: XCTestCase {
-    /// The pin stays on screen, opens while the pointer rests on it and closes when it leaves.
-    func testIslandOpensOnHoverAndClosesWhenLeaving() {
+    /// The pin stays on screen. The card opens on click and closes on a second click, not when the pointer rests on it.
+    func testIslandOpensOnClickAndClosesOnSecondClick() {
         let app = XCUIApplication()
         app.launch()
         let library = app.windows["library"]
@@ -13,15 +13,23 @@ final class IslandTests: XCTestCase {
         snapshot("collapsed")
         handle.hover()
         let quick = app.buttons["island.quick"]
+        XCTAssertFalse(quick.waitForExistence(timeout: 1), "Hover must not open the card")
+        handle.click()
         XCTAssertTrue(quick.waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(app.buttons["island.paste"].exists)
         XCTAssertTrue(app.buttons["island.screenshot"].exists)
         XCTAssertTrue(app.buttons["island.library"].exists)
         snapshot("expanded")
-        library.hover()
+        handle.click()
         XCTAssertTrue(quick.waitForNonExistence(timeout: 5))
         XCTAssertTrue(handle.waitForExistence(timeout: 5))
         snapshot("collapsed-again")
+        handle.click()
+        XCTAssertTrue(quick.waitForExistence(timeout: 5))
+        library.click()
+        XCTAssertTrue(quick.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(handle.waitForExistence(timeout: 5))
+        snapshot("collapsed-outside")
     }
 
     private func snapshot(_ name: String) {

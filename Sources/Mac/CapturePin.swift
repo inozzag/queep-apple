@@ -3,13 +3,13 @@ import QueepCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Floating capture pin. It stays on screen, can be dragged anywhere, and opens a card on hover.
+/// Floating capture pin. It stays on screen, can be dragged anywhere, and opens a card on click.
 @MainActor
 @Observable
 final class CapturePin {
     enum State: Equatable { case collapsed, expanded }
 
-    private(set) var hovering = false
+    private(set) var expanded = false
     private(set) var dragging = false
     private(set) var opensLeading = true
     var celebrating = false
@@ -19,8 +19,7 @@ final class CapturePin {
     private var windowState = State.collapsed
     private var current = State.collapsed
     private var panel: NSPanel?
-    private var enterTask: Task<Void, Never>?
-    private var exitTask: Task<Void, Never>?
+    private var outsideMonitors: [Any] = []
     private let capture: MacCapture
 
     private let pinSize = PinLayout.pin
@@ -33,7 +32,7 @@ final class CapturePin {
 
     func update(enabled: Bool) {
         guard enabled, NSScreen.main != nil else {
-            panel?.orderOut(nil); celebrating = false; hovering = false; return
+            panel?.orderOut(nil); celebrating = false; setExpanded(false); return
         }
         if !placed { pinCenter = restore() ?? defaultCenter(); placed = true }
         pinCenter = clamp(pinCenter)
@@ -61,7 +60,6 @@ final class CapturePin {
 
     func drag(to point: CGPoint) {
         dragging = true
-        enterTask?.cancel()
         pinCenter = clamp(point)
         setFrame(frame(for: windowState))
     }
@@ -69,29 +67,59 @@ final class CapturePin {
     func endDrag() {
         dragging = false
         persist()
-        if let panel, panel.frame.contains(NSEvent.mouseLocation) { hover(true) }
+    }
+
+    /// Click toggles the card. A drag calls `endDrag` instead, so mouse-up after a move does not toggle.
+    func toggle() {
+        celebrating = false
+        setExpanded(!expanded)
+    }
+
+    /// Forces the card shut after a save. It stays shut until the next click; pointer hover does not reopen it.
+    func collapseForSave() {
+        celebrating = true
+        setExpanded(false)
     }
 
     func center() -> CGPoint { pinCenter }
 
-    private func hover(_ inside: Bool) {
-        exitTask?.cancel()
-        enterTask?.cancel()
-        if inside {
-            guard !celebrating, !dragging else { return }
-            enterTask = Task { [weak self] in
-                try? await Task.sleep(for: .milliseconds(160))
-                guard !Task.isCancelled, let self, !self.dragging, !self.celebrating else { return }
-                self.hovering = true
-            }
-            return
+    private func setExpanded(_ open: Bool) {
+        expanded = open
+        if open { installOutsideClickMonitors() } else { removeOutsideClickMonitors() }
+    }
+
+    /// Clicks on the pin and card are inside this rect. The shadow margin and the rest of the screen are outside.
+    private func chromeFrame() -> CGRect? {
+        guard let panel else { return nil }
+        return panel.frame.insetBy(dx: shadowPad, dy: shadowPad)
+    }
+
+    private func closeIfOutside(_ point: CGPoint) {
+        guard expanded, let chrome = chromeFrame(), !chrome.contains(point) else { return }
+        setExpanded(false)
+    }
+
+    private func installOutsideClickMonitors() {
+        removeOutsideClickMonitors()
+        let mask: NSEvent.EventTypeMask = [.leftMouseDown]
+        if let monitor = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
+            let point = NSEvent.mouseLocation
+            MainActor.assumeIsolated { self?.closeIfOutside(point) }
+            return event
+        }) {
+            outsideMonitors.append(monitor)
         }
-        exitTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(220))
-            guard !Task.isCancelled else { return }
-            self?.hovering = false
-            self?.celebrating = false
+        if let monitor = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] _ in
+            let point = NSEvent.mouseLocation
+            MainActor.assumeIsolated { self?.closeIfOutside(point) }
+        }) {
+            outsideMonitors.append(monitor)
         }
+    }
+
+    private func removeOutsideClickMonitors() {
+        outsideMonitors.forEach(NSEvent.removeMonitor)
+        outsideMonitors.removeAll()
     }
 
     private func makePanel() {
@@ -107,20 +135,15 @@ final class CapturePin {
         panel.isReleasedWhenClosed = false
         panel.isMovable = false
         panel.animationBehavior = .none
-        let tracking = HoverTrackingView(frame: panel.contentView?.bounds ?? .zero)
-        tracking.onHover = { [weak self] inside in self?.hover(inside) }
         let host = NSHostingView(rootView: PinChrome().environment(capture).environment(capture.session)
             .environment(capture.library).environment(self))
         host.sizingOptions = []
-        host.frame = tracking.bounds
+        host.frame = panel.contentView?.bounds ?? .zero
         host.autoresizingMask = [.width, .height]
         // Shadows draw into the pad around the pin and card. Clipping the host
         // cuts them off, and a layer-backed ancestor flattens the backdrop blur.
         host.clipsToBounds = false
-        tracking.clipsToBounds = false
-        tracking.addSubview(host)
-        tracking.autoresizingMask = [.width, .height]
-        panel.contentView = tracking
+        panel.contentView = host
         panel.contentView?.clipsToBounds = false
         self.panel = panel
     }
@@ -190,12 +213,14 @@ private struct PinDragSurface: NSViewRepresentable {
     var center: () -> CGPoint
     var move: (CGPoint) -> Void
     var end: () -> Void
+    var click: () -> Void
 
     func makeNSView(context: Context) -> PinDragView {
         let view = PinDragView()
         view.centerProvider = center
         view.move = move
         view.end = end
+        view.click = click
         return view
     }
 
@@ -203,6 +228,7 @@ private struct PinDragSurface: NSViewRepresentable {
         nsView.centerProvider = center
         nsView.move = move
         nsView.end = end
+        nsView.click = click
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: PinDragView, context: Context) -> CGSize? {
@@ -214,41 +240,38 @@ private final class PinDragView: NSView {
     var centerProvider: () -> CGPoint = { .zero }
     var move: (CGPoint) -> Void = { _ in }
     var end: () -> Void = {}
+    var click: () -> Void = {}
     private var originMouse: CGPoint?
     private var originCenter: CGPoint?
+    private var dragged = false
+    /// Movement below this is still a click. Past it, mouse-up only ends the drag.
+    private let dragSlop: CGFloat = 4
 
     override var isOpaque: Bool { false }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
     override func mouseDown(with event: NSEvent) {
         originMouse = NSEvent.mouseLocation
         originCenter = centerProvider()
+        dragged = false
     }
     override func mouseDragged(with event: NSEvent) {
         guard let originMouse, let originCenter else { return }
         let mouse = NSEvent.mouseLocation
-        move(CGPoint(x: originCenter.x + mouse.x - originMouse.x, y: originCenter.y + mouse.y - originMouse.y))
+        let delta = CGPoint(x: mouse.x - originMouse.x, y: mouse.y - originMouse.y)
+        guard hypot(delta.x, delta.y) >= dragSlop else { return }
+        dragged = true
+        move(CGPoint(x: originCenter.x + delta.x, y: originCenter.y + delta.y))
     }
     override func mouseUp(with event: NSEvent) {
         guard originMouse != nil else { return }
+        let wasDrag = dragged
         originMouse = nil
         originCenter = nil
-        end()
+        dragged = false
+        if wasDrag { end() } else { click() }
     }
-}
-
-private final class HoverTrackingView: NSView {
-    var onHover: ((Bool) -> Void)?
-
-    override func updateTrackingAreas() {
-        trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-                                       owner: self))
-        super.updateTrackingAreas()
-    }
-    override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); updateTrackingAreas() }
-    override func mouseEntered(with event: NSEvent) { onHover?(true) }
-    override func mouseExited(with event: NSEvent) { onHover?(false) }
 }
 
 private enum Notice: Equatable { case saved, failed(String) }
@@ -265,8 +288,9 @@ private struct PinChrome: View {
     @State private var noticeTask: Task<Void, Never>?
 
     private var desired: CapturePin.State {
-        if pin.celebrating || pin.dragging { return pin.dragging ? state : .collapsed }
-        if pin.hovering || targeted { return .expanded }
+        if pin.dragging { return state }
+        if pin.celebrating { return .collapsed }
+        if pin.expanded || targeted { return .expanded }
         return .collapsed
     }
 
@@ -294,7 +318,7 @@ private struct PinChrome: View {
         .onChange(of: capture.message) { _, message in
             guard message == MacCapture.savedMessage else { return }
             flash(.saved, seconds: 3)
-            if pin.hovering || targeted { pin.celebrating = true }
+            if pin.expanded || targeted { pin.collapseForSave() }
         }
         .onChange(of: capture.error) { _, error in if let error { flash(.failed(error), seconds: 5) } }
         .onChange(of: state) { _, next in
@@ -311,11 +335,13 @@ private struct PinChrome: View {
 
     private func flash(_ value: Notice, seconds: Double) {
         noticeTask?.cancel()
+        if value != .saved { pin.celebrating = false }
         notice = value
         noticeTask = Task {
             try? await Task.sleep(for: .seconds(seconds))
             guard !Task.isCancelled else { return }
             notice = nil
+            if value == .saved { pin.celebrating = false }
         }
     }
 }
@@ -339,7 +365,7 @@ private struct PinMark: View {
                     .allowsHitTesting(false)
             }
             .overlay {
-                PinDragSurface(center: { pin.center() }, move: { pin.drag(to: $0) }, end: { pin.endDrag() })
+                PinDragSurface(center: { pin.center() }, move: { pin.drag(to: $0) }, end: { pin.endDrag() }, click: { pin.toggle() })
                     .accessibilityHidden(true)
             }
             .modifier(PinPlate(
@@ -351,7 +377,7 @@ private struct PinMark: View {
             ))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(label)
-            .accessibilityHint("Arraste para mover. Passe o mouse para colar, capturar a tela ou abrir a biblioteca.")
+            .accessibilityHint("Arraste para mover. Clique para colar, capturar a tela ou abrir a biblioteca.")
             .accessibilityIdentifier("island")
     }
 

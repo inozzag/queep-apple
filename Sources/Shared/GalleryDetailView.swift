@@ -432,7 +432,7 @@ struct GalleryDetailView: View {
             guard session.userID == uid else { return }
             clearPlayer()
             store.discardSearchReference(target.id)
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             close()
         } catch { self.error = error.localizedDescription }
     }

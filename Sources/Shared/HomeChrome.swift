@@ -5,14 +5,18 @@ import UIKit
 
 struct HomeBrand: View {
     var body: some View {
-        Text("Queep")
-            .font(.system(size: 22, weight: .bold))
-            .tracking(-0.89)
-            .foregroundStyle(Color(red: 41 / 255, green: 37 / 255, blue: 33 / 255))
-            .lineLimit(1)
-            .fixedSize()
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityLabel("Queep")
+        HStack(spacing: 8) {
+            QueepLogo(size: 28)
+            Text("Queep")
+                .font(.system(size: 22, weight: .bold))
+                .tracking(-0.89)
+                .foregroundStyle(Color(red: 41 / 255, green: 37 / 255, blue: 33 / 255))
+                .lineLimit(1)
+                .fixedSize()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityLabel("Queep")
     }
 }
 
@@ -37,41 +41,15 @@ struct HomeTopBarHeightKey: PreferenceKey {
     }
 }
 
-/// White at the top of the chrome, fading to clear so cards can sit behind the bar.
-struct HomeTopScrim: View {
-    var body: some View {
-        LinearGradient(
-            stops: [
-                .init(color: .white, location: 0),
-                .init(color: .white, location: 0.82),
-                .init(color: .white.opacity(0.45), location: 0.93),
-                .init(color: .white.opacity(0), location: 1)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea(edges: .top)
-        .allowsHitTesting(false)
-    }
-}
-
 extension View {
-    func homeTopBar(fade: CGFloat = 32) -> some View {
-        background(alignment: .top) {
-            Color.clear
-                .overlay(alignment: .top) {
-                    GeometryReader { geo in
-                        HomeTopScrim()
-                            .frame(width: geo.size.width, height: geo.size.height + fade, alignment: .top)
-                    }
+    /// Opaque bar. Reports its height so the library can scroll underneath without a fade.
+    func homeTopBar() -> some View {
+        background(Color.white.ignoresSafeArea(edges: .top))
+            .background {
+                GeometryReader { geo in
+                    Color.clear.preference(key: HomeTopBarHeightKey.self, value: geo.size.height)
                 }
-                .allowsHitTesting(false)
-        }
-        .background {
-            GeometryReader { geo in
-                Color.clear.preference(key: HomeTopBarHeightKey.self, value: geo.size.height)
             }
-        }
     }
 }
 
@@ -102,10 +80,10 @@ struct HomePillLabel: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            HomeGlyph(asset: asset, original: accent)
+            HomeGlyph(asset: asset, color: accent ? Theme.queepThingsInk : Theme.homePreview)
             Text(title)
                 .font(.system(size: 13, weight: accent ? .semibold : .regular))
-                .foregroundStyle(accent ? Theme.homeAccent : Theme.homePreview)
+                .foregroundStyle(accent ? Theme.queepThingsInk : Theme.homePreview)
                 .lineLimit(1)
                 .fixedSize()
         }
@@ -293,11 +271,6 @@ private struct HomeOptionalSurface: ViewModifier {
         if enabled { content.homeSurface() } else { content }
     }
 }
-#if os(iOS)
-enum MobileNavMode: Equatable {
-    case standard, add, search
-}
-
 private enum QueepGlassShape {
     case circle, capsule, card
 }
@@ -306,7 +279,7 @@ private struct QueepGlass: ViewModifier {
     var shape: QueepGlassShape = .capsule
 
     func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, macOS 26.0, *) {
             switch shape {
             case .circle:
                 content.glassEffect(.regular.interactive(), in: Circle())
@@ -336,6 +309,32 @@ private extension View {
     func queepGlass(_ shape: QueepGlassShape = .capsule) -> some View {
         modifier(QueepGlass(shape: shape))
     }
+}
+
+/// Same capsule as the iPhone library: glass, “Selecionar”, then “Cancelar”.
+struct LibrarySelectButton: View {
+    var selecting: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(selecting ? "Cancelar" : "Selecionar")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Theme.homePreview)
+                .padding(.horizontal, 16)
+                .frame(height: 48)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .queepGlass(.capsule)
+        .overlay { Capsule().strokeBorder(Color.white, lineWidth: 1.5) }
+        .accessibilityIdentifier("library.select")
+    }
+}
+
+#if os(iOS)
+enum MobileNavMode: Equatable {
+    case standard, add, search
 }
 
 struct MobileLibraryHeader: View {
@@ -393,17 +392,7 @@ struct MobileLibraryHeader: View {
                 .accessibilityLabel("Spaces")
                 .accessibilityIdentifier("spaces.back")
             } else if canSelect {
-                Button(action: toggleSelect) {
-                    Text(selecting ? "Cancelar" : "Selecionar")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Theme.homeInk)
-                        .padding(.horizontal, 16)
-                        .frame(height: 48)
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .queepGlass(.capsule)
-                .accessibilityIdentifier("library.select")
+                LibrarySelectButton(selecting: selecting, action: toggleSelect)
             }
         }
         .padding(.horizontal, Theme.homeNavInset)
@@ -436,6 +425,7 @@ struct iPhoneLibrary<Content: View, Dock: View>: View {
             }
             .refreshable { await refresh() }
             .libraryScrollPosition()
+            .libraryViewport()
             .scrollDismissesKeyboard(.interactively)
 
             VStack(spacing: 10) {
@@ -492,7 +482,7 @@ struct iPhoneLibrary<Content: View, Dock: View>: View {
         }
         .overlayPreferenceValue(AddMenuFrameKey.self) { globalFrame in
             if mode == .add {
-                AddMenuDismissOverlay(mode: $mode, globalFrame: globalFrame)
+                AddMenuDismissOverlay(dismiss: { mode = .standard }, globalFrame: globalFrame)
             }
         }
     }
@@ -593,7 +583,7 @@ struct MobileLibraryNav: View {
 
     private var addMenu: some View {
         // Keeps the card's layout slot. The interactive card is drawn above the dismiss scrim.
-        LibraryAddMenu(mode: $mode, exposesAccessibility: false)
+        LibraryAddMenu(dismiss: { mode = .standard }, exposesAccessibility: false)
             .background {
                 GeometryReader { geo in
                     Color.clear.preference(key: AddMenuFrameKey.self, value: geo.frame(in: .global))
@@ -684,6 +674,7 @@ struct MobileLibraryNav: View {
         keyboardVisible = false
     }
 }
+#endif
 
 private struct AddMenuCardShape: Shape {
     var rect: CGRect
@@ -701,7 +692,7 @@ private struct AddMenuFrameKey: PreferenceKey {
 /// Full-screen hit target behind the Mais card. Taps outside the card dismiss the menu
 /// and are not delivered to the gallery, the top bar, or the Home/Spaces tabs.
 private struct AddMenuDismissOverlay: View {
-    @Binding var mode: MobileNavMode
+    var dismiss: () -> Void
     var globalFrame: CGRect
 
     var body: some View {
@@ -712,7 +703,7 @@ private struct AddMenuDismissOverlay: View {
             ZStack(alignment: .topLeading) {
                 Color.white.opacity(0.001)
                     .contentShape(Rectangle())
-                    .onTapGesture { mode = .standard }
+                    .onTapGesture(perform: dismiss)
                     .accessibilityLabel("Fechar")
                     .accessibilityAddTraits(.isButton)
                     .accessibilityIdentifier("library.add.dismiss")
@@ -726,7 +717,7 @@ private struct AddMenuDismissOverlay: View {
                             Color.clear
                                 .frame(width: max(0, x))
                                 .allowsHitTesting(false)
-                            LibraryAddMenu(mode: $mode)
+                            LibraryAddMenu(dismiss: dismiss)
                                 .accessibilitySortPriority(1)
                             Spacer(minLength: 0)
                         }
@@ -743,7 +734,7 @@ private struct AddMenuDismissOverlay: View {
 
 private struct LibraryAddMenu: View {
     @Environment(LibraryStore.self) private var store
-    @Binding var mode: MobileNavMode
+    var dismiss: () -> Void
     var exposesAccessibility = true
 
     var body: some View {
@@ -769,7 +760,7 @@ private struct LibraryAddMenu: View {
 
     private func addRow(_ title: String, _ asset: String, _ identifier: String, symbol: Bool = false, action: @escaping () -> Void) -> some View {
         Button {
-            mode = .standard
+            dismiss()
             action()
         } label: {
             HStack(spacing: 12) {
@@ -796,4 +787,49 @@ private struct LibraryAddMenu: View {
         .accessibilityHidden(!exposesAccessibility)
     }
 }
-#endif
+
+/// Mac header control. Opens the same glass card the iPhone add button uses.
+struct QueepThingsControl: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        Button {
+            isPresented.toggle()
+        } label: {
+            HomePillLabel(title: "Queep things", asset: "HomeAdd", accent: true)
+                .homeSurface(highlighted: true)
+        }
+        .buttonStyle(.plain)
+        .buttonBorderShape(.roundedRectangle(radius: Theme.homeRadius))
+        .accessibilityIdentifier("library.add")
+        .accessibilityLabel("Queep things")
+        .help("Posts, galeria, sites ou notes")
+        .overlay(alignment: .topTrailing) {
+            if isPresented {
+                LibraryAddMenu(dismiss: { isPresented = false }, exposesAccessibility: false)
+                    .fixedSize()
+                    .background {
+                        GeometryReader { geo in
+                            Color.clear.preference(key: AddMenuFrameKey.self, value: geo.frame(in: .global))
+                        }
+                    }
+                    .opacity(0)
+                    .accessibilityHidden(true)
+                    .allowsHitTesting(false)
+                    .offset(y: Theme.homeChrome + 8)
+            }
+        }
+    }
+}
+
+extension View {
+    /// Glass card anchored to Queep things. Taps outside the card dismiss it.
+    func queepThingsMenu(isPresented: Binding<Bool>) -> some View {
+        overlayPreferenceValue(AddMenuFrameKey.self) { frame in
+            if isPresented.wrappedValue {
+                AddMenuDismissOverlay(dismiss: { isPresented.wrappedValue = false }, globalFrame: frame)
+            }
+        }
+        .animation(.spring(duration: 0.22, bounce: 0), value: isPresented.wrappedValue)
+    }
+}

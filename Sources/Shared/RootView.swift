@@ -5,6 +5,7 @@ struct RootView: View {
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var library
     @Environment(\.scenePhase) private var phase
+    @State private var activity = LibraryActivity()
 
     var body: some View {
         Group {
@@ -28,38 +29,53 @@ struct RootView: View {
                 session.planRequirement = .media(for: .free)
             }
         }
-        .task(id: SyncKey(userID: session.userID, owner: session.accountOwner, active: phase == .active)) {
+        .onChange(of: phase, initial: true) { _, phase in
+            activity.active = phase == .active
+        }
+        .task(id: AccountKey(userID: session.userID, owner: session.accountOwner)) {
             library.reset(for: session.userID)
             if session.userID == nil { await SubscriptionStore.shared.clearSession(session) }
-            guard phase == .active else { return }
             if session.userID == nil, let owner = session.accountOwner {
                 while !Task.isCancelled {
-                    do { try await Task.sleep(for: .seconds(4)) } catch { return }
+                    guard activity.active else {
+                        try? await Task.sleep(for: .milliseconds(400))
+                        continue
+                    }
+                    do { try await Task.sleep(for: .seconds(8)) } catch { return }
                     await session.handleUnauthorized(owner)
                 }
                 return
             }
             guard let uid = session.userID, let api = session.client() else { return }
+            while !activity.active && !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+            guard !Task.isCancelled else { return }
             await ProductAnalytics.syncIdentity(session)
             await ProductAnalytics.deliverSharedCaptures(session)
+            // Cache is already on screen. This hits the network only when that cache is missing or stale.
             await library.refresh(api, account: uid)
             while !Task.isCancelled {
-                do { try await Task.sleep(for: .seconds(4)) } catch { return }
-                guard phase == .active else { continue }
-                // Account closure must also dismiss details and capture sheets on other devices.
+                do { try await Task.sleep(for: .seconds(8)) } catch { return }
+                guard activity.active else { continue }
                 await session.handleUnauthorized(uid)
                 await ProductAnalytics.deliverSharedCaptures(session)
-                // Keep polling while a post is open so carousel photos appear after analysis.
-                if library.items.count <= 40 {
+                if library.hasPendingAnalysis {
+                    await library.refresh(api, account: uid, force: true)
+                } else {
                     await library.refresh(api, account: uid)
                 }
             }
         }
     }
 
-    private struct SyncKey: Equatable {
+    private struct AccountKey: Equatable {
         let userID: String?
         let owner: String?
-        let active: Bool
     }
+}
+
+/// Shared with the library task so a focus change does not cancel the fetch and restart the spinner.
+private final class LibraryActivity {
+    var active = false
 }

@@ -287,7 +287,7 @@ struct CaptureView: View {
             if let saved { ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library") }
             guard session.userID == uid else { return }
             if let reference { store.discardSearchReference(reference.id) }
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription; attempted = true }
     }
@@ -300,7 +300,7 @@ struct CaptureView: View {
             try await api.delete(reference)
             guard session.userID == uid else { return }
             store.discardSearchReference(reference.id)
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }
@@ -418,7 +418,7 @@ struct LinkCaptureView: View {
             let saved = try await api.create(id: requestID, capture: capture, spaceIDs: [])
             ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library")
             guard session.userID == uid else { return }
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             dismiss()
         } catch {
             self.error = error.localizedDescription
