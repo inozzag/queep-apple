@@ -84,6 +84,17 @@ final class LibraryStore {
     var archiveUndo: ArchiveUndo?
     var hasArchivedItems = false
     var hasActiveCollection: Bool { !searchChips.isEmpty || kindFilter != nil }
+    /// A reference sheet or the capture editor is open. Gallery photos can still arrive after `ready`.
+    var detailIsOpen: Bool {
+        switch presentation {
+        case .reference, .capture: true
+        default: false
+        }
+    }
+    var shouldKeepRefreshing: Bool {
+        let statuses = items.map(\.status) + (searchItems?.map(\.status) ?? [])
+        return LibrarySync.shouldRefresh(statuses: statuses, detailOpen: detailIsOpen)
+    }
     private var searchGeneration = 0
     private var accountID: String?
     private var generation = 0

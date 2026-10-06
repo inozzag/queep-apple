@@ -51,8 +51,8 @@ struct RootView: View {
                 // Account closure must also dismiss details and capture sheets on other devices.
                 await session.handleUnauthorized(uid)
                 await ProductAnalytics.deliverSharedCaptures(session)
-                // Keep polling while a post is open so carousel photos appear after analysis.
-                if library.items.count <= 40 {
+                // Keep an open detail, and any queued or processing card, current. Idle libraries wait for a manual refresh.
+                if library.shouldKeepRefreshing {
                     await library.refresh(api, account: uid)
                 }
             }
