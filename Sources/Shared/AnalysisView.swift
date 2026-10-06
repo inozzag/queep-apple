@@ -22,6 +22,7 @@ enum AnalysisPolling {
                 let step = AnalysisPoll.afterFetch(
                     status: fresh.status,
                     galleryEmpty: fresh.gallery.isEmpty,
+                    mediaIncomplete: fresh.mediaIncomplete == true,
                     snapshot: snapshot,
                     policy: policy
                 )
@@ -136,7 +137,7 @@ struct AnalysisView: View {
                         .accessibilityIdentifier("media.transcript")
                 }.font(.callout).accessibilityIdentifier("media.showTranscript")
             }
-            if current.status == "error" && !current.isArchived {
+            if current.showsAnalysisRetry {
                 Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
                     Task { await retry() }
                 }.buttonStyle(.bordered).disabled(busy)

@@ -47,6 +47,7 @@ public enum AnalysisPoll {
     public static func afterFetch(
         status: String,
         galleryEmpty: Bool,
+        mediaIncomplete: Bool = false,
         snapshot: Snapshot,
         policy: Policy
     ) -> (Snapshot, Outcome) {
@@ -56,6 +57,8 @@ public enum AnalysisPoll {
         if status == "error" { return (next, .stop) }
         if status == "ready" {
             next.readyPolls += 1
+            // The photo or clip is not coming. Waiting on an empty gallery would only delay the retry.
+            if mediaIncomplete { return (next, .stop) }
             let galleryArrived = policy.waitsForGallery && !galleryEmpty
             let galleryWaitOver = !policy.waitsForGallery || next.readyPolls >= policy.readyGalleryPolls
             if galleryArrived || galleryWaitOver { return (next, .stop) }

@@ -198,7 +198,7 @@ struct PostDetailView: View {
                 FlowChips(items: items)
             }
         }
-        if live.status == "error" && !live.isArchived {
+        if live.showsAnalysisRetry {
             Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
                 Task { await retry() }
             }

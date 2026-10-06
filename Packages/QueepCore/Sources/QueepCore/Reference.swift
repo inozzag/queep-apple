@@ -20,6 +20,8 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
     public let source: SourceContent?
     public let media: MediaInfo?
     public let transcript: String?
+    /// Set when a social post is ready but its photo or clip failed. Older responses omit it.
+    public let mediaIncomplete: Bool?
 
     public var displayTitle: String {
         if !title.isEmpty { return title }
@@ -64,6 +66,13 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
         case "error": "Falha na análise"
         default: "Salvo"
         }
+    }
+
+    /// Retry is offered for a failed analysis and for a ready post whose photo or clip never arrived.
+    public var showsAnalysisRetry: Bool {
+        guard !isArchived else { return false }
+        if status == "error" { return true }
+        return status == "ready" && mediaIncomplete == true
     }
 
     public var gallery: [ImageInfo] {
