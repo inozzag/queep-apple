@@ -7,6 +7,11 @@ import Foundation
     let reference = try APIClient.decoder().decode(Reference.self, from: Data(raw.utf8))
     #expect(reference.mediaIncomplete != true)
     #expect(!reference.showsAnalysisRetry)
+
+    let failed = #"{"id":"e","kind":"note","title":"Nota","text":"Oi","url":null,"status":"error","revision":2,"created_at":"2026-09-20T15:00:00Z","updated_at":"2026-09-20T16:00:00Z"}"#
+    let broken = try APIClient.decoder().decode(Reference.self, from: Data(failed.utf8))
+    #expect(broken.mediaIncomplete != true)
+    #expect(broken.showsAnalysisRetry)
 }
 
 @Test func retriesReadyPostWhenMediaIsIncomplete() throws {
