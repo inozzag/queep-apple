@@ -121,10 +121,11 @@ private let activeAccount = Data(#"{"status":"active","version":1,"can_restore":
     ])
     defer { ScriptedTransport.remove(host: host) }
     let seen = FailureLog()
-    APIDiagnostics.record = { seen.append($0) }
-    defer { APIDiagnostics.record = nil }
-
-    let status = try await scriptedClient(host: host).accountStatus()
+    let status = try await DiagnosticsIsolation.shared.perform {
+        APIDiagnostics.record = { seen.append($0) }
+        defer { APIDiagnostics.record = nil }
+        return try await scriptedClient(host: host).accountStatus()
+    }
     #expect(status.isActive)
     #expect(script.count == 3)
     #expect(seen.items.isEmpty)
@@ -137,16 +138,19 @@ private let activeAccount = Data(#"{"status":"active","version":1,"can_restore":
     ])
     defer { ScriptedTransport.remove(host: host) }
     let seen = FailureLog()
-    APIDiagnostics.record = { seen.append($0) }
-    defer { APIDiagnostics.record = nil }
-
-    do {
-        _ = try await scriptedClient(host: host).accountStatus()
-        Issue.record("GET v1/account should fail after the retries")
-    } catch QueepError.unavailable {
-    } catch {
-        Issue.record("Unexpected error \(error)")
+    let failure = await DiagnosticsIsolation.shared.perform { () -> String in
+        APIDiagnostics.record = { seen.append($0) }
+        defer { APIDiagnostics.record = nil }
+        do {
+            _ = try await scriptedClient(host: host).accountStatus()
+            return "loaded"
+        } catch QueepError.unavailable {
+            return ""
+        } catch {
+            return String(describing: error)
+        }
     }
+    #expect(failure.isEmpty)
     #expect(script.count == 3)
     #expect(seen.items.count == 1)
     #expect(seen.items.first?.method == "GET")
@@ -163,16 +167,19 @@ private let activeAccount = Data(#"{"status":"active","version":1,"can_restore":
     ])
     defer { ScriptedTransport.remove(host: host) }
     let seen = FailureLog()
-    APIDiagnostics.record = { seen.append($0) }
-    defer { APIDiagnostics.record = nil }
-
-    do {
-        _ = try await scriptedClient(host: host).accountStatus()
-        Issue.record("401 should not load the account")
-    } catch QueepError.unauthorized {
-    } catch {
-        Issue.record("Unexpected error \(error)")
+    let failure = await DiagnosticsIsolation.shared.perform { () -> String in
+        APIDiagnostics.record = { seen.append($0) }
+        defer { APIDiagnostics.record = nil }
+        do {
+            _ = try await scriptedClient(host: host).accountStatus()
+            return "loaded"
+        } catch QueepError.unauthorized {
+            return ""
+        } catch {
+            return String(describing: error)
+        }
     }
+    #expect(failure.isEmpty)
     #expect(script.count == 1)
     #expect(seen.items.isEmpty)
 }
@@ -185,17 +192,19 @@ private let activeAccount = Data(#"{"status":"active","version":1,"can_restore":
     ])
     defer { ScriptedTransport.remove(host: host) }
     let seen = FailureLog()
-    APIDiagnostics.record = { seen.append($0) }
-    defer { APIDiagnostics.record = nil }
-
-    do {
-        _ = try await scriptedClient(host: host).accountStatus()
-        Issue.record("503 should not be retried into success")
-    } catch let error as QueepError {
-        #expect(error.localizedDescription == "down")
-    } catch {
-        Issue.record("Unexpected error \(error)")
+    let message = await DiagnosticsIsolation.shared.perform { () -> String in
+        APIDiagnostics.record = { seen.append($0) }
+        defer { APIDiagnostics.record = nil }
+        do {
+            _ = try await scriptedClient(host: host).accountStatus()
+            return "503 should not be retried into success"
+        } catch let error as QueepError {
+            return error.localizedDescription
+        } catch {
+            return "Unexpected error \(error)"
+        }
     }
+    #expect(message == "down")
     #expect(script.count == 1)
     #expect(seen.items.count == 1)
     #expect(seen.items.first?.status == 503)
@@ -208,14 +217,17 @@ private let activeAccount = Data(#"{"status":"active","version":1,"can_restore":
         .fail(.timedOut), .http(200, Data(#"{"items":[],"has_pending":false}"#.utf8))
     ])
     defer { ScriptedTransport.remove(host: host) }
-
-    do {
-        _ = try await scriptedClient(host: host).search("queep")
-        Issue.record("POST should not retry a timeout")
-    } catch QueepError.unavailable {
-    } catch {
-        Issue.record("Unexpected error \(error)")
+    let message = await DiagnosticsIsolation.shared.perform { () -> String in
+        do {
+            _ = try await scriptedClient(host: host).search("queep")
+            return "POST should not retry a timeout"
+        } catch QueepError.unavailable {
+            return ""
+        } catch {
+            return "Unexpected error \(error)"
+        }
     }
+    #expect(message.isEmpty)
     #expect(script.count == 1)
 }
 

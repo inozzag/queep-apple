@@ -24,31 +24,35 @@ import Testing
     #expect(!route.contains("550e8400"))
 }
 
-@Test func apiDiagnosticsKeepsTransportCodeWithoutTheRouteQuery() {
+@Test func apiDiagnosticsKeepsTransportCodeWithoutTheRouteQuery() async {
     final class Seen: @unchecked Sendable {
         var items: [APIDiagnostics.Failure] = []
     }
     let seen = Seen()
-    APIDiagnostics.record = { seen.items.append($0) }
-    defer { APIDiagnostics.record = nil }
-    APIDiagnostics.report(method: "GET", path: "v1/account?token=secret", status: nil,
-                          transportCode: URLError.timedOut.rawValue)
+    await DiagnosticsIsolation.shared.perform {
+        APIDiagnostics.record = { seen.items.append($0) }
+        defer { APIDiagnostics.record = nil }
+        APIDiagnostics.report(method: "GET", path: "v1/account?token=secret", status: nil,
+                              transportCode: URLError.timedOut.rawValue)
+    }
     #expect(seen.items.count == 1)
     #expect(seen.items[0].status == nil)
     #expect(seen.items[0].transportCode == URLError.timedOut.rawValue)
     #expect(seen.items[0].path == "v1/account")
-    #expect(seen.items[0].path.contains("secret") == false)
+    #expect(!seen.items[0].path.contains("secret"))
 }
 
-@Test func apiDiagnosticsIgnoresQuotaEvenIfReported() {
+@Test func apiDiagnosticsIgnoresQuotaEvenIfReported() async {
     final class Seen: @unchecked Sendable {
         var items: [APIDiagnostics.Failure] = []
     }
     let seen = Seen()
-    APIDiagnostics.record = { seen.items.append($0) }
-    defer { APIDiagnostics.record = nil }
-    APIDiagnostics.report(method: "POST", path: "v1/references?url=https://secret.example", status: 402)
-    APIDiagnostics.report(method: "GET", path: "v1/search?q=crm", status: nil)
+    await DiagnosticsIsolation.shared.perform {
+        APIDiagnostics.record = { seen.items.append($0) }
+        defer { APIDiagnostics.record = nil }
+        APIDiagnostics.report(method: "POST", path: "v1/references?url=https://secret.example", status: 402)
+        APIDiagnostics.report(method: "GET", path: "v1/search?q=crm", status: nil)
+    }
     #expect(seen.items.count == 1)
     #expect(seen.items[0].status == nil)
     #expect(seen.items[0].path == "v1/search")
