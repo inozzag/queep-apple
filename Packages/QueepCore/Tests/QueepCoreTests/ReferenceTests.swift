@@ -199,6 +199,19 @@ import Foundation
     let medium = try APIClient.decoder().decode(Reference.self, from: Data(mediumRaw.utf8))
     #expect(!medium.isWebsite)
     #expect(medium.linkSurface == .medium)
+
+    let exploreRaw = #"{"id":"e","kind":"link","title":"","text":"","url":"https://www.instagram.com/explore/","status":"ready","revision":1,"created_at":"2026-09-17T15:00:00Z","updated_at":"2026-09-17T15:00:00Z"}"#
+    let explore = try APIClient.decoder().decode(Reference.self, from: Data(exploreRaw.utf8))
+    #expect(explore.linkSurface == .instagram)
+    #expect(!explore.isWebsite)
+    #expect(!explore.isSocialPost)
+    #expect(explore.kindLabel == "Link")
+
+    let listingRaw = #"{"id":"d","kind":"link","title":"","text":"","url":"https://dribbble.com/shots","status":"ready","revision":1,"created_at":"2026-09-17T15:00:00Z","updated_at":"2026-09-17T15:00:00Z"}"#
+    let listing = try APIClient.decoder().decode(Reference.self, from: Data(listingRaw.utf8))
+    #expect(listing.linkSurface == .dribbble)
+    #expect(!listing.isWebsite)
+    #expect(listing.kindLabel == "Link")
 }
 
 @Test func postPlaceholderDoesNotReplaceAuthorHandle() throws {

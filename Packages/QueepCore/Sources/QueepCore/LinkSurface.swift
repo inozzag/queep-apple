@@ -108,7 +108,7 @@ public extension Reference {
 
     var isWebsite: Bool {
         guard kind == "link", !isSocialPost, !isSocialProfile else { return false }
-        if linkSurface == .medium { return false }
+        if let surface = linkSurface, surface != .website { return false }
         if LinkSurface.isVideoPage(url) { return false }
         return true
     }
