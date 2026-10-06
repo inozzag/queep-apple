@@ -5,6 +5,7 @@ struct AccountView: View {
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @State private var subscriptions = SubscriptionStore.shared
     @State private var logoutError: String?
 
     var body: some View {
@@ -62,7 +63,7 @@ struct AccountView: View {
                     NavigationLink {
                         SubscriptionView(pushedInSettings: true)
                     } label: {
-                        SettingsRow(title: "Assinatura e planos", value: nil, symbol: "creditcard.fill", color: .green)
+                        SettingsRow(title: "Assinatura e planos", value: SubscriptionAccess.settingsRowValue(subscriptions.access), symbol: "creditcard.fill", color: .green)
                     }
                     .accessibilityIdentifier("account.subscription")
                     Link(destination: URL(string: "https://apps.apple.com/account/subscriptions")!) {
