@@ -204,9 +204,10 @@ struct GalleryDetailView: View {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     titleText
-                    if !summary.isEmpty {
-                        summaryText.lineLimit(3).frame(maxWidth: 440, alignment: .leading)
-                    }
+                if !summary.isEmpty {
+                    summaryText.lineLimit(3).frame(maxWidth: 440, alignment: .leading)
+                }
+                analysisFailure
                 }
                 Spacer(minLength: 16)
                 author.frame(maxWidth: 220, alignment: .trailing)
@@ -250,6 +251,7 @@ struct GalleryDetailView: View {
                     titleText
                     author
                     if !summary.isEmpty { summaryText }
+                    analysisFailure
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, GalleryStyle.inset)
@@ -275,6 +277,26 @@ struct GalleryDetailView: View {
             .lineLimit(2)
             .accessibilityAddTraits(.isHeader)
             .accessibilityIdentifier("gallery.title")
+    }
+
+    @ViewBuilder private var analysisFailure: some View {
+        if current.status == "error" {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Falha na análise", systemImage: "exclamationmark.circle")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.red)
+                    .padding(.top, 10)
+                if !current.isArchived {
+                    Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
+                        Task { await retryAnalysis() }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(busy)
+                    .accessibilityIdentifier("gallery.retry")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private var summaryText: some View {
@@ -403,6 +425,21 @@ struct GalleryDetailView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(originalURL == nil ? "gallery.details" : "post.openOriginal")
+    }
+
+    private func retryAnalysis() async {
+        guard let api = session.client(), let uid = session.userID else { return }
+        let target = current
+        busy = true
+        error = nil
+        defer { busy = false }
+        do {
+            let value = try await api.retryAnalysis(target)
+            guard session.userID == uid else { return }
+            store.adopt(value)
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 
     private func show(_ target: Reference?) {

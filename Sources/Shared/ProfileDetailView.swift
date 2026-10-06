@@ -124,7 +124,6 @@ struct ProfileDetailView: View {
                 .accessibilityValue(live.isArchived ? "Arquivado" : "")
             ReferenceSpaceButton(reference: reference)
                 .accessibilityIdentifier("profile.space")
-                .accessibilityHint("Em breve")
         }
         .buttonStyle(.bordered)
     }
