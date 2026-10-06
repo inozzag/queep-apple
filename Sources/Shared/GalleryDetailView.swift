@@ -280,13 +280,13 @@ struct GalleryDetailView: View {
     }
 
     @ViewBuilder private var analysisFailure: some View {
-        if current.status == "error" {
+        if let problem = analysisProblem {
             VStack(alignment: .leading, spacing: 8) {
-                Label("Falha na análise", systemImage: "exclamationmark.circle")
+                Label(problem, systemImage: "exclamationmark.circle")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.red)
                     .padding(.top, 10)
-                if !current.isArchived {
+                if current.showsAnalysisRetry {
                     Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
                         Task { await retryAnalysis() }
                     }
@@ -297,6 +297,14 @@ struct GalleryDetailView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private var analysisProblem: String? {
+        if current.status == "error" { return "Falha na análise" }
+        if current.mediaIncomplete == true {
+            return current.analysis?.limitations.first ?? "A foto ou o clipe não chegou."
+        }
+        return nil
     }
 
     private var summaryText: some View {
