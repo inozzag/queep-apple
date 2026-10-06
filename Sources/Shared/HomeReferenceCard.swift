@@ -80,7 +80,14 @@ struct HomeReferenceCard: View {
     private var visualTile: some View {
         GalleryStyle.fill
             .aspectRatio(tileAspect, contentMode: .fit)
-            .overlay(alignment: .top) { RemoteImage(reference: reference, thumbnail: true, fill: true) }
+            .overlay(alignment: .top) {
+                ZStack {
+                    RemoteImage(reference: reference, thumbnail: true, fill: true)
+                    if reference.kind == "video" || reference.gallery.first?.motion == true {
+                        MotionLoop(reference: reference)
+                    }
+                }
+            }
             .galleryTile()
             .overlay(alignment: .topTrailing) {
                 if let glyph { TileGlyph(symbol: glyph).padding(GalleryStyle.inset) }
@@ -110,7 +117,11 @@ struct HomeReferenceCard: View {
 
     private var glyph: String? {
         if reference.gallery.count > 1 { return "square.on.square" }
-        if reference.kind == "video" || reference.gallery.first?.isVideoPreview == true { return "play.fill" }
+        let moving = (reference.kind == "video" && reference.media?.loop == true)
+            || reference.gallery.first?.motion == true
+        if reference.kind == "video" || reference.gallery.first?.isVideoPreview == true {
+            return moving ? nil : "play.fill"
+        }
         if reference.url != nil { return "arrow.up.right" }
         return nil
     }

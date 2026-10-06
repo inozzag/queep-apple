@@ -447,7 +447,7 @@ struct GalleryDetailView: View {
     private func loadVideo() async {
         clearPlayer()
         let target = current
-        guard target.kind == "video", target.media != nil,
+        guard target.kind == "video", target.media != nil, target.media?.loop != true,
               let api = session.client(), let owner = session.userID else { return }
         do {
             let data = try await api.mediaData(target)
@@ -542,7 +542,12 @@ private struct GallerySlides: View {
         ZStack {
             GalleryStyle.fill
             if isVideo {
-                if let player {
+                if reference.media?.loop == true {
+                    ZStack {
+                        RemoteImage(reference: reference, thumbnail: true, fill: true)
+                        MotionLoop(reference: reference)
+                    }
+                } else if let player {
                     VideoPlayer(player: player)
                 } else {
                     RemoteImage(reference: reference, thumbnail: true, fill: true)
@@ -553,7 +558,10 @@ private struct GallerySlides: View {
                 if abs(index - current) <= 1 {
                     RemoteImage(reference: reference, fill: true, index: index, quiet: true)
                 }
-                if reference.gallery[index].isVideoPreview {
+                if reference.gallery[index].motion == true, abs(index - current) <= 1 {
+                    MotionLoop(reference: reference, index: index)
+                }
+                if reference.gallery[index].isVideoPreview, reference.gallery[index].motion != true {
                     Image(systemName: "play.fill")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundStyle(.white)

@@ -207,11 +207,12 @@ public struct APIClient: Sendable {
     }
 
     public func imageData(_ reference: Reference, thumbnail: Bool = false, index: Int = 0,
-                          role: String = "gallery") async throws -> Data {
+                          role: String = "gallery", motion: Bool = false) async throws -> Data {
         try await request("v1/references/\(reference.id)/image", method: "GET",
                           query: [.init(name: "thumbnail", value: thumbnail ? "true" : "false"),
                                   .init(name: "index", value: String(index)),
-                                  .init(name: "role", value: role)],
+                                  .init(name: "role", value: role),
+                                  .init(name: "motion", value: motion ? "true" : "false")],
                           timeout: 60)
     }
 
@@ -226,9 +227,10 @@ public struct APIClient: Sendable {
         return try Self.decoder().decode(Reference.self, from: data)
     }
 
-    public func mediaData(_ reference: Reference, thumbnail: Bool = false) async throws -> Data {
+    public func mediaData(_ reference: Reference, thumbnail: Bool = false, loop: Bool = false) async throws -> Data {
         try await request("v1/references/\(reference.id)/media", method: "GET",
-                          query: [.init(name: "thumbnail", value: thumbnail ? "true" : "false")], timeout: 90)
+                          query: [.init(name: "thumbnail", value: thumbnail ? "true" : "false"),
+                                  .init(name: "loop", value: loop ? "true" : "false")], timeout: 90)
     }
 
     public func spaces() async throws -> [Space] {

@@ -250,6 +250,7 @@ final class LibraryStore {
             error = nil
             rememberPage()
             persistCache()
+            if !more { ImagePrefetch.warm(items, client: client, account: account) }
             if surface == .home, !more, items.isEmpty {
                 let archived = try await client.list(archived: true)
                 guard operation == generation, account == accountID else { return }
