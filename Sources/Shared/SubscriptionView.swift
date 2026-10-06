@@ -344,8 +344,7 @@ struct ConversionPaywall: View {
     }
 
     private func buy(_ package: Package) async {
-        if SubscriptionCheckout.managesInAppStore(
-            access: store.access, packagePlan: SubscriptionStore.plan(package) ?? plan) {
+        if SubscriptionCheckout.managesInAppStore(access: store.access, packagePlan: plan) {
             openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
             return
         }
