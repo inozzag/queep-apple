@@ -80,6 +80,29 @@ final class SubscriptionContractTests: XCTestCase {
         XCTAssertTrue(SubscriptionCheckout.managesInAppStore(access: pro, packagePlan: nil))
     }
 
+    func testFirstPaywallWaitsUntilOffersAndKnownAccess() throws {
+        let free = try Self.access(plan: "free", active: false)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: false, access: free), .wait)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: false, access: nil), .wait)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: true, access: nil), .wait)
+        XCTAssertFalse(FirstPaywall.decide(offersLoaded: true, access: nil).rememberShown)
+        XCTAssertNotEqual(FirstPaywall.decide(offersLoaded: true, access: nil),
+                          FirstPaywall.decide(offersLoaded: true, access: free))
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: true, access: free), .show)
+        XCTAssertTrue(FirstPaywall.decide(offersLoaded: true, access: free).rememberShown)
+    }
+
+    func testFirstPaywallSkipsKnownPayingSubscribers() throws {
+        let pro = try Self.access(plan: "pro", active: true)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: true, access: pro), .skip)
+        XCTAssertTrue(FirstPaywall.decide(offersLoaded: true, access: pro).rememberShown)
+        let lapsed = try Self.access(plan: "pro", active: false)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: true, access: lapsed), .skip)
+        let development = try Self.access(plan: "max", active: true, mode: "development")
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: false, access: development), .wait)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: true, access: development), .show)
+    }
+
     private static func access(plan: String, active: Bool, mode: String = "required") throws -> SubscriptionAccess {
         let json = """
         {"mode":"\(mode)","active":\(active),"checked_at":"2026-09-21T00:00:00Z",
