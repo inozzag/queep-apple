@@ -252,11 +252,7 @@ final class LibraryStore {
             nextCursor = page.nextCursor
             hasLoaded = true
             if let matches = searchItems {
-                let fresh = Dictionary(uniqueKeysWithValues: page.items.map { ($0.id, $0) })
-                searchItems = matches.compactMap { previous in
-                    guard let current = fresh[previous.id] else { return previous }
-                    return current.revision == previous.revision && current.status == "ready" ? current : nil
-                }
+                searchItems = SearchHits.updated(matches, with: page.items)
             }
             error = nil
             rememberPage()
