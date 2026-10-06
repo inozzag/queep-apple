@@ -156,7 +156,7 @@ struct LibraryView: View {
             considerFirstPaywall()
         }
         .onChange(of: onboardingPresented) { _, _ in considerFirstPaywall() }
-        .fullScreenCover(isPresented: $onboardingPresented) {
+        .onboardingCover(isPresented: $onboardingPresented) {
             OnboardingFlow {
                 onboardingDismissed = true
                 onboardingPresented = false
@@ -1019,6 +1019,17 @@ private struct LiveReferenceView<Content: View>: View {
     }
 }
 
+
+private extension View {
+    @ViewBuilder
+    func onboardingCover<Content: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) -> some View {
+        #if os(iOS)
+        fullScreenCover(isPresented: isPresented, content: content)
+        #else
+        sheet(isPresented: isPresented, content: content)
+        #endif
+    }
+}
 
 #if os(macOS)
 private extension View {
