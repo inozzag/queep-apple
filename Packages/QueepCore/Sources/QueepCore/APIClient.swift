@@ -7,15 +7,25 @@ public struct APIClient: Sendable {
     private let onPlanRequired: @Sendable (PlanRequirement) async -> Void
     private let onUnauthorized: @Sendable () async -> Void
 
+    /// Pause before another attempt after a transient transport failure. Attempt 0 waits 0.4s, then 1.2s.
+    public static let defaultRetryDelay: @Sendable (Int) -> Duration = { attempt in
+        let multiplier = pow(3.0, Double(max(0, attempt)))
+        return .milliseconds(max(0, Int((400 * multiplier).rounded())))
+    }
+
+    private let retryDelay: @Sendable (Int) -> Duration
+
     public init(baseURL: URL, session: URLSession = .shared,
                 onUnauthorized: @escaping @Sendable () async -> Void = {},
                 onPlanRequired: @escaping @Sendable (PlanRequirement) async -> Void = { _ in },
+                retryDelay: @escaping @Sendable (Int) -> Duration = APIClient.defaultRetryDelay,
                 token: @escaping @Sendable () async throws -> String) {
         self.baseURL = baseURL
         self.session = session
         self.token = token
         self.onUnauthorized = onUnauthorized
         self.onPlanRequired = onPlanRequired
+        self.retryDelay = retryDelay
     }
 
     public static func decoder() -> JSONDecoder {
@@ -74,8 +84,9 @@ public struct APIClient: Sendable {
         _ = try await request("v1/account/onboarding", method: "PUT", body: body)
     }
 
+    /// Small JSON read. Each attempt waits 12s. Transient transport failures are retried; HTTP responses are not.
     public func accountStatus() async throws -> AccountStatus {
-        try await decoded("v1/account")
+        try await decoded("v1/account", timeout: 12, retriesTransient: true)
     }
 
     public func uploadAvatar(_ data: Data) async throws -> ImageInfo {
@@ -270,14 +281,79 @@ public struct APIClient: Sendable {
     }
 
     private func decoded<T: Decodable>(_ path: String, method: String = "GET",
-                                       query: [URLQueryItem] = [], body: Data? = nil) async throws -> T {
-        let data = try await request(path, method: method, query: query, body: body)
+                                       query: [URLQueryItem] = [], body: Data? = nil,
+                                       timeout: TimeInterval = 20, retriesTransient: Bool = false) async throws -> T {
+        let data = try await request(path, method: method, query: query, body: body,
+                                     timeout: timeout, retriesTransient: retriesTransient)
         return try Self.decoder().decode(T.self, from: data)
+    }
+
+    /// Account reads opt in. Other calls stay single-attempt, and a POST never repeats a lost response.
+    static func retriesTransientFailures(method: String, timeout: TimeInterval, enabled: Bool) -> Bool {
+        enabled && method == "GET" && timeout <= 20
+    }
+
+    private struct TransientTransport: Error, Sendable {
+        var code: Int
+    }
+
+    static func isTransientTransport(_ error: Error) -> Bool {
+        guard let code = transportCode(error) else { return false }
+        switch code {
+        case URLError.timedOut.rawValue,
+             URLError.cannotFindHost.rawValue,
+             URLError.cannotConnectToHost.rawValue,
+             URLError.networkConnectionLost.rawValue,
+             URLError.dnsLookupFailed.rawValue,
+             URLError.notConnectedToInternet.rawValue,
+             URLError.internationalRoamingOff.rawValue,
+             URLError.callIsActive.rawValue,
+             URLError.dataNotAllowed.rawValue,
+             URLError.cannotLoadFromNetwork.rawValue,
+             URLError.secureConnectionFailed.rawValue:
+            return true
+        default:
+            return false
+        }
+    }
+
+    static func transportCode(_ error: Error) -> Int? {
+        if let url = error as? URLError { return url.code.rawValue }
+        let ns = error as NSError
+        guard ns.domain == NSURLErrorDomain else { return nil }
+        return ns.code
+    }
+
+    private static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let url = error as? URLError, url.code == .cancelled { return true }
+        let ns = error as NSError
+        return ns.domain == NSURLErrorDomain && ns.code == URLError.cancelled.rawValue
     }
 
     private func request(_ path: String, method: String, query: [URLQueryItem] = [],
                          body: Data? = nil, contentType: String = "application/json",
-                         timeout: TimeInterval = 20, file: URL? = nil) async throws -> Data {
+                         timeout: TimeInterval = 20, file: URL? = nil,
+                         retriesTransient: Bool = false) async throws -> Data {
+        let attempts = Self.retriesTransientFailures(method: method, timeout: timeout, enabled: retriesTransient) ? 3 : 1
+        for attempt in 0..<attempts {
+            do {
+                return try await execute(path, method: method, query: query, body: body,
+                                         contentType: contentType, timeout: timeout, file: file)
+            } catch let failure as TransientTransport {
+                if attempt + 1 == attempts {
+                    APIDiagnostics.report(method: method, path: path, status: nil, transportCode: failure.code)
+                    throw QueepError.unavailable
+                }
+                try await Task.sleep(for: retryDelay(attempt))
+            }
+        }
+        APIDiagnostics.report(method: method, path: path, status: nil)
+        throw QueepError.unavailable
+    }
+
+    private func execute(_ path: String, method: String, query: [URLQueryItem],
+                         body: Data?, contentType: String, timeout: TimeInterval, file: URL?) async throws -> Data {
         var components = URLComponents(url: baseURL.appendingPathComponent(path),
                                        resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
@@ -296,8 +372,11 @@ public struct APIClient: Sendable {
         }
         catch is CancellationError { throw CancellationError() }
         catch {
-            if Task.isCancelled { throw CancellationError() }
-            APIDiagnostics.report(method: method, path: path, status: nil)
+            if Task.isCancelled || Self.isCancellation(error) { throw CancellationError() }
+            if Self.isTransientTransport(error) {
+                throw TransientTransport(code: Self.transportCode(error) ?? URLError.timedOut.rawValue)
+            }
+            APIDiagnostics.report(method: method, path: path, status: nil, transportCode: Self.transportCode(error))
             throw QueepError.unavailable
         }
         guard let http = response as? HTTPURLResponse else { throw QueepError.unavailable }

@@ -29,6 +29,19 @@ import Testing
     #expect(ProductEvent.auth(created: true, method: "password", platform: "ios") == nil)
 }
 
+@Test func identifyPersonKeepsAuthEmailNameAndPlanOnly() {
+    let person = ProductEvent.person(platform: "ios", email: " ada@example.com ", name: " Ada ", plan: "pro")
+    #expect(person == ["platform": "ios", "email": "ada@example.com", "name": "Ada", "plan": "pro"])
+
+    #expect(ProductEvent.person(platform: "macos", email: " ", name: "", plan: nil) == ["platform": "macos"])
+    let rejected = ProductEvent.person(platform: "ios", email: "not-an-email", name: "Nome", plan: "enterprise")
+    #expect(rejected["email"] == nil)
+    #expect(rejected["plan"] == nil)
+    #expect(rejected["name"] == "Nome")
+    #expect(ProductEvent.person(platform: "ios", email: "a@b.co", name: "Nome", plan: "free")["plan"] == "free")
+    #expect(ProductEvent.auth(created: false, method: "apple", platform: "ios")?.properties["email"] == nil)
+}
+
 @Test func searchAndPaywallPropertiesStayWithinTheContract() {
     #expect(ProductEvent.searchSubmitted(hasResults: false) == ["has_results": false])
     #expect(ProductEvent.searchSubmitted(hasResults: true) == ["has_results": true])

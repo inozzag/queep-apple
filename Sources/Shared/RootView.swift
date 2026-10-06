@@ -17,6 +17,8 @@ struct RootView: View {
                 AccountRecoveryView(state: state)
             } else if session.userID != nil {
                 LibraryView()
+            } else if let message = session.accountLoadError {
+                AccountLoadFailureView(message: message)
             } else { SignInView() }
         }
         // Queep uses a deliberately light, paper-like canvas on every platform.
@@ -61,5 +63,62 @@ struct RootView: View {
         let userID: String?
         let owner: String?
         let active: Bool
+    }
+}
+
+private struct AccountLoadFailureView: View {
+    @Environment(Session.self) private var session
+    let message: String
+    @State private var retrying = false
+
+    var body: some View {
+        VStack(spacing: 20) {
+            QueepLogo(size: 72)
+            Text("Não foi possível carregar sua conta")
+                .font(.title2.bold())
+                .foregroundStyle(Theme.homeInk)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("account.load.title")
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(Theme.homePreview)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("account.load.error")
+            Button {
+                Task {
+                    retrying = true
+                    defer { retrying = false }
+                    await session.retryAccountLoad()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    if retrying { ProgressView().controlSize(.small).tint(.white) }
+                    Text("Tentar novamente")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: Theme.homeChrome)
+                .background(Theme.homeAccent, in: RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(retrying)
+            .accessibilityIdentifier("account.load.retry")
+            Button("Sair da conta") { try? session.signOut() }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.homePreview)
+                .buttonStyle(.plain)
+                .disabled(retrying)
+                .accessibilityIdentifier("account.load.signout")
+        }
+        .padding(32)
+        .frame(maxWidth: 420)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #if os(macOS)
+        .background(Color.white)
+        #else
+        .background(Color.canvas)
+        #endif
     }
 }

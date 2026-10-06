@@ -55,7 +55,10 @@ private struct ShareView: View {
                     if let configurationError = session.configurationError {
                         Text(configurationError).foregroundStyle(.red)
                     } else if !session.preparing && session.userID == nil {
-                        Label("Abra o Queep e entre na sua conta. Depois compartilhe novamente.", systemImage: "person.crop.circle")
+                        Label(session.accountLoadError == nil
+                              ? "Abra o Queep e entre na sua conta. Depois compartilhe novamente."
+                              : "Não foi possível carregar sua conta. Abra o Queep e tente novamente.",
+                              systemImage: "person.crop.circle")
                     }
                     if let incoming {
                         if let media = incoming.media {
