@@ -32,3 +32,10 @@ public enum FirstPaywall {
         return .skip
     }
 }
+
+public enum SubscriptionOfferCopy {
+    /// Trial copy follows the package being bought, including Max and a monthly period.
+    public static func trialLine(plan: SubscriptionPlan, price: String, period: String) -> String {
+        "7 dias grátis de \(plan.title); depois, \(price) por \(period)"
+    }
+}

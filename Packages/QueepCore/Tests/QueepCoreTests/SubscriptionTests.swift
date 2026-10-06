@@ -103,6 +103,19 @@ final class SubscriptionContractTests: XCTestCase {
         XCTAssertEqual(FirstPaywall.decide(offersLoaded: true, access: development), .show)
     }
 
+    func testTrialLineUsesThePackagePlanAndPeriod() {
+        XCTAssertEqual(
+            SubscriptionOfferCopy.trialLine(plan: .max, price: "R$ 999,90", period: "ano"),
+            "7 dias grátis de Max; depois, R$ 999,90 por ano")
+        XCTAssertEqual(
+            SubscriptionOfferCopy.trialLine(plan: .pro, price: "R$ 49,90", period: "mês"),
+            "7 dias grátis de Pro; depois, R$ 49,90 por mês")
+        XCTAssertFalse(SubscriptionOfferCopy.trialLine(plan: .max, price: "R$ 129,90", period: "mês")
+            .contains("de Pro"))
+        XCTAssertFalse(SubscriptionOfferCopy.trialLine(plan: .max, price: "R$ 129,90", period: "mês")
+            .contains("por ano"))
+    }
+
     private static func access(plan: String, active: Bool, mode: String = "required") throws -> SubscriptionAccess {
         let json = """
         {"mode":"\(mode)","active":\(active),"checked_at":"2026-09-21T00:00:00Z",

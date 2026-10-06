@@ -59,8 +59,12 @@ struct SubscriptionView: View {
                                         if let discount = store.annualDiscount(package) {
                                             Text("Economize \(discount)% em relação a 12 meses do mensal").font(.caption)
                                         }
-                                        if store.trialEligible.contains(package.identifier) {
-                                            Text("7 dias grátis de Pro; depois, \(package.storeProduct.localizedPriceString) por ano").font(.callout)
+                                        if store.trialEligible.contains(package.identifier),
+                                           let offerPlan = SubscriptionStore.plan(package) {
+                                            Text(SubscriptionOfferCopy.trialLine(
+                                                plan: offerPlan,
+                                                price: package.storeProduct.localizedPriceString,
+                                                period: period(package))).font(.callout)
                                         }
                                     }.frame(maxWidth: .infinity, alignment: .leading).padding(8)
                                 }.buttonStyle(.borderedProminent)
