@@ -454,6 +454,26 @@ final class LibraryStore {
         } catch { if account == accountID { spaceError = error.localizedDescription } }
     }
 
+    /// Replaces the copy already in memory so a poll or a retry updates the card without reordering the library.
+    func adopt(_ reference: Reference) {
+        knownReferences[reference.id] = reference
+        if let index = items.firstIndex(where: { $0.id == reference.id }) {
+            items[index] = reference
+        }
+        if let index = searchItems?.firstIndex(where: { $0.id == reference.id }) {
+            searchItems?[index] = reference
+        }
+        for key in Array(cachedPages.keys) {
+            guard let page = cachedPages[key],
+                  let index = page.items.firstIndex(where: { $0.id == reference.id }) else { continue }
+            var values = page.items
+            values[index] = reference
+            cachedPages[key] = LibraryPage(items: values, nextCursor: page.nextCursor)
+        }
+        rememberPage()
+        persistCache()
+    }
+
     func reference(_ id: String) -> Reference? {
         items.first { $0.id == id } ?? knownReferences[id] ?? cachedPages.values.lazy.flatMap(\.items).first { $0.id == id }
     }
