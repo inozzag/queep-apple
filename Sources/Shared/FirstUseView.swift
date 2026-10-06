@@ -82,19 +82,35 @@ struct FirstUseView: View {
 }
 
 struct HelpView: View {
+    /// Pushed inside Ajustes. Back returns to that list; Fechar still dismisses the sheet.
+    var pushedInSettings = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(LibraryStore.self) private var library
+
     var body: some View {
-        NavigationStack {
-            FirstUseView(showActions: false)
-                .navigationTitle("Primeiros passos")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Fechar") { dismiss() }.accessibilityIdentifier("onboarding.close")
-                    }
-                }
+        Group {
+            if pushedInSettings {
+                detail
+            } else {
+                NavigationStack { detail }
+                    #if os(macOS)
+                    .frame(minWidth: 440, idealWidth: 560, minHeight: 500, idealHeight: 660)
+                    #endif
+            }
         }
-        #if os(macOS)
-        .frame(minWidth: 440, idealWidth: 560, minHeight: 500, idealHeight: 660)
-        #endif
+    }
+
+    private var detail: some View {
+        FirstUseView(showActions: false)
+            .navigationTitle("Primeiros passos")
+            .toolbar {
+                ToolbarItem(placement: pushedInSettings ? .confirmationAction : .cancellationAction) {
+                    Button("Fechar") { close() }.accessibilityIdentifier("onboarding.close")
+                }
+            }
+    }
+
+    private func close() {
+        if pushedInSettings { library.presentation = nil } else { dismiss() }
     }
 }

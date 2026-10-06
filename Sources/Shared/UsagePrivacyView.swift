@@ -2,15 +2,39 @@ import QueepCore
 import SwiftUI
 
 struct UsagePrivacyView: View {
+    /// Pushed inside Ajustes. Back returns to that list; Fechar still dismisses the sheet.
+    var pushedInSettings = false
     @Environment(Session.self) private var session
     @Environment(\.dismiss) private var dismiss
+    @Environment(LibraryStore.self) private var library
     @State private var usage: Usage?
     @State private var error: String?
     @State private var attempt = 0
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        Group {
+            if pushedInSettings {
+                detail
+            } else {
+                NavigationStack { detail }
+                    #if os(macOS)
+                    .frame(minWidth: 480, idealWidth: 560, minHeight: 520, idealHeight: 660)
+                    #endif
+            }
+        }
+        .task(id: "\(session.userID ?? "")/\(attempt)") {
+            usage = nil; error = nil
+            guard let api = session.client(), let owner = session.userID else { return }
+            do {
+                let result = try await api.usage()
+                guard !Task.isCancelled, session.userID == owner else { return }
+                usage = result
+            } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        }
+    }
+
+    private var detail: some View {
+        ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Seu uso mensal").font(.title2.bold()).accessibilityAddTraits(.isHeader)
@@ -51,27 +75,18 @@ struct UsagePrivacyView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .toolbar { ToolbarItem(placement: .cancellationAction) {
-                Button("Fechar", systemImage: "xmark") { dismiss() }
+            .toolbar { ToolbarItem(placement: pushedInSettings ? .confirmationAction : .cancellationAction) {
+                Button("Fechar", systemImage: "xmark") { close() }
                     .keyboardShortcut(.cancelAction)
                     #if os(iOS)
                     .labelStyle(.iconOnly)
                     #endif
                     .accessibilityIdentifier("usage.close")
             } }
-        }
-        .task(id: "\(session.userID ?? "")/\(attempt)") {
-            usage = nil; error = nil
-            guard let api = session.client(), let owner = session.userID else { return }
-            do {
-                let result = try await api.usage()
-                guard !Task.isCancelled, session.userID == owner else { return }
-                usage = result
-            } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
-        }
-        #if os(macOS)
-        .frame(minWidth: 480, idealWidth: 560, minHeight: 520, idealHeight: 660)
-        #endif
+    }
+
+    private func close() {
+        if pushedInSettings { library.presentation = nil } else { dismiss() }
     }
 
     @ViewBuilder private func counter(_ title: String, key: String, usage: Usage,

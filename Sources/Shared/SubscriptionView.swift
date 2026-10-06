@@ -7,12 +7,31 @@ struct SubscriptionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var phase
     @Environment(\.openURL) private var openURL
+    @Environment(LibraryStore.self) private var library
     @State private var store = SubscriptionStore.shared
+    /// Pushed inside Ajustes. Back returns to that list; Fechar still dismisses the sheet.
+    var pushedInSettings = false
     var requirement: PlanRequirement? = nil
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        Group {
+            if pushedInSettings {
+                detail
+            } else {
+                NavigationStack { detail }
+                    #if os(macOS)
+                    .frame(minWidth: 460, idealWidth: 520, minHeight: 540)
+                    #endif
+            }
+        }
+        .task(id: session.userID) { await store.load(session) }
+        .onChange(of: phase) { _, newValue in
+            if newValue == .active { Task { await store.load(session) } }
+        }
+    }
+
+    private var detail: some View {
+        ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     Label("Suas referências, sempre à mão", systemImage: "bookmark.square")
                         .font(.title2.bold())
@@ -87,18 +106,14 @@ struct SubscriptionView: View {
             }
             .navigationTitle("Assinatura")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Fechar") { dismiss() }.accessibilityIdentifier("subscription.close")
+                ToolbarItem(placement: pushedInSettings ? .confirmationAction : .cancellationAction) {
+                    Button("Fechar") { close() }.accessibilityIdentifier("subscription.close")
                 }
             }
-        }
-        #if os(macOS)
-        .frame(minWidth: 460, idealWidth: 520, minHeight: 540)
-        #endif
-        .task(id: session.userID) { await store.load(session) }
-        .onChange(of: phase) { _, newValue in
-            if newValue == .active { Task { await store.load(session) } }
-        }
+    }
+
+    private func close() {
+        if pushedInSettings { library.presentation = nil } else { dismiss() }
     }
 
     @ViewBuilder private var status: some View {

@@ -59,12 +59,11 @@ struct AccountView: View {
                 }
 
                 Section("Assinatura e cobrança") {
-                    Button {
-                        store.presentation = .subscription
+                    NavigationLink {
+                        SubscriptionView(pushedInSettings: true)
                     } label: {
-                        SettingsRow(title: "Assinatura e planos", value: nil, symbol: "creditcard.fill", color: .green, chevron: true)
+                        SettingsRow(title: "Assinatura e planos", value: nil, symbol: "creditcard.fill", color: .green)
                     }
-                    .buttonStyle(.plain)
                     .accessibilityIdentifier("account.subscription")
                     Link(destination: URL(string: "https://apps.apple.com/account/subscriptions")!) {
                         SettingsRow(title: "Gerenciar cobrança na Apple", value: nil, symbol: "dollarsign", color: .orange, chevron: true)
@@ -77,19 +76,17 @@ struct AccountView: View {
                 }
 
                 Section {
-                    Button {
-                        store.presentation = .help
+                    NavigationLink {
+                        HelpView(pushedInSettings: true)
                     } label: {
-                        SettingsRow(title: "Como usar o Queep", value: nil, symbol: "questionmark.circle.fill", color: .blue, chevron: true)
+                        SettingsRow(title: "Como usar o Queep", value: nil, symbol: "questionmark.circle.fill", color: .blue)
                     }
-                    .buttonStyle(.plain)
                     .accessibilityIdentifier("account.help")
-                    Button {
-                        store.presentation = .usage
+                    NavigationLink {
+                        UsagePrivacyView(pushedInSettings: true)
                     } label: {
-                        SettingsRow(title: "Uso e privacidade", value: nil, symbol: "hand.raised.fill", color: .cyan, chevron: true)
+                        SettingsRow(title: "Uso e privacidade", value: nil, symbol: "hand.raised.fill", color: .cyan)
                     }
-                    .buttonStyle(.plain)
                     .accessibilityIdentifier("account.usage")
                 }
 
@@ -112,8 +109,11 @@ struct AccountView: View {
                         do { try session.signOut() } catch { logoutError = error.localizedDescription }
                     }
                     .accessibilityIdentifier("account.signout")
-                    Button("Excluir conta", role: .destructive) {
-                        store.presentation = .deleteAccount
+                    NavigationLink {
+                        DeleteAccountView(pushedInSettings: true)
+                    } label: {
+                        Text("Excluir conta")
+                            .foregroundStyle(.red)
                     }
                     .accessibilityIdentifier("account.delete")
                 }
