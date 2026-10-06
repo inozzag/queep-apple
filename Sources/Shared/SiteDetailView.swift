@@ -149,7 +149,6 @@ struct SiteDetailView: View {
                 .accessibilityValue(live.isArchived ? "Arquivado" : "")
             ReferenceSpaceButton(reference: reference)
                 .accessibilityIdentifier("site.space")
-                .accessibilityHint("Em breve")
         }
         .buttonStyle(.bordered)
     }

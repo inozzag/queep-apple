@@ -177,7 +177,6 @@ struct PostDetailView: View {
                 .accessibilityValue(live.isArchived ? "Arquivado" : "")
             ReferenceSpaceButton(reference: reference)
                 .accessibilityIdentifier("post.space")
-                .accessibilityHint("Em breve")
         }
         .buttonStyle(.bordered)
     }
