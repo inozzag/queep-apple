@@ -243,7 +243,7 @@ private struct AccountNameEditor: View {
     private func run(_ work: () async throws -> Void) async {
         busy = true
         defer { busy = false }
-        do { try await work() } catch { self.error = SocialAuth.message(for: error) }
+        do { try await work() } catch { self.error = reportedAccountEditError(error, context: .name) }
     }
 }
 
@@ -308,10 +308,7 @@ private struct AccountEmailEditor: View {
         busy = true
         error = nil
         defer { busy = false }
-        do { try await work() } catch {
-            let text = SocialAuth.message(for: error)
-            if !text.isEmpty { self.error = text }
-        }
+        do { try await work() } catch { self.error = reportedAccountEditError(error, context: .email) }
     }
 }
 
@@ -379,10 +376,7 @@ private struct AccountPasswordEditor: View {
         busy = true
         error = nil
         defer { busy = false }
-        do { try await work() } catch {
-            let text = SocialAuth.message(for: error)
-            if !text.isEmpty { self.error = text }
-        }
+        do { try await work() } catch { self.error = reportedAccountEditError(error, context: .password) }
     }
 }
 
@@ -457,7 +451,12 @@ private struct AccountLoginsEditor: View {
     }
 
     private func fail(_ error: Error) {
-        let text = SocialAuth.message(for: error)
-        if !text.isEmpty { self.error = text }
+        self.error = reportedAccountEditError(error, context: .link)
     }
+}
+
+/// Account edits must not surface the sign-in sentence. Cancellation stays silent.
+private func reportedAccountEditError(_ error: Error, context: AccountEditContext) -> String? {
+    let text = AccountEditMessage.resolve(SocialAuth.message(for: error), context: context)
+    return text.isEmpty ? nil : text
 }
