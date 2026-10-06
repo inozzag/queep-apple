@@ -1,5 +1,7 @@
 import SwiftUI
 import PhotosUI
+import AVFoundation
+import CryptoKit
 import QueepCore
 import UniformTypeIdentifiers
 
@@ -70,22 +72,132 @@ struct ImagePickerSection: View {
     }
 }
 
-/// Keeps gallery previews in memory so scrolling back does not download them again.
-@MainActor
+/// Keeps gallery bytes in memory and on disk so scrolling back does not download them again.
 enum ImageByteCache {
-    private static let store: NSCache<NSString, NSData> = {
+    private static let memory: NSCache<NSString, NSData> = {
         let cache = NSCache<NSString, NSData>()
-        cache.countLimit = 36
-        cache.totalCostLimit = 48 * 1024 * 1024
+        cache.countLimit = 80
+        cache.totalCostLimit = 96 * 1024 * 1024
         return cache
     }()
+    private static let io = NSLock()
+    private static let budget = 160 * 1024 * 1024
+    private static var writes = 0
+    private static let folder: URL = {
+        let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("queep-images", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }()
+
+    static func key(account: String, reference: Reference, index: Int = 0,
+                    thumbnail: Bool = true, author: Bool = false, motion: Bool = false) -> String {
+        let sha: String
+        if author {
+            sha = reference.authorImage?.sha256 ?? ""
+        } else if reference.gallery.indices.contains(index) {
+            sha = reference.gallery[index].sha256
+        } else {
+            sha = reference.media?.sha256 ?? ""
+        }
+        return "\(account)/\(reference.id)/\(index)/\(author)/\(thumbnail)/\(motion)/\(sha)"
+    }
 
     static func data(for key: String) -> Data? {
-        store.object(forKey: key as NSString) as Data?
+        if let hit = memory.object(forKey: key as NSString) { return hit as Data }
+        let url = fileURL(key)
+        io.lock()
+        let stored = try? Data(contentsOf: url)
+        io.unlock()
+        guard let stored, !stored.isEmpty else { return nil }
+        memory.setObject(stored as NSData, forKey: key as NSString, cost: stored.count)
+        return stored
     }
 
     static func store(_ data: Data, for key: String) {
-        store.setObject(data as NSData, forKey: key as NSString, cost: data.count)
+        guard !data.isEmpty else { return }
+        memory.setObject(data as NSData, forKey: key as NSString, cost: data.count)
+        io.lock()
+        defer { io.unlock() }
+        try? data.write(to: fileURL(key), options: .atomic)
+        writes += 1
+        if writes.isMultiple(of: 16) { trimLocked() }
+    }
+
+    private static func fileURL(_ key: String) -> URL {
+        let digest = SHA256.hash(data: Data(key.utf8))
+        let name = digest.map { String(format: "%02x", $0) }.joined()
+        return folder.appendingPathComponent(name)
+    }
+
+    private static func trimLocked() {
+        let manager = FileManager.default
+        guard let files = try? manager.contentsOfDirectory(
+            at: folder, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey],
+            options: [.skipsHiddenFiles]) else { return }
+        let ranked = files.compactMap { url -> (URL, Int, Date)? in
+            guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
+                  let size = values.fileSize else { return nil }
+            return (url, size, values.contentModificationDate ?? .distantPast)
+        }.sorted { $0.2 < $1.2 }
+        var total = ranked.reduce(0) { $0 + $1.1 }
+        for item in ranked where total > budget {
+            try? manager.removeItem(at: item.0)
+            total -= item.1
+        }
+    }
+}
+
+/// Downloads the first screen of posters before the cells ask, four at a time.
+enum ImagePrefetch {
+    static func warm(_ items: [Reference], client: APIClient, account: String) {
+        let posters = Array(items.prefix(24))
+        let moving = Array(items.prefix(12))
+        guard !posters.isEmpty else { return }
+        Task {
+            await fetch(posters, client: client, account: account, motion: false)
+            await fetch(moving, client: client, account: account, motion: true)
+        }
+    }
+
+    private static func fetch(_ items: [Reference], client: APIClient, account: String, motion: Bool) async {
+        await withTaskGroup(of: Void.self) { group in
+            var running = 0
+            for reference in items {
+                if running == 4 {
+                    await group.next()
+                    running -= 1
+                }
+                group.addTask {
+                    await load(reference, client: client, account: account, motion: motion)
+                }
+                running += 1
+            }
+            await group.waitForAll()
+        }
+    }
+
+    private static func load(_ reference: Reference, client: APIClient, account: String, motion: Bool) async {
+        if motion {
+            let videoLoop = reference.kind == "video" && reference.media?.loop == true && reference.gallery.isEmpty
+            let galleryMotion = reference.gallery.first?.motion == true
+            guard videoLoop || galleryMotion else { return }
+        } else if reference.kind != "video" && reference.gallery.isEmpty {
+            return
+        }
+        let key = ImageByteCache.key(account: account, reference: reference, thumbnail: !motion, motion: motion)
+        if ImageByteCache.data(for: key) != nil { return }
+        do {
+            let bytes: Data
+            if reference.kind == "video" && reference.gallery.isEmpty {
+                bytes = try await client.mediaData(reference, thumbnail: !motion, loop: motion)
+            } else if motion {
+                bytes = try await client.imageData(reference, motion: true)
+            } else {
+                bytes = try await client.imageData(reference, thumbnail: true)
+            }
+            ImageByteCache.store(bytes, for: key)
+        } catch { }
     }
 }
 
@@ -103,7 +215,8 @@ struct RemoteImage: View {
     @State private var attempt = 0
 
     private var cacheKey: String {
-        "\(session.userID ?? "")/\(reference.id)/\(index)/\(author)/\(thumbnail)"
+        ImageByteCache.key(account: session.userID ?? "", reference: reference,
+                           index: index, thumbnail: thumbnail, author: author)
     }
 
     var body: some View {
@@ -122,7 +235,7 @@ struct RemoteImage: View {
                 else { ProgressView("Carregando imagem…").controlSize(.small).padding() }
             }
         }
-        .task(id: "\(cacheKey)/\(attempt)/\(reference.gallery.count)") {
+        .task(id: "\(cacheKey)/\(attempt)") {
             if let cached = ImageByteCache.data(for: cacheKey) {
                 data = cached
                 error = nil
@@ -137,7 +250,7 @@ struct RemoteImage: View {
                                                        role: author ? "author" : "gallery")
                                        : api.mediaData(reference, thumbnail: thumbnail))
                 guard !Task.isCancelled, uid == session.userID else { return }
-                if thumbnail { ImageByteCache.store(bytes, for: cacheKey) }
+                ImageByteCache.store(bytes, for: cacheKey)
                 data = bytes
             } catch is CancellationError { }
             catch { if !Task.isCancelled { self.error = error.localizedDescription } }
@@ -181,10 +294,13 @@ struct RemoteImageCarousel: View {
                                     ZStack {
                                         if abs(index - current) <= 1 {
                                             RemoteImage(reference: reference, thumbnail: thumbnail, fill: fill, index: index)
+                                            if gallery[index].motion == true {
+                                                MotionLoop(reference: reference, index: index, fill: fill)
+                                            }
                                         } else {
                                             Color.primary.opacity(0.05)
                                         }
-                                        if showsPlay(at: index) {
+                                        if showsPlay(at: index), gallery[index].motion != true {
                                             Image(systemName: "play.circle.fill")
                                                 .font(.system(size: 40))
                                                 .foregroundStyle(.white)
@@ -480,3 +596,143 @@ struct ImageDetailView: View {
         store.setArchived([reference], archived: !reference.isArchived, client: api, account: uid)
     }
 }
+
+/// Poster stays underneath until the muted loop is ready, then the GIF or the first 8 seconds play.
+struct MotionLoop: View {
+    @Environment(Session.self) private var session
+    let reference: Reference
+    var index = 0
+    var fill = true
+    @State private var data: Data?
+
+    private var videoFile: Bool { reference.kind == "video" && reference.gallery.isEmpty }
+
+    private var enabled: Bool {
+        if videoFile { return reference.media?.loop == true }
+        return reference.gallery.indices.contains(index) && reference.gallery[index].motion == true
+    }
+
+    private var cacheKey: String {
+        ImageByteCache.key(account: session.userID ?? "", reference: reference,
+                           index: index, thumbnail: false, motion: true)
+    }
+
+    var body: some View {
+        Group {
+            if let data {
+                LoopFilm(data: data, fill: fill)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .task(id: cacheKey) {
+            guard enabled, let api = session.client(), let uid = session.userID else { return }
+            if let cached = ImageByteCache.data(for: cacheKey) {
+                data = cached
+                return
+            }
+            do {
+                let bytes = try await videoFile
+                    ? api.mediaData(reference, loop: true)
+                    : api.imageData(reference, index: index, motion: true)
+                guard !Task.isCancelled, uid == session.userID else { return }
+                ImageByteCache.store(bytes, for: cacheKey)
+                data = bytes
+            } catch { }
+        }
+    }
+}
+
+private struct LoopFilm: View {
+    let data: Data
+    var fill = false
+    @State private var player: AVQueuePlayer?
+    @State private var looper: AVPlayerLooper?
+    @State private var file: TemporaryMediaFile?
+
+    var body: some View {
+        Group {
+            if let player {
+                PlayerLayerBox(player: player, fill: fill)
+            }
+        }
+        .onAppear { start() }
+        .onDisappear { player?.pause() }
+    }
+
+    private func start() {
+        if let player {
+            player.play()
+            return
+        }
+        let stored = TemporaryMediaFile(extension: "mp4")
+        do { try data.write(to: stored.url, options: .atomic) } catch { return }
+        let item = AVPlayerItem(url: stored.url)
+        let queue = AVQueuePlayer()
+        queue.isMuted = true
+        queue.volume = 0
+        let loop = AVPlayerLooper(player: queue, templateItem: item)
+        file = stored
+        looper = loop
+        player = queue
+        queue.play()
+    }
+}
+
+#if os(iOS)
+import UIKit
+
+private struct PlayerLayerBox: UIViewRepresentable {
+    let player: AVPlayer
+    var fill: Bool
+
+    func makeUIView(context: Context) -> PlayerHost {
+        let view = PlayerHost()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = fill ? .resizeAspectFill : .resizeAspect
+        return view
+    }
+
+    func updateUIView(_ view: PlayerHost, context: Context) {
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = fill ? .resizeAspectFill : .resizeAspect
+    }
+}
+
+private final class PlayerHost: UIView {
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
+    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+}
+#else
+import AppKit
+
+private struct PlayerLayerBox: NSViewRepresentable {
+    let player: AVPlayer
+    var fill: Bool
+
+    func makeNSView(context: Context) -> PlayerHost {
+        let view = PlayerHost()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = fill ? .resizeAspectFill : .resizeAspect
+        return view
+    }
+
+    func updateNSView(_ view: PlayerHost, context: Context) {
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = fill ? .resizeAspectFill : .resizeAspect
+    }
+}
+
+private final class PlayerHost: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer = AVPlayerLayer()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+}
+#endif

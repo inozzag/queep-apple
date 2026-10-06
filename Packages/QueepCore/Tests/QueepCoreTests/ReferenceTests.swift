@@ -239,6 +239,15 @@ import Foundation
     let ref = try APIClient.decoder().decode(Reference.self, from: Data(raw.utf8))
     #expect(ref.gallery[0].isVideoPreview)
     #expect(ref.gallery[1].isVideoPreview == false)
+    #expect(ref.gallery[0].motion != true)
+}
+
+@Test func decodesGifMotionPreview() throws {
+    let raw = #"{"id":"post","kind":"link","title":"Loop","text":"","url":"https://x.com/a/status/1","status":"ready","revision":1,"created_at":"2026-09-15T15:00:00Z","updated_at":"2026-09-15T15:00:00Z","image":{"sha256":"aa","content_type":"image/jpeg","width":900,"height":600,"byte_count":12,"preview_kind":"gif","motion":true},"images":[{"sha256":"aa","content_type":"image/jpeg","width":900,"height":600,"byte_count":12,"preview_kind":"gif","motion":true}]}"#
+    let ref = try APIClient.decoder().decode(Reference.self, from: Data(raw.utf8))
+    #expect(ref.gallery[0].motion == true)
+    #expect(ref.gallery[0].previewKind == "gif")
+    #expect(ref.gallery[0].isVideoPreview == false)
 }
 
 @Test func decodesPostAuthorWithoutMixingAvatarIntoGallery() throws {

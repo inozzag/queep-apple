@@ -83,6 +83,7 @@ public struct MediaInfo: Codable, Sendable, Equatable {
     public let hasAudio: Bool
     public let width: Int?
     public let height: Int?
+    public let loop: Bool?
     public var durationLabel: String {
         let total = Int(durationSeconds.rounded())
         return String(format: "%d:%02d", total / 60, total % 60)
@@ -110,6 +111,7 @@ public struct ImageInfo: Codable, Sendable, Equatable {
     public let height: Int
     public let byteCount: Int
     public let previewKind: String?
+    public let motion: Bool?
     public var isVideoPreview: Bool { previewKind == "video" }
 }
 

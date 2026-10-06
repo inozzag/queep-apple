@@ -42,6 +42,11 @@ struct SiteDetailView: View {
                     header
                     if !live.gallery.isEmpty {
                         RemoteImage(reference: live, thumbnail: false, fill: false)
+                            .overlay {
+                                if live.gallery.first?.motion == true {
+                                    MotionLoop(reference: live, fill: false)
+                                }
+                            }
                             .frame(maxWidth: .infinity)
                             .frame(maxHeight: 360)
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
