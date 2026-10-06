@@ -91,7 +91,10 @@ struct RootView: View {
                 guard activity.active else { continue }
                 await session.handleUnauthorized(uid)
                 await ProductAnalytics.deliverSharedCaptures(session)
-                if library.hasPendingAnalysis {
+                // Keep an open detail, and any queued or processing card, current.
+                // Force bypasses the freshness window so photos can arrive while the detail is open.
+                // An idle library still refreshes on that window.
+                if library.shouldKeepRefreshing {
                     await library.refresh(api, account: uid, force: true)
                 } else {
                     await library.refresh(api, account: uid)
