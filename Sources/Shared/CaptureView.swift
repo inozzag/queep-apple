@@ -21,7 +21,6 @@ struct CaptureView: View {
     @State private var confirmDelete = false
     @State private var requestID = UUID()
     @State private var attempted = false
-    @State private var latest: Reference?
     @State private var image: ImportedImage?
     @State private var media: ImportedMedia?
     @State private var preparing = false
@@ -147,25 +146,6 @@ struct CaptureView: View {
         .onChange(of: liveTitle) { _, value in
             if !titleTouched, !value.isEmpty { title = value }
         }
-        .task(id: reference?.id) {
-            guard let reference, let api = session.client() else { return }
-            let wantsPhotos = reference.linkSurface?.isPost == true
-            var readyPolls = 0
-            for _ in 0..<45 {
-                if Task.isCancelled { return }
-                do {
-                    let fresh = try await api.get(id: reference.id)
-                    latest = fresh
-                    if fresh.status == "error" { return }
-                    if fresh.status == "ready" {
-                        readyPolls += 1
-                        if !wantsPhotos || !fresh.gallery.isEmpty || readyPolls >= 15 { return }
-                    }
-                } catch is CancellationError { return }
-                catch { }
-                do { try await Task.sleep(for: .seconds(2)) } catch { return }
-            }
-        }
         #if os(macOS)
         .frame(minWidth: 520, idealWidth: 680, minHeight: 520, idealHeight: 640)
         #endif
@@ -207,8 +187,7 @@ struct CaptureView: View {
 
     private var live: Reference? {
         guard let reference else { return nil }
-        let fromStore = store.items.first(where: { $0.id == reference.id })
-        return [latest, fromStore, reference].compactMap { $0 }.max { lhs, rhs in
+        return [store.reference(reference.id), reference].compactMap { $0 }.max { lhs, rhs in
             if lhs.gallery.count != rhs.gallery.count { return lhs.gallery.count < rhs.gallery.count }
             return lhs.updatedAt < rhs.updatedAt
         }
