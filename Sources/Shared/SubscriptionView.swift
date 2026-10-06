@@ -38,8 +38,10 @@ struct SubscriptionView: View {
                         }
                         if !store.awaitingConfirmation && (requirement == nil || requirement?.requiredPlan != nil) {
                             ForEach(visiblePackages, id: \.identifier) { package in
+                                let managesInStore = SubscriptionCheckout.managesInAppStore(
+                                    access: store.access, packagePlan: SubscriptionStore.plan(package))
                                 Button {
-                                    if store.access?.active == true && store.access?.isDevelopment != true {
+                                    if managesInStore {
                                         openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
                                     } else {
                                         Task { await store.purchase(package, session: session) }
@@ -47,7 +49,7 @@ struct SubscriptionView: View {
                                 } label: {
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text("Queep \(SubscriptionStore.plan(package)?.title ?? "") · \(SubscriptionStore.isAnnual(package) ? "Anual" : "Mensal")").font(.headline)
-                                        if store.access?.active == true && store.access?.isDevelopment != true {
+                                        if managesInStore {
                                             Text("Alterar na App Store").font(.callout)
                                         }
                                         if SubscriptionStore.isAnnual(package), SubscriptionStore.plan(package) == .pro {
@@ -338,8 +340,8 @@ struct ConversionPaywall: View {
     }
 
     private func buy(_ package: Package) async {
-        if store.access?.active == true && store.access?.isDevelopment != true
-            && (store.access?.plan.rank ?? 0) >= plan.rank {
+        if SubscriptionCheckout.managesInAppStore(
+            access: store.access, packagePlan: SubscriptionStore.plan(package) ?? plan) {
             openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
             return
         }

@@ -54,4 +54,38 @@ final class SubscriptionContractTests: XCTestCase {
         XCTAssertEqual(usage.counters["operations"]?.used, 12)
         XCTAssertEqual(usage.counters["storage_bytes"]?.limit, 500)
     }
+
+    func testProToMaxUpgradePurchasesInTheApp() throws {
+        let pro = try Self.access(plan: "pro", active: true)
+        XCTAssertFalse(SubscriptionCheckout.managesInAppStore(access: pro, packagePlan: .max))
+        XCTAssertTrue(SubscriptionCheckout.managesInAppStore(access: pro, packagePlan: .pro))
+    }
+
+    func testSamePlanAndDowngradeStayOnApple() throws {
+        let max = try Self.access(plan: "max", active: true)
+        XCTAssertTrue(SubscriptionCheckout.managesInAppStore(access: max, packagePlan: .max))
+        let pro = try Self.access(plan: "pro", active: true)
+        XCTAssertTrue(SubscriptionCheckout.managesInAppStore(access: pro, packagePlan: .pro))
+        XCTAssertTrue(SubscriptionCheckout.managesInAppStore(access: pro, packagePlan: .free))
+    }
+
+    func testInactiveAndDevelopmentAccountsPurchaseInTheApp() throws {
+        XCTAssertFalse(SubscriptionCheckout.managesInAppStore(access: nil, packagePlan: .max))
+        let lapsed = try Self.access(plan: "pro", active: false)
+        XCTAssertFalse(SubscriptionCheckout.managesInAppStore(access: lapsed, packagePlan: .max))
+        XCTAssertFalse(SubscriptionCheckout.managesInAppStore(access: lapsed, packagePlan: .pro))
+        let development = try Self.access(plan: "max", active: true, mode: "development")
+        XCTAssertFalse(SubscriptionCheckout.managesInAppStore(access: development, packagePlan: .max))
+        let pro = try Self.access(plan: "pro", active: true)
+        XCTAssertTrue(SubscriptionCheckout.managesInAppStore(access: pro, packagePlan: nil))
+    }
+
+    private static func access(plan: String, active: Bool, mode: String = "required") throws -> SubscriptionAccess {
+        let json = """
+        {"mode":"\(mode)","active":\(active),"checked_at":"2026-09-21T00:00:00Z",
+         "expires_at":null,"will_renew":false,"plan":"\(plan)",
+         "features":{"spaces":false,"media_av":false},"limits":{"operations":12}}
+        """
+        return try APIClient.decoder().decode(SubscriptionAccess.self, from: Data(json.utf8))
+    }
 }
