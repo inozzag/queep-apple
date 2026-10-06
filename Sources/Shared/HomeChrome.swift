@@ -271,7 +271,7 @@ private struct HomeOptionalSurface: ViewModifier {
         if enabled { content.homeSurface() } else { content }
     }
 }
-private enum QueepGlassShape {
+enum QueepGlassShape {
     case circle, capsule, card
 }
 
@@ -305,7 +305,8 @@ private struct QueepGlass: ViewModifier {
     }
 }
 
-private extension View {
+extension View {
+    /// Liquid Glass for chrome that floats over content: header chips, the bottom bar, menus.
     func queepGlass(_ shape: QueepGlassShape = .capsule) -> some View {
         modifier(QueepGlass(shape: shape))
     }

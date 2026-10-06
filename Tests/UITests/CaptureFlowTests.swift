@@ -65,12 +65,12 @@ final class CaptureFlowTests: XCTestCase {
         let app = try await authenticatedApp()
         app.buttons["Conta"].tap()
         app.buttons["Sair da conta"].tap()
-        XCTAssertTrue(app.textFields["auth.email"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["auth.emailStart"].waitForExistence(timeout: 5))
         app.terminate()
         app.launchArguments = []
         app.launchEnvironment = [:]
         app.launch()
-        XCTAssertTrue(app.textFields["auth.email"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["auth.emailStart"].waitForExistence(timeout: 10))
         // Open https://example.com in Safari on this simulator before running.
         let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
         safari.terminate()

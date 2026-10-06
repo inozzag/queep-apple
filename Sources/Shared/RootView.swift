@@ -7,19 +7,45 @@ struct RootView: View {
     @Environment(\.scenePhase) private var phase
     @State private var activity = LibraryActivity()
 
+    #if DEBUG
+    @State private var previewPaywall = EntryPreview.paywall
+    #endif
+
+    private var loading: Bool {
+        #if DEBUG
+        if EntryPreview.loading { return true }
+        #endif
+        return session.preparing
+    }
+
+    /// Opening the session and signing in are one screen, so the ticker keeps moving between them.
+    private var showsEntry: Bool {
+        if loading { return true }
+        if let state = session.accountState, !state.isActive { return false }
+        return session.userID == nil
+    }
+
     var body: some View {
-        Group {
+        ZStack {
             if let error = session.configurationError {
                 ContentUnavailableView("Configuração pendente", systemImage: "icloud.slash",
                                        description: Text(error))
-            } else if session.preparing {
-                ProgressView("Abrindo sua biblioteca…")
+            } else if showsEntry {
+                EntryView(loading: loading)
+                    .transition(.opacity)
             } else if let state = session.accountState, !state.isActive {
                 AccountRecoveryView(state: state)
-            } else if session.userID != nil {
+            } else {
                 LibraryView()
-            } else { SignInView() }
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeInOut(duration: 0.3), value: showsEntry)
+        #if DEBUG
+        .sheet(isPresented: $previewPaywall) {
+            MaxPaywall(context: PaywallContext(reason: "preview", resource: EntryPreview.resource))
+        }
+        #endif
         // Queep uses a deliberately light, paper-like canvas on every platform.
         // Never inherit the system appearance: dark mode changes contrast, icons and surfaces.
         .preferredColorScheme(.light)
@@ -74,6 +100,18 @@ struct RootView: View {
         let owner: String?
     }
 }
+
+#if DEBUG
+/// Design review without the emulators. A normal launch never passes these arguments.
+/// `--preview-loading` holds the opening screen; `--preview-paywall-sample` shows the Max sheet
+/// with sample prices, and `--preview-paywall-notice` opens it as a spent capture quota would.
+private enum EntryPreview {
+    static let loading = ProcessInfo.processInfo.arguments.contains("--preview-loading")
+    static let paywall = ProcessInfo.processInfo.arguments.contains("--preview-paywall-sample")
+    static let resource = ProcessInfo.processInfo.arguments.contains("--preview-paywall-notice")
+        ? "operations" : nil
+}
+#endif
 
 /// Shared with the library task so a focus change does not cancel the fetch and restart the spinner.
 private final class LibraryActivity {

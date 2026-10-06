@@ -136,12 +136,47 @@ foram removidas, mantendo a conta e os conteúdos anteriores.
 Validado na nuvem: PNG de Fotos no iPhone → aberto/excluído no Mac; HEIC do Mac → aberto/excluído no iPhone. Uploads usam a mesma API autenticada das notas. A conta usada no teste manual foi preservada com a imagem adicionada durante o teste; credenciais locais ficam em `.local/`, ignorado pelo Git, sem tokens exportados.
 
 
+## Entrada, login e paywall
+
+Carregamento e login são a mesma tela (`EntryView`): um ticker de referências
+(`ReferenceTicker`) fica no fundo e o login sobe por cima dele, sem corte entre os dois.
+No iPhone o login é um card que ocupa cerca de 62% da tela; no Mac e no iPad é um card
+flutuante. As opções são Apple, Google e e-mail; o formulário de e-mail serve para entrar e
+para criar conta. O botão master (`MasterButtonStyle`, o visual do Queep things) é a ação
+de e-mail, o envio do formulário e a compra no paywall. As 44 fotos do ticker ficam em
+`Sources/Shared/Ticker`; origem e licença em [TICKER-IMAGES.md](TICKER-IMAGES.md).
+
+Durante o lançamento, todo paywall da jornada (`MaxPaywall`) vende o Max anual: depois do
+primeiro save, ao bater num limite (402) e pelo link `subscription`. Quem já está no Max e
+bate num limite vê a tela de planos com a data de renovação. Os outros planos continuam em
+**Ver todos os planos** e em **Conta → Assinatura**, com o Max anual em primeiro.
+A tela tem um título, uma tabela que compara o plano atual com o Max, um preço e um botão.
+As linhas da tabela dizem o que a pessoa passa a fazer ("Captura de Reels, TikToks e vídeos"),
+não a cota técnica. O paywall não mostra números de limite, porque eles podem mudar no servidor:
+as colunas dizem "Limitado" ou "Menos" para o plano atual e "De sobra" para o Max. Os valores
+exatos ficam em **Conta → Uso**, que lê da API. Ela usa só os tokens da galeria
+(`GalleryStyle`), o glass do app (`queepGlass`) no cabeçalho e na barra de compra, e o botão master.
+O valor cobrado é sempre o maior número da tela; o equivalente mensal é letra miúda.
+O MCP do Queep aparece com a etiqueta **Em breve** no lugar do check.
+
+Preço de lançamento: o layout aparece sozinho quando o produto Max anual tem uma oferta
+introdutória paga de 1 ano na App Store e a conta é elegível. O preço riscado, o percentual e
+o texto legal vêm da loja. Opcionalmente, os metadados da oferta `default` no RevenueCat
+definem `launch_label` (texto da faixa) e `launch_ends_at` (ISO 8601, liga a contagem
+regressiva). Sem oferta introdutória, o paywall mostra só o preço normal.
+
+Revisão visual em Debug local, sem emuladores: `--preview-loading` segura a tela de
+carregamento; `--preview-paywall-sample` abre o paywall com preços de exemplo
+(acrescente `--preview-launch-offer` para o preço de lançamento e `--preview-paywall-notice`
+para abrir como se as capturas do mês tivessem acabado). Com emuladores e API no ar, `--preview-paywall` abre o paywall
+real sobre a biblioteca, com a Test Store.
+
 ## Free / Pro / Max (GAZ-115)
 
 A tela compartilhada de planos usa o plano confirmado pela API, preços da loja,
 desconto anual calculado pelos produtos e trial somente com elegibilidade confirmada.
-Erros 402 abrem Pro/Max conforme a API; mídia é verificada antes da preparação,
-inclusive na extensão (sem RevenueCat). Uso mostra cotas mensais e inventário.
+Erros 402 abrem o paywall do Max para quem está abaixo dele; mídia é verificada antes da
+preparação, inclusive na extensão (sem RevenueCat). Uso mostra cotas mensais e inventário.
 
 Esquemas `QueepiOSTestFlight` / `QueepMacTestFlight` usam configuração de release
 com Firebase dev e API isolada. Preencher `Config/BillingTestFlight.xcconfig`

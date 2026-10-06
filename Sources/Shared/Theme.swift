@@ -25,6 +25,12 @@ enum Theme {
     static let homeAccent = Color(red: 60 / 255, green: 107 / 255, blue: 157 / 255)
     /// Deep stop of `HomeLogo.svg` (`#3D6855`). Shared by the Queep things label and its plus.
     static let queepThingsInk = Color(red: 61 / 255, green: 104 / 255, blue: 85 / 255)
+    /// Full-width actions on sign-in and the paywall. The Mac header keeps `homeChrome`.
+    #if os(iOS)
+    static let masterHeight: CGFloat = 52
+    #else
+    static let masterHeight: CGFloat = homeChrome
+    #endif
     static let homeFill = Color(red: 250 / 255, green: 250 / 255, blue: 250 / 255)
     static let homeShadow = Color(red: 60 / 255, green: 60 / 255, blue: 60 / 255).opacity(0.05)
     static let aiColors = [Color(red: 0.45, green: 0.38, blue: 0.96), Color(red: 0.24, green: 0.60, blue: 0.98),
@@ -138,6 +144,38 @@ private struct HomeSurface: ViewModifier {
             }
             .clipShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
             .shadow(color: Theme.homeShadow, radius: 6, y: 3)
+    }
+}
+
+/// Queep's master button: the Queep things surface from the Mac header as a full-width action.
+/// White underneath, the logo wash on top, deep green label.
+struct MasterButtonStyle: ButtonStyle {
+    var height: CGFloat = Theme.masterHeight
+
+    func makeBody(configuration: Configuration) -> some View {
+        MasterButtonBody(configuration: configuration, height: height)
+    }
+}
+
+/// `isEnabled` is only readable from a view, not from the style itself.
+private struct MasterButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    let height: CGFloat
+    @Environment(\.isEnabled) private var enabled
+
+    var body: some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Theme.queepThingsInk)
+            .lineLimit(1)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .contentShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
+            .homeSurface(highlighted: true)
+            .opacity(enabled ? (configuration.isPressed ? 0.8 : 1) : 0.5)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

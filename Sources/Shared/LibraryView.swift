@@ -28,7 +28,7 @@ struct LibraryView: View {
     @State private var onboardingPresented = false
     @State private var onboardingDismissed = false
     @State private var sawEmptyLibrary = false
-    @State private var conversionOffer: ConversionFocus?
+    @State private var conversionOffer: PaywallContext?
     @State private var galleryPhoto: PhotosPickerItem?
     @State private var sendingPhoto = false
 
@@ -140,7 +140,7 @@ struct LibraryView: View {
             presentOnboardingIfNeeded()
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--preview-paywall") {
-                conversionOffer = .pro
+                conversionOffer = PaywallContext(reason: "preview")
             }
             FeedNotice.scheduleAfterLibraryAppears(
                 isLocal: session.isLocal,
@@ -162,8 +162,8 @@ struct LibraryView: View {
                 onboardingPresented = false
             }
         })
-        .sheet(item: $conversionOffer) { focus in
-            ConversionPaywall(focus: focus)
+        .sheet(item: $conversionOffer) { context in
+            MaxPaywall(context: context)
         }
         .task(id: session.userID) { await restoreOnboarding() }
         .onPreferenceChange(LibraryViewportKey.self) { frame in
@@ -201,9 +201,9 @@ struct LibraryView: View {
             guard session.userID == uid else { return }
             let access = SubscriptionStore.shared.access
             let plan = access?.plan ?? .free
-            // Local emulators grant Max, so a development session can still preview the trial sheet.
+            // Local emulators grant Max, so a development session can still preview the sheet.
             guard plan == .free || access?.isDevelopment == true else { return }
-            conversionOffer = .pro
+            conversionOffer = PaywallContext(reason: "first_save")
         }
     }
 
