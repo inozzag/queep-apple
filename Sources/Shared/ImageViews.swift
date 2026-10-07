@@ -74,7 +74,8 @@ struct ImagePickerSection: View {
 
 /// Keeps gallery bytes in memory and on disk so scrolling back does not download them again.
 enum ImageByteCache {
-    private static let memory: NSCache<NSString, NSData> = {
+    // NSCache is thread-safe. `writes` changes only while `io` is held.
+    private nonisolated(unsafe) static let memory: NSCache<NSString, NSData> = {
         let cache = NSCache<NSString, NSData>()
         cache.countLimit = 80
         cache.totalCostLimit = 96 * 1024 * 1024
@@ -82,7 +83,7 @@ enum ImageByteCache {
     }()
     private static let io = NSLock()
     private static let budget = 160 * 1024 * 1024
-    private static var writes = 0
+    private nonisolated(unsafe) static var writes = 0
     private static let folder: URL = {
         let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("queep-images", isDirectory: true)
