@@ -5,6 +5,7 @@ struct AccountView: View {
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @State private var subscriptions = SubscriptionStore.shared
     @State private var logoutError: String?
 
     var body: some View {
@@ -59,12 +60,11 @@ struct AccountView: View {
                 }
 
                 Section("Assinatura e cobrança") {
-                    Button {
-                        store.presentation = .subscription
+                    NavigationLink {
+                        SubscriptionView(pushedInSettings: true)
                     } label: {
-                        SettingsRow(title: "Assinatura e planos", value: nil, symbol: "creditcard.fill", color: .green, chevron: true)
+                        SettingsRow(title: "Assinatura e planos", value: SubscriptionAccess.settingsRowValue(subscriptions.access), symbol: "creditcard.fill", color: .green)
                     }
-                    .buttonStyle(.plain)
                     .accessibilityIdentifier("account.subscription")
                     Link(destination: URL(string: "https://apps.apple.com/account/subscriptions")!) {
                         SettingsRow(title: "Gerenciar cobrança na Apple", value: nil, symbol: "dollarsign", color: .orange, chevron: true)
@@ -77,19 +77,17 @@ struct AccountView: View {
                 }
 
                 Section {
-                    Button {
-                        store.presentation = .help
+                    NavigationLink {
+                        HelpView(pushedInSettings: true)
                     } label: {
-                        SettingsRow(title: "Como usar o Queep", value: nil, symbol: "questionmark.circle.fill", color: .blue, chevron: true)
+                        SettingsRow(title: "Como usar o Queep", value: nil, symbol: "questionmark.circle.fill", color: .blue)
                     }
-                    .buttonStyle(.plain)
                     .accessibilityIdentifier("account.help")
-                    Button {
-                        store.presentation = .usage
+                    NavigationLink {
+                        UsagePrivacyView(pushedInSettings: true)
                     } label: {
-                        SettingsRow(title: "Uso e privacidade", value: nil, symbol: "hand.raised.fill", color: .cyan, chevron: true)
+                        SettingsRow(title: "Uso e privacidade", value: nil, symbol: "hand.raised.fill", color: .cyan)
                     }
-                    .buttonStyle(.plain)
                     .accessibilityIdentifier("account.usage")
                 }
 
@@ -112,8 +110,11 @@ struct AccountView: View {
                         do { try session.signOut() } catch { logoutError = error.localizedDescription }
                     }
                     .accessibilityIdentifier("account.signout")
-                    Button("Excluir conta", role: .destructive) {
-                        store.presentation = .deleteAccount
+                    NavigationLink {
+                        DeleteAccountView(pushedInSettings: true)
+                    } label: {
+                        Text("Excluir conta")
+                            .foregroundStyle(.red)
                     }
                     .accessibilityIdentifier("account.delete")
                 }
@@ -243,7 +244,7 @@ private struct AccountNameEditor: View {
     private func run(_ work: () async throws -> Void) async {
         busy = true
         defer { busy = false }
-        do { try await work() } catch { self.error = SocialAuth.message(for: error) }
+        do { try await work() } catch { self.error = reportedAccountEditError(error, context: .name) }
     }
 }
 
@@ -308,10 +309,7 @@ private struct AccountEmailEditor: View {
         busy = true
         error = nil
         defer { busy = false }
-        do { try await work() } catch {
-            let text = SocialAuth.message(for: error)
-            if !text.isEmpty { self.error = text }
-        }
+        do { try await work() } catch { self.error = reportedAccountEditError(error, context: .email) }
     }
 }
 
@@ -379,10 +377,7 @@ private struct AccountPasswordEditor: View {
         busy = true
         error = nil
         defer { busy = false }
-        do { try await work() } catch {
-            let text = SocialAuth.message(for: error)
-            if !text.isEmpty { self.error = text }
-        }
+        do { try await work() } catch { self.error = reportedAccountEditError(error, context: .password) }
     }
 }
 
@@ -457,7 +452,12 @@ private struct AccountLoginsEditor: View {
     }
 
     private func fail(_ error: Error) {
-        let text = SocialAuth.message(for: error)
-        if !text.isEmpty { self.error = text }
+        self.error = reportedAccountEditError(error, context: .link)
     }
+}
+
+/// Account edits must not surface the sign-in sentence. Cancellation stays silent.
+private func reportedAccountEditError(_ error: Error, context: AccountEditContext) -> String? {
+    let text = AccountEditMessage.resolve(SocialAuth.message(for: error), context: context)
+    return text.isEmpty ? nil : text
 }
