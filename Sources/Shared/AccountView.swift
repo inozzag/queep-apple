@@ -6,6 +6,9 @@ struct AccountView: View {
     @Environment(LibraryStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var logoutError: String?
+    #if os(macOS)
+    @AppStorage(CloseAndHide.defaultsKey) private var closeAndHide = false
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -92,6 +95,19 @@ struct AccountView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("account.usage")
                 }
+
+                #if os(macOS)
+                Section {
+                    Toggle(isOn: $closeAndHide) {
+                        SettingsRow(title: "Fechar e esconder", value: nil, symbol: "eye.slash.fill", color: Color(red: 0.45, green: 0.47, blue: 0.52))
+                    }
+                    .accessibilityIdentifier("settings.closeAndHide")
+                } header: {
+                    Text("Acessibilidade")
+                } footer: {
+                    Text("Fechar a janela esconde o Queep do Dock. O menu na barra e o pin de captura continuam.")
+                }
+                #endif
 
                 #if DEBUG
                 Section {

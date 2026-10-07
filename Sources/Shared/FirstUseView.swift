@@ -42,7 +42,7 @@ struct FirstUseView: View {
                 Divider().padding(.vertical, 14)
                 #if os(macOS)
                 tip("Capture de qualquer lugar", symbol: "keyboard",
-                    text: "⌘⇧Espaço abre a captura rápida. ⌘⇧7 recorta a tela. Passe o mouse no notch para a ilha do Queep. Essas ações também estão no menu da barra superior.")
+                    text: "⌘⇧Espaço abre a captura rápida. ⌘⇧7 recorta a tela. O pin do Queep fica na tela: arraste para onde quiser e passe o mouse para colar, capturar ou abrir a biblioteca. Essas ações também estão no menu da barra superior.")
                 #else
                 tip("Salve sem sair de outro app", symbol: "square.and.arrow.up",
                     text: "Toque em Compartilhar e escolha Queep para enviar um link, texto, imagem, áudio ou vídeo. Entre na sua conta no Queep antes do primeiro envio.")

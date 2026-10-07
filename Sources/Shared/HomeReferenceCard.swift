@@ -220,10 +220,6 @@ struct SourceBadge: View {
             let identity = PostIdentity(reference)
             HStack(spacing: -size * 0.3) {
                 PostBrandMark(surface: reference.linkSurface, size: size, radius: size * 0.3)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
-                            .strokeBorder(Color.white, lineWidth: 1.5)
-                    }
                 if reference.authorImage != nil || !identity.initials.isEmpty {
                     PostAvatar(reference: reference, initials: identity.initials, size: size)
                 }
@@ -362,7 +358,6 @@ struct PostAvatar: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
-        .overlay { Circle().strokeBorder(Color.white, lineWidth: 1) }
         .accessibilityHidden(true)
     }
 }
@@ -381,10 +376,6 @@ struct SiteFavicon: View {
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .strokeBorder(Color.white, lineWidth: 1)
-        }
         .accessibilityHidden(true)
     }
 }

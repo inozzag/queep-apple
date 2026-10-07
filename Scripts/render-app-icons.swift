@@ -52,15 +52,44 @@ func render(svg: URL, size: Int, dest: URL, opaqueBackground: NSColor? = nil) th
 
 let appSVG = root.appendingPathComponent("Sources/Shared/Assets.xcassets/AppIcon.appiconset/AppIcon.svg")
 let appDir = root.appendingPathComponent("Sources/Shared/Assets.xcassets/AppIcon.appiconset")
-let cream = NSColor(srgbRed: 252 / 255, green: 252 / 255, blue: 252 / 255, alpha: 1)
-try render(svg: appSVG, size: 1024, dest: appDir.appendingPathComponent("AppIcon.png"), opaqueBackground: cream)
+let ink = NSColor(srgbRed: 41 / 255, green: 37 / 255, blue: 33 / 255, alpha: 1)
+try render(svg: appSVG, size: 1024, dest: appDir.appendingPathComponent("AppIcon.png"), opaqueBackground: ink)
 for side in [16, 32, 64, 128, 256, 512] {
     try render(svg: appSVG, size: side,
                dest: appDir.appendingPathComponent("AppIcon-mac-\(side).png"),
-               opaqueBackground: cream)
+               opaqueBackground: ink)
 }
 
 let shareSVG = root.appendingPathComponent("Sources/Share/Assets.xcassets/AppIcon.appiconset/AppIcon.svg")
 let sharePNG = root.appendingPathComponent("Sources/Share/Assets.xcassets/AppIcon.appiconset/AppIcon.png")
-try render(svg: shareSVG, size: 1024, dest: sharePNG)
-print("Rendered app and share icons")
+try render(svg: shareSVG, size: 1024, dest: sharePNG, opaqueBackground: ink)
+
+let iconset = root.appendingPathComponent("Distribution/Queep.iconset")
+try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
+let iconsetSizes: [(Int, String)] = [
+    (16, "icon_16x16.png"),
+    (32, "icon_16x16@2x.png"),
+    (32, "icon_32x32.png"),
+    (64, "icon_32x32@2x.png"),
+    (128, "icon_128x128.png"),
+    (256, "icon_128x128@2x.png"),
+    (256, "icon_256x256.png"),
+    (512, "icon_256x256@2x.png"),
+    (512, "icon_512x512.png"),
+    (1024, "icon_512x512@2x.png"),
+]
+for (side, name) in iconsetSizes {
+    try render(svg: appSVG, size: side, dest: iconset.appendingPathComponent(name), opaqueBackground: ink)
+}
+let icns = root.appendingPathComponent("Distribution/Queep.icns")
+let iconutil = Process()
+iconutil.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
+iconutil.arguments = ["-c", "icns", iconset.path, "-o", icns.path]
+try iconutil.run()
+iconutil.waitUntilExit()
+if iconutil.terminationStatus != 0 {
+    throw NSError(domain: "render-app-icons", code: 5,
+                  userInfo: [NSLocalizedDescriptionKey: "iconutil failed (\(iconutil.terminationStatus))"])
+}
+try FileManager.default.removeItem(at: iconset)
+print("Rendered app, share, and DMG icons")

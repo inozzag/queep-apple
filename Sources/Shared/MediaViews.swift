@@ -216,7 +216,7 @@ struct MediaDetailView: View {
             _ = try await api.editMetadata(reference, title: title, text: text, mutationID: mutationID)
             guard owner == session.userID else { return }
             store.discardSearchReference(reference.id)
-            await store.refresh(api, account: owner)
+            await store.refresh(api, account: owner, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }
@@ -229,7 +229,7 @@ struct MediaDetailView: View {
             try await api.delete(reference)
             guard owner == session.userID else { return }
             clear(); store.discardSearchReference(reference.id)
-            await store.refresh(api, account: owner)
+            await store.refresh(api, account: owner, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }

@@ -6,7 +6,10 @@ struct MacLibraryHeader: View {
     @Environment(LibraryStore.self) private var store
     let search: () -> Void
     let refresh: () -> Void
-    @State private var addOpen = false
+    var selecting = false
+    var canSelect = false
+    var toggleSelect: () -> Void = {}
+    @Binding var addOpen: Bool
 
     var body: some View {
         @Bindable var store = store
@@ -43,7 +46,12 @@ struct MacLibraryHeader: View {
                     }
                 }
                 Spacer(minLength: 16)
-                HomeFilterMenu(refresh: refresh)
+                HStack(spacing: 8) {
+                    if canSelect {
+                        LibrarySelectButton(selecting: selecting, action: toggleSelect)
+                    }
+                    HomeFilterMenu(refresh: refresh)
+                }
             }
         }
         .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 18)
@@ -57,41 +65,7 @@ struct MacLibraryHeader: View {
     }
 
     private var addMenu: some View {
-        Button {
-            addOpen.toggle()
-        } label: {
-            HomePillLabel(title: "Queep things", asset: "HomeAdd", accent: true)
-                .homeSurface(highlighted: true)
-        }
-        .buttonStyle(.plain)
-        .buttonBorderShape(.roundedRectangle(radius: Theme.homeRadius))
-        .popover(isPresented: $addOpen, arrowEdge: .bottom) {
-            VStack(alignment: .leading, spacing: 2) {
-                addRow("Nota", "note.text") { store.startCapture(kind: "note") }
-                addRow("Post", "quote.bubble") { store.startCapture(kind: "link", intent: "post") }
-                addRow("Site", "safari") { store.startCapture(kind: "link", intent: "site") }
-                addRow("Imagem", "photo") { store.startCapture(kind: "image") }
-                addRow("Áudio ou vídeo", "play.rectangle") { store.startCapture(kind: "media") }
-            }
-            .padding(8)
-            .frame(minWidth: 196)
-        }
-        .accessibilityIdentifier("library.add")
-        .accessibilityLabel("Queep things")
-        .help("Guardar uma nota, um post, um site, uma imagem ou um vídeo")
-    }
-
-    private func addRow(_ title: String, _ symbol: String, action: @escaping () -> Void) -> some View {
-        Button {
-            addOpen = false
-            action()
-        } label: {
-            Label(title, systemImage: symbol)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10).padding(.vertical, 7)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        QueepThingsControl(isPresented: $addOpen)
     }
 
     private func removeChip(_ term: String) {

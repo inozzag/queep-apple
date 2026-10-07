@@ -23,6 +23,14 @@ enum Theme {
     static let homePreview = Color(red: 102 / 255, green: 102 / 255, blue: 113 / 255)
     static let homeLine = Color(red: 238 / 255, green: 238 / 255, blue: 238 / 255)
     static let homeAccent = Color(red: 60 / 255, green: 107 / 255, blue: 157 / 255)
+    /// Deep stop of `HomeLogo.svg` (`#3D6855`). Shared by the Queep things label and its plus.
+    static let queepThingsInk = Color(red: 61 / 255, green: 104 / 255, blue: 85 / 255)
+    /// Full-width actions on sign-in and the paywall. The Mac header keeps `homeChrome`.
+    #if os(iOS)
+    static let masterHeight: CGFloat = 52
+    #else
+    static let masterHeight: CGFloat = homeChrome
+    #endif
     static let homeFill = Color(red: 250 / 255, green: 250 / 255, blue: 250 / 255)
     static let homeShadow = Color(red: 60 / 255, green: 60 / 255, blue: 60 / 255).opacity(0.05)
     static let aiColors = [Color(red: 0.45, green: 0.38, blue: 0.96), Color(red: 0.24, green: 0.60, blue: 0.98),
@@ -31,17 +39,31 @@ enum Theme {
         LinearGradient(colors: aiColors, startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
+    /// Queep things fill from Figma `58:4730`. White underneath, then this linear
+    /// gradient at 40% opacity. Stops are the logo greens in the frame's order:
+    /// white 6.6%, `#ACBE95` 17%, `#DFE6B2` 60.6%, `#3D6855` 100%.
+    /// `t = ax + by + c` is that node's `gradientTransform` (x right, y down, 0...1).
     static var addWash: LinearGradient {
-        LinearGradient(
+        let a = 0.5172437429428101
+        let b = -0.33731937408447266
+        let c = 0.47177886962890625
+        let length = (a * a + b * b).squareRoot()
+        let ux = a / length
+        let uy = b / length
+        let tCenter = a * 0.5 + b * 0.5 + c
+        func point(t: CGFloat) -> UnitPoint {
+            let distance = (t - tCenter) / length
+            return UnitPoint(x: 0.5 + distance * ux, y: 0.5 + distance * uy)
+        }
+        return LinearGradient(
             stops: [
-                .init(color: Color.white.opacity(0.4), location: 0.066),
-                .init(color: Color(red: 207 / 255, green: 228 / 255, blue: 251 / 255).opacity(0.4), location: 0.170),
-                .init(color: Color(red: 247 / 255, green: 251 / 255, blue: 254 / 255).opacity(0.4), location: 0.606),
-                .init(color: Color(red: 245 / 255, green: 249 / 255, blue: 254 / 255).opacity(0.4), location: 0.853),
-                .init(color: Color(red: 165 / 255, green: 205 / 255, blue: 248 / 255).opacity(0.4), location: 1)
+                .init(color: Color.white.opacity(0.4), location: 0.06599999964237213),
+                .init(color: Color(red: 172 / 255, green: 190 / 255, blue: 149 / 255).opacity(0.4), location: 0.17000000178813934),
+                .init(color: Color(red: 223 / 255, green: 230 / 255, blue: 178 / 255).opacity(0.4), location: 0.6060000061988831),
+                .init(color: Color(red: 61 / 255, green: 104 / 255, blue: 85 / 255).opacity(0.4), location: 1)
             ],
-            startPoint: UnitPoint(x: 0.02, y: 0.72),
-            endPoint: UnitPoint(x: 0.98, y: 0.18)
+            startPoint: point(t: 0),
+            endPoint: point(t: 1)
         )
     }
 }
@@ -122,6 +144,38 @@ private struct HomeSurface: ViewModifier {
             }
             .clipShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
             .shadow(color: Theme.homeShadow, radius: 6, y: 3)
+    }
+}
+
+/// Queep's master button: the Queep things surface from the Mac header as a full-width action.
+/// White underneath, the logo wash on top, deep green label.
+struct MasterButtonStyle: ButtonStyle {
+    var height: CGFloat = Theme.masterHeight
+
+    func makeBody(configuration: Configuration) -> some View {
+        MasterButtonBody(configuration: configuration, height: height)
+    }
+}
+
+/// `isEnabled` is only readable from a view, not from the style itself.
+private struct MasterButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    let height: CGFloat
+    @Environment(\.isEnabled) private var enabled
+
+    var body: some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Theme.queepThingsInk)
+            .lineLimit(1)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .contentShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
+            .homeSurface(highlighted: true)
+            .opacity(enabled ? (configuration.isPressed ? 0.8 : 1) : 0.5)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

@@ -126,6 +126,7 @@ enum SocialAuth {
 struct AppleIDAuthButton: View {
     var title = "Entrar com a Apple"
     var identifier = "auth.apple"
+    var height: CGFloat = 44
     var onSuccess: (AuthCredential, String?) -> Void
     var onError: (Error) -> Void = { _ in }
     @State private var coordinator = AppleSignInCoordinator()
@@ -147,8 +148,9 @@ struct AppleIDAuthButton: View {
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
+            .frame(height: height)
             .background(Color.black, in: RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)

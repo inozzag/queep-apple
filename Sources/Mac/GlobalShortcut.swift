@@ -36,12 +36,18 @@ final class MacDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        CloseAndHide.markTerminating()
+        return .terminateNow
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag { MacCapture.shared.showLibrary() }
         return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        CloseAndHide.markTerminating()
         for hotKey in hotKeys { UnregisterEventHotKey(hotKey) }
         if let handler { RemoveEventHandler(handler) }
     }

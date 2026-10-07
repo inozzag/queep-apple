@@ -6,7 +6,7 @@ Implementada em 11/09/2026. Usa a API existente; nenhuma chave de IA fica nos ap
 | --- | --- |
 | Mac · ⌘⇧Espaço | Abre captura rápida, mesmo com a biblioteca fechada. Nota/link, colar e print têm ações visíveis. Esc fecha sem apagar o rascunho. |
 | Mac · ⌘⇧7 | Pede permissão de captura de tela ao macOS; arrastar seleciona a área, Enter captura a tela escolhida, Esc cancela. Apenas uma imagem é enviada. |
-| Mac · ilha no notch | Ilha opcional escondida atrás do notch. Passar o mouse ou arrastar um arquivo até ela abre, com animação, a última referência salva e as ações de captura rápida, colar, capturar tela e abrir a biblioteca; sair com o mouse recolhe. Envios feitos pela ilha mostram progresso e resultado ao lado do notch, sem abrir a janela rápida; falhas continuam abrindo a janela para repetir ou descartar. Telas sem notch usam uma aba discreta sob a barra de menus. Segue a tela certa quando os monitores mudam. |
+| Mac · pin de captura | Pin opcional que fica sobre a tela e pode ser arrastado para qualquer lugar. Passar o mouse ou arrastar um arquivo até ele abre um cartão com a última referência e as ações de captura rápida, colar, capturar tela e abrir a biblioteca. Ao salvar, o cartão fecha e o pin mostra a logo com um check. Falhas continuam abrindo a janela rápida para repetir ou descartar. A posição é lembrada e recolocada se o monitor mudar. |
 | iPhone · Compartilhar → Salvar no Queep | Aparece na lista de ações (junto de ChatGPT/Gemini), com prévia de link, texto, imagem ou arquivo de áudio/vídeo, seguida de Salvar. Reutiliza o login do app. Pode ser fixada em **Editar Ações**. |
 
 **Confirmação:** fecha o compartilhamento após a API confirmar o salvamento; a análise continua na nuvem. Falha mantém o mesmo conteúdo e identificador para repetir sem duplicação dentro daquele envio. Fechar a extensão/encerrar o app antes da confirmação ainda não tem recuperação persistente: fila offline fica para a próxima versão.
@@ -33,7 +33,7 @@ quando o compartilhamento contém só a URL, o Queep salva e analisa os dados p�
   de arquivos também conferida no Mac. Compartilhamento de mídia em aparelho físico
   permanece entre as validações antes do beta.
 - `ShortcutTests`: abrir pelo atalho fora do app, com biblioteca fechada, e fechar por Escape.
-- `IslandTests`: ilha recolhida presente, abertura por hover com as quatro ações e recolhimento ao afastar o ponteiro, com screenshots anexados.
+- `IslandTests`: pin presente, abertura por hover com as quatro ações e recolhimento ao afastar o ponteiro, com screenshots anexados.
 - `CloudShareTests`: sessão cloud existente; Safari aberto em `https://example.com/queep-native-share` e fixture sintética `../queep-api/evaluation/fixtures/001.png` importada por último em Fotos. Rodar apenas no simulador de QA. Testes salvam e abrem as referências no app; remover depois os itens sintéticos exatos, preservando conteúdo do usuário.
 - `CaptureFlowTests`: regressão de nota local e teste de saída da conta/compartilhamento bloqueado. O teste de saída requer a mesma página de exemplo aberta no Safari local.
 
