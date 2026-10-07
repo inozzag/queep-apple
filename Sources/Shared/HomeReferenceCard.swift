@@ -62,7 +62,7 @@ struct HomeReferenceCard: View {
 
     private var analyzingTile: some View {
         HStack(spacing: 12) {
-            Text("Enviando novos itens...")
+            Text(LibrarySync.analyzingTile(reference.status) ?? "Analisando…")
                 .font(.system(size: 13, weight: .medium))
                 .tracking(-0.2)
                 .foregroundStyle(GalleryStyle.secondary)
@@ -430,8 +430,6 @@ struct LibraryCardCell<MenuContent: View>: View {
     @ViewBuilder var menu: () -> MenuContent
     @State private var hovered = false
 
-    private var isAnalyzing: Bool { reference.status == "queued" || reference.status == "processing" }
-
     var body: some View {
         Button(action: open) {
             HomeReferenceCard(reference: reference)
@@ -445,7 +443,7 @@ struct LibraryCardCell<MenuContent: View>: View {
         .contextMenu { menu() }
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
-        .accessibilityLabel(isAnalyzing ? "Enviando novos itens" : reference.displayTitle)
+        .accessibilityLabel(LibrarySync.analyzingTile(reference.status) ?? reference.displayTitle)
         .accessibilityIdentifier("reference.\(reference.id)")
         .accessibilityValue("\(reference.kindLabel), \(reference.statusLabel)")
         .accessibilityHint("Abrir \(reference.kindLabel.lowercased())")

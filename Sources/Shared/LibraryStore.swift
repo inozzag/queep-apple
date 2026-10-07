@@ -84,6 +84,17 @@ final class LibraryStore {
     var archiveUndo: ArchiveUndo?
     var hasArchivedItems = false
     var hasActiveCollection: Bool { !searchChips.isEmpty || kindFilter != nil }
+    /// A reference sheet or the capture editor is open. Gallery photos can still arrive after `ready`.
+    var detailIsOpen: Bool {
+        switch presentation {
+        case .reference, .capture: true
+        default: false
+        }
+    }
+    var shouldKeepRefreshing: Bool {
+        let statuses = items.map(\.status) + (searchItems?.map(\.status) ?? [])
+        return LibrarySync.shouldRefresh(statuses: statuses, detailOpen: detailIsOpen)
+    }
     private var searchGeneration = 0
     private var accountID: String?
     private var generation = 0
@@ -241,11 +252,7 @@ final class LibraryStore {
             nextCursor = page.nextCursor
             hasLoaded = true
             if let matches = searchItems {
-                let fresh = Dictionary(uniqueKeysWithValues: page.items.map { ($0.id, $0) })
-                searchItems = matches.compactMap { previous in
-                    guard let current = fresh[previous.id] else { return previous }
-                    return current.revision == previous.revision && current.status == "ready" ? current : nil
-                }
+                searchItems = SearchHits.updated(matches, with: page.items)
             }
             error = nil
             rememberPage()
@@ -330,6 +337,26 @@ final class LibraryStore {
             if selectedSpaceID == space.id { selectSpace(nil) }
             persistCache()
         } catch { if account == accountID { spaceError = error.localizedDescription } }
+    }
+
+    /// Replaces the copy already in memory so a poll or a retry updates the card without reordering the library.
+    func adopt(_ reference: Reference) {
+        knownReferences[reference.id] = reference
+        if let index = items.firstIndex(where: { $0.id == reference.id }) {
+            items[index] = reference
+        }
+        if let index = searchItems?.firstIndex(where: { $0.id == reference.id }) {
+            searchItems?[index] = reference
+        }
+        for key in Array(cachedPages.keys) {
+            guard let page = cachedPages[key],
+                  let index = page.items.firstIndex(where: { $0.id == reference.id }) else { continue }
+            var values = page.items
+            values[index] = reference
+            cachedPages[key] = LibraryPage(items: values, nextCursor: page.nextCursor)
+        }
+        rememberPage()
+        persistCache()
     }
 
     func reference(_ id: String) -> Reference? {

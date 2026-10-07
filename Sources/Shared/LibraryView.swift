@@ -325,15 +325,22 @@ struct LibraryView: View {
                         .accessibilityIdentifier("onboarding.dismissHint")
                 }.card(padding: 14, elevated: false)
             }
+            if SearchPresentation.showsPending(hasPending: store.hasPending, showingSearch: searching) {
+                Label(SearchPresentation.pending, systemImage: "clock")
+                    .font(.caption)
+                    .foregroundStyle(Color.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("search.pending")
+            }
             if store.searching {
                 #if os(macOS)
                 MacSearchSkeleton()
                 #else
                 SearchSkeleton(columns: columns)
                 #endif
-            } else if store.searchError != nil {
-                ContentUnavailableView("Não foi possível buscar", systemImage: "magnifyingglass",
-                                       description: Text("Tente novamente em instantes. Suas referências continuam salvas."))
+            } else if let searchError = store.searchError {
+                ContentUnavailableView(SearchPresentation.failureMessage(searchError), systemImage: "magnifyingglass",
+                                       description: Text("Suas referências continuam salvas."))
             } else if store.items.isEmpty && store.loading && !store.hasLoaded {
                 ProgressView("Carregando suas referências…").frame(maxWidth: .infinity).padding(.top, 80)
             } else if store.items.isEmpty && store.error != nil && !searching {
@@ -356,9 +363,9 @@ struct LibraryView: View {
                     Label(searching ? "Nada parecido por aqui" : store.kindFilter == nil ? "Seu espaço para lembrar" : "Nada neste filtro",
                           systemImage: searching ? "sparkle.magnifyingglass" : "bookmark")
                 } description: {
-                    Text(searching ? (store.surface == .archived
-                         ? "Nenhum arquivado tem esse título ou endereço."
-                         : "Nenhuma correspondência entre os candidatos analisados. Tente descrever de outro jeito.")
+                    Text(searching ? SearchPresentation.emptyDescription(
+                        archived: store.surface == .archived,
+                        localFilterHidMatches: store.kindFilter != nil && store.searchItems?.isEmpty == false)
                          : store.kindFilter == nil
                          ? "Guarde uma imagem, um link ou uma nota. Eles aparecem nos seus dispositivos."
                          : "Esse tipo ainda não está na biblioteca. Queep things guarda o próximo.")
@@ -654,7 +661,7 @@ private struct SearchHeader: View {
                     Text("Referências mais relevantes do seu acervo · até 10 por busca")
                         .font(.callout).foregroundStyle(Color.muted)
                     if store.hasPending {
-                        Label("Algumas referências ainda aguardam análise ou precisam de uma nova tentativa.", systemImage: "clock")
+                        Label(SearchPresentation.pending, systemImage: "clock")
                             .font(.caption).foregroundStyle(Color.muted)
                     }
                 } else {

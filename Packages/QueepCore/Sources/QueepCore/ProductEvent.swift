@@ -49,6 +49,23 @@ public enum ProductEvent {
         return ["plan": plan, "period": period]
     }
 
+    /// Person properties for PostHog `$identify`. Email and name are included only when Auth already has them.
+    /// Blank values are omitted. Capture events do not use this bag.
+    public static func person(platform: String, email: String?, name: String?, plan: String?) -> [String: String] {
+        var properties: [String: String] = [:]
+        if platforms.contains(platform) { properties["platform"] = platform }
+        if let email = cleaned(email), email.contains("@"), email.count <= 320 {
+            properties["email"] = email
+        }
+        if let name = cleaned(name), (1...200).contains(name.count) {
+            properties["name"] = name
+        }
+        if let plan, SubscriptionPlan(rawValue: plan) != nil {
+            properties["plan"] = plan
+        }
+        return properties
+    }
+
     public static func billingPeriod(productIdentifier: String) -> String? {
         let id = productIdentifier.lowercased()
         if id.contains("year") { return "year" }
@@ -57,6 +74,11 @@ public enum ProductEvent {
     }
 
     private static let platforms = ["ios", "macos"]
+
+    private static func cleaned(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
 
     private static func isSocial(_ url: String?) -> Bool {
         LinkSurface.twitterHandle(url: url) != nil
