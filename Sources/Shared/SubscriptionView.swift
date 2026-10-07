@@ -38,8 +38,10 @@ struct SubscriptionView: View {
                         }
                         if !store.awaitingConfirmation && (requirement == nil || requirement?.requiredPlan != nil) {
                             ForEach(visiblePackages, id: \.identifier) { package in
+                                let managesInStore = SubscriptionCheckout.managesInAppStore(
+                                    access: store.access, packagePlan: SubscriptionStore.plan(package))
                                 Button {
-                                    if store.access?.active == true && store.access?.isDevelopment != true {
+                                    if managesInStore {
                                         openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
                                     } else {
                                         Task { await store.purchase(package, session: session) }
@@ -47,7 +49,7 @@ struct SubscriptionView: View {
                                 } label: {
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text("Queep \(SubscriptionStore.plan(package)?.title ?? "") · \(SubscriptionStore.isAnnual(package) ? "Anual" : "Mensal")").font(.headline)
-                                        if store.access?.active == true && store.access?.isDevelopment != true {
+                                        if managesInStore {
                                             Text("Alterar na App Store").font(.callout)
                                         }
                                         if SubscriptionStore.isAnnual(package), SubscriptionStore.plan(package) == .max {
@@ -57,8 +59,12 @@ struct SubscriptionView: View {
                                         if let discount = store.annualDiscount(package) {
                                             Text("Economize \(discount)% em relação a 12 meses do mensal").font(.caption)
                                         }
-                                        if store.trialEligible.contains(package.identifier) {
-                                            Text("7 dias grátis de Pro; depois, \(package.storeProduct.localizedPriceString) por ano").font(.callout)
+                                        if store.trialEligible.contains(package.identifier),
+                                           let offerPlan = SubscriptionStore.plan(package) {
+                                            Text(SubscriptionOfferCopy.trialLine(
+                                                plan: offerPlan,
+                                                price: package.storeProduct.localizedPriceString,
+                                                period: period(package))).font(.callout)
                                         }
                                     }.frame(maxWidth: .infinity, alignment: .leading).padding(8)
                                 }.buttonStyle(.borderedProminent)

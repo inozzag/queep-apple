@@ -333,7 +333,8 @@ struct MaxPaywall: View {
             await store.load(session, refresh: true)
             return
         }
-        if alreadyMax {
+        if SubscriptionCheckout.managesInAppStore(
+            access: store.access, packagePlan: SubscriptionStore.plan(package)) {
             openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
             return
         }
