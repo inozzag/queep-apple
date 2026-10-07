@@ -7,11 +7,14 @@ public enum APIDiagnostics: Sendable {
         public var method: String
         public var path: String
         public var status: Int?
+        /// `URLError` code when the session failed before an HTTP response. Nil for HTTP statuses.
+        public var transportCode: Int?
 
-        public init(method: String, path: String, status: Int?) {
+        public init(method: String, path: String, status: Int?, transportCode: Int? = nil) {
             self.method = method
             self.path = path
             self.status = status
+            self.transportCode = transportCode
         }
     }
 
@@ -36,9 +39,9 @@ public enum APIDiagnostics: Sendable {
         }.joined(separator: "/")
     }
 
-    public static func report(method: String, path: String, status: Int?) {
+    public static func report(method: String, path: String, status: Int?, transportCode: Int? = nil) {
         guard shouldReport(status: status) else { return }
-        record?(Failure(method: method, path: route(path), status: status))
+        record?(Failure(method: method, path: route(path), status: status, transportCode: transportCode))
     }
 }
 

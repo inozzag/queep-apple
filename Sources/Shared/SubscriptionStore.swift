@@ -114,7 +114,8 @@ final class SubscriptionStore {
             let result = try await api.subscriptionAccess(refresh: refresh)
             guard session.userID == uid else { return }
             access = result
-            ProductAnalytics.identify(uid: uid, plan: result.plan.rawValue)
+            ProductAnalytics.identify(uid: uid, plan: result.plan.rawValue,
+                                      email: session.identity?.email, name: session.identity?.displayName)
             if result.plan.rank >= (pendingPlan?.rank ?? 0) { awaitingConfirmation = false; pendingPlan = nil }
             guard key != nil else {
                 storeAvailable = false
@@ -203,9 +204,11 @@ final class SubscriptionStore {
             guard session.userID == uid else { return }
             access = confirmed
             awaitingConfirmation = confirmed.plan.rank < (pendingPlan?.rank ?? 1)
-            ProductAnalytics.identify(uid: uid, plan: confirmed.plan.rawValue)
+            ProductAnalytics.identify(uid: uid, plan: confirmed.plan.rawValue,
+                                      email: session.identity?.email, name: session.identity?.displayName)
             if !awaitingConfirmation, let period = Self.billingPeriod(package) {
-                ProductAnalytics.subscriptionStarted(plan: confirmed.plan.rawValue, period: period, uid: uid)
+                ProductAnalytics.subscriptionStarted(plan: confirmed.plan.rawValue, period: period, uid: uid,
+                                                     email: session.identity?.email, name: session.identity?.displayName)
             }
             message = confirmed.isDevelopment ? "Compra de teste concluída. O acesso de desenvolvimento permanece liberado."
                 : !awaitingConfirmation ? "Assinatura confirmada. Ela vale também nos seus outros dispositivos."
@@ -359,9 +362,11 @@ final class SubscriptionStore {
             guard session.userID == uid else { return }
             access = confirmed
             awaitingConfirmation = confirmed.plan.rank < (pendingPlan?.rank ?? 0)
-            ProductAnalytics.identify(uid: uid, plan: confirmed.plan.rawValue)
+            ProductAnalytics.identify(uid: uid, plan: confirmed.plan.rawValue,
+                                      email: session.identity?.email, name: session.identity?.displayName)
             if !awaitingConfirmation, let period = Self.billingPeriod(customer) {
-                ProductAnalytics.subscriptionStarted(plan: confirmed.plan.rawValue, period: period, uid: uid)
+                ProductAnalytics.subscriptionStarted(plan: confirmed.plan.rawValue, period: period, uid: uid,
+                                                     email: session.identity?.email, name: session.identity?.displayName)
             }
             message = confirmed.isDevelopment ? "Restauração solicitada na loja de teste."
                 : confirmed.active ? "Sua assinatura está ativa nesta conta."

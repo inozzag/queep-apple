@@ -9,6 +9,8 @@ enum ProductAnalytics {
     private static var configuredEnvironment: String?
     private static var identifiedUID: String?
     private static var identifiedPlan: String?
+    private static var identifiedEmail: String?
+    private static var identifiedName: String?
     private static var firedShareIDs: Set<String> = []
 
     static var platform: String {
@@ -62,13 +64,13 @@ enum ProductAnalytics {
     static func syncIdentity(_ session: Session) async {
         guard enabled, let uid = session.userID, let api = session.client() else { return }
         let plan = (try? await api.subscriptionAccess())?.plan.rawValue
-        identify(uid: uid, plan: plan)
+        identify(uid: uid, plan: plan, email: session.identity?.email, name: session.identity?.displayName)
     }
 
     static func recordSignIn(created: Bool, method: String, session: Session) async {
         guard enabled, let uid = session.userID else { return }
         let plan = (try? await session.client()?.subscriptionAccess())?.plan.rawValue
-        identify(uid: uid, plan: plan)
+        identify(uid: uid, plan: plan, email: session.identity?.email, name: session.identity?.displayName)
         guard let event = ProductEvent.auth(created: created, method: method, platform: platform) else { return }
         emit(event.name, event.properties.mapValues { $0 as Any })
     }
@@ -78,6 +80,8 @@ enum ProductAnalytics {
         PostHogSDK.shared.reset()
         identifiedUID = nil
         identifiedPlan = nil
+        identifiedEmail = nil
+        identifiedName = nil
         if let configuredEnvironment {
             PostHogSDK.shared.register(["environment": configuredEnvironment])
         }
@@ -115,9 +119,10 @@ enum ProductAnalytics {
         emit("purchase_started", properties.mapValues { $0 as Any })
     }
 
-    static func subscriptionStarted(plan: String, period: String, uid: String) {
+    static func subscriptionStarted(plan: String, period: String, uid: String,
+                                    email: String? = nil, name: String? = nil) {
         guard let properties = ProductEvent.purchase(plan: plan, period: period) else { return }
-        identify(uid: uid, plan: plan)
+        identify(uid: uid, plan: plan, email: email, name: name)
         emit("subscription_started", properties.mapValues { $0 as Any })
     }
 
@@ -152,7 +157,7 @@ enum ProductAnalytics {
         ShareCaptureQueue.remove(ids: done)
     }
 
-    static func identify(uid: String, plan: String?) {
+    static func identify(uid: String, plan: String?, email: String? = nil, name: String? = nil) {
         guard enabled else { return }
         // PostHog ignores identify() once a person is already identified. A new account on a
         // device that still has the previous user must reset first, or account_created stays
@@ -162,19 +167,22 @@ enum ProductAnalytics {
             PostHogSDK.shared.reset()
             identifiedUID = nil
             identifiedPlan = nil
+            identifiedEmail = nil
+            identifiedName = nil
             if let configuredEnvironment {
                 PostHogSDK.shared.register(["environment": configuredEnvironment])
             }
         }
-        let planChanged = plan != nil && plan != identifiedPlan
-        guard uid != identifiedUID || planChanged else { return }
-        var properties: [String: Any] = ["platform": platform]
-        if let plan {
-            properties["plan"] = plan
-            identifiedPlan = plan
-        }
-        PostHogSDK.shared.identify(uid, userProperties: properties)
+        let person = ProductEvent.person(platform: platform, email: email, name: name, plan: plan)
+        let planChanged = person["plan"] != nil && person["plan"] != identifiedPlan
+        let emailChanged = person["email"] != nil && person["email"] != identifiedEmail
+        let nameChanged = person["name"] != nil && person["name"] != identifiedName
+        guard uid != identifiedUID || planChanged || emailChanged || nameChanged else { return }
+        PostHogSDK.shared.identify(uid, userProperties: person.mapValues { $0 as Any })
         identifiedUID = uid
+        if let plan = person["plan"] { identifiedPlan = plan }
+        if let email = person["email"] { identifiedEmail = email }
+        if let name = person["name"] { identifiedName = name }
     }
 
     private static func emit(_ name: String, _ properties: [String: Any]) {
