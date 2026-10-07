@@ -116,6 +116,22 @@ final class SubscriptionContractTests: XCTestCase {
             .contains("por ano"))
     }
 
+    func testSettingsRowShowsPlanTitleOnlyAfterAccessLoads() throws {
+        XCTAssertNil(SubscriptionAccess.settingsRowValue(nil))
+        let titles = ["free": "Free", "pro": "Pro", "max": "Max"]
+        for (plan, title) in titles {
+            let json = """
+            {"mode":"required","active":true,"checked_at":"2026-09-21T00:00:00Z",
+             "expires_at":null,"will_renew":false,"plan":"\(plan)",
+             "features":{"spaces":true,"media_av":\(plan == "max")},
+             "limits":{}}
+            """
+            let access = try APIClient.decoder().decode(SubscriptionAccess.self, from: Data(json.utf8))
+            XCTAssertEqual(SubscriptionAccess.settingsRowValue(access), title)
+            XCTAssertEqual(access.plan.title, title)
+        }
+    }
+
     private static func access(plan: String, active: Bool, mode: String = "required") throws -> SubscriptionAccess {
         let json = """
         {"mode":"\(mode)","active":\(active),"checked_at":"2026-09-21T00:00:00Z",

@@ -32,6 +32,11 @@ public struct SubscriptionAccess: Decodable, Sendable {
     public let limits: [String: Int]
 
     public var isDevelopment: Bool { mode == "development" }
+
+    /// Secondary text on the Ajustes subscription row. Nil until access has loaded.
+    public static func settingsRowValue(_ access: SubscriptionAccess?) -> String? {
+        access?.plan.title
+    }
 }
 
 public struct PlanRequirement: Decodable, Sendable, Identifiable {
