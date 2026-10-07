@@ -110,6 +110,71 @@ enum ProductAnalytics {
         emit("paywall_viewed", properties.mapValues { $0 as Any })
     }
 
+    /// Journey sheet. `hook` is the `paywall_title_hook` variant actually shown (`a`...`e`).
+    static func paywallViewed(reason: String, hook: String, plan: String, period: String, trialEligible: Bool) {
+        emit("paywall_viewed", [
+            "reason": reason,
+            "hook": hook,
+            "platform": platform,
+            "plan": plan,
+            "period": period,
+            "trial_eligible": trialEligible
+        ])
+    }
+
+    static func paywallPeriodToggled(period: String) {
+        emit("paywall_period_toggled", ["period": period])
+    }
+
+    static func paywallAllPlansTapped() {
+        emit("paywall_all_plans_tapped", [:])
+    }
+
+    static func paywallCTATapped(plan: String, period: String, trial: Bool) {
+        emit("paywall_cta_tapped", ["plan": plan, "period": period, "trial": trial])
+    }
+
+    static func paywallPurchaseCompleted(plan: String, period: String) {
+        emit("paywall_purchase_completed", ["plan": plan, "period": period])
+    }
+
+    static func paywallTrialStarted(plan: String, period: String) {
+        emit("paywall_trial_started", ["plan": plan, "period": period])
+    }
+
+    static func paywallClosed(reason: String) {
+        emit("paywall_closed", ["reason": reason])
+    }
+
+    /// Multivariate `paywall_title_hook` (`a`...`e`). Nil when analytics is off, the flag
+    /// is missing, or it is not a string variant — the sheet then uses its reason default.
+    /// The flag itself is not created here.
+    static func paywallTitleHook() async -> String? {
+        guard enabled else { return nil }
+        let cached = flagString(PostHogSDK.shared.getFeatureFlag(paywallHookFlag, sendFeatureFlagEvent: false))
+        return await withCheckedContinuation { continuation in
+            let gate = ResumeOnce()
+            PostHogSDK.shared.reloadFeatureFlags {
+                Task { @MainActor in
+                    let fresh = Self.flagString(PostHogSDK.shared.getFeatureFlag(Self.paywallHookFlag, sendFeatureFlagEvent: false))
+                    gate.resume(continuation, returning: fresh ?? cached)
+                }
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                gate.resume(continuation, returning: cached)
+            }
+        }
+    }
+
+    private static let paywallHookFlag = "paywall_title_hook"
+
+    private static func flagString(_ value: Any?) -> String? {
+        guard let text = value as? String else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     static func purchaseStarted(plan: String, period: String) {
         guard let properties = ProductEvent.purchase(plan: plan, period: period) else { return }
         emit("purchase_started", properties.mapValues { $0 as Any })
@@ -198,5 +263,22 @@ enum ProductAnalytics {
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard value.count > 8, !value.contains("$("), !value.contains(" ") else { return nil }
         return value
+    }
+}
+
+/// Resumes a flag read once. The reload callback and the timeout can both finish.
+private final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+
+    func resume(_ continuation: CheckedContinuation<String?, Never>, returning value: String?) {
+        lock.lock()
+        if done {
+            lock.unlock()
+            return
+        }
+        done = true
+        lock.unlock()
+        continuation.resume(returning: value)
     }
 }
