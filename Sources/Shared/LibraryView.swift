@@ -52,7 +52,7 @@ struct LibraryView: View {
                 case .usage: UsagePrivacyView()
                 case .help: HelpView()
                 case .deleteAccount: DeleteAccountView()
-                case .subscription: SubscriptionView()
+                case .subscription: SubscriptionView(managesOnly: true)
                 case .newSpace: SpaceNameSheet()
                 case .capture:
                     if store.captureKind == "link" && (store.captureIntent == "post" || store.captureIntent == "site") {
@@ -163,9 +163,7 @@ struct LibraryView: View {
                 onboardingPresented = false
             }
         })
-        .sheet(item: $conversionOffer) { context in
-            MaxPaywall(context: context)
-        }
+        .journeyPaywall($conversionOffer)
         .task(id: session.userID) { await restoreOnboarding() }
         .onPreferenceChange(LibraryViewportKey.self) { frame in
             guard frame.width > 1, frame.height > 1 else { return }

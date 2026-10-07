@@ -45,9 +45,14 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: showsEntry)
         #if DEBUG
-        .sheet(isPresented: $previewPaywall) {
-            MaxPaywall(context: PaywallContext(reason: "preview", resource: EntryPreview.resource))
-        }
+        .journeyPaywall(Binding(
+            get: {
+                previewPaywall
+                    ? PaywallContext(reason: EntryPreview.resource == nil ? "preview" : "plan_limit",
+                                     resource: EntryPreview.resource)
+                    : nil
+            },
+            set: { previewPaywall = $0 != nil }))
         #endif
         // Queep uses a deliberately light, paper-like canvas on every platform.
         // Never inherit the system appearance: dark mode changes contrast, icons and surfaces.
