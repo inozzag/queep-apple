@@ -156,12 +156,21 @@ struct LibraryView: View {
             considerFirstPaywall()
         }
         .onChange(of: onboardingPresented) { _, _ in considerFirstPaywall() }
+        #if os(iOS)
         .fullScreenCover(isPresented: $onboardingPresented) {
             OnboardingFlow {
                 onboardingDismissed = true
                 onboardingPresented = false
             }
         }
+        #else
+        .sheet(isPresented: $onboardingPresented) {
+            OnboardingFlow {
+                onboardingDismissed = true
+                onboardingPresented = false
+            }
+        }
+        #endif
         .sheet(item: $conversionOffer) { focus in
             ConversionPaywall(focus: focus)
         }
