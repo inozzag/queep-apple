@@ -29,6 +29,7 @@ struct LibraryView: View {
     @State private var onboardingDismissed = false
     @State private var sawEmptyLibrary = false
     @State private var conversionOffer: PaywallContext?
+    @State private var consideringFirstPaywall = false
     @State private var galleryPhoto: PhotosPickerItem?
     @State private var sendingPhoto = false
 
@@ -51,7 +52,7 @@ struct LibraryView: View {
                 case .usage: UsagePrivacyView()
                 case .help: HelpView()
                 case .deleteAccount: DeleteAccountView()
-                case .subscription: SubscriptionView()
+                case .subscription: SubscriptionView(managesOnly: true)
                 case .newSpace: SpaceNameSheet()
                 case .capture:
                     if store.captureKind == "link" && (store.captureIntent == "post" || store.captureIntent == "site") {
@@ -162,9 +163,7 @@ struct LibraryView: View {
                 onboardingPresented = false
             }
         })
-        .sheet(item: $conversionOffer) { context in
-            MaxPaywall(context: context)
-        }
+        .journeyPaywall($conversionOffer)
         .task(id: session.userID) { await restoreOnboarding() }
         .onPreferenceChange(LibraryViewportKey.self) { frame in
             guard frame.width > 1, frame.height > 1 else { return }
@@ -195,15 +194,21 @@ struct LibraryView: View {
     private func considerFirstPaywall() {
         guard !uiTesting, sawEmptyLibrary, !store.items.isEmpty, !onboardingPresented else { return }
         guard let uid = session.userID, !OnboardingProgress.paywallShown(uid), conversionOffer == nil else { return }
-        OnboardingProgress.markPaywallShown(uid)
+        guard !consideringFirstPaywall else { return }
+        consideringFirstPaywall = true
         Task {
+            defer { consideringFirstPaywall = false }
             await SubscriptionStore.shared.load(session)
-            guard session.userID == uid else { return }
-            let access = SubscriptionStore.shared.access
-            let plan = access?.plan ?? .free
-            // Local emulators grant Max, so a development session can still preview the sheet.
-            guard plan == .free || access?.isDevelopment == true else { return }
-            conversionOffer = PaywallContext(reason: "first_save")
+            guard session.userID == uid, conversionOffer == nil, !OnboardingProgress.paywallShown(uid) else { return }
+            let subscription = SubscriptionStore.shared
+            let decision = FirstPaywall.decide(
+                offersLoaded: subscription.storeAvailable && !subscription.packages.isEmpty,
+                access: subscription.access)
+            guard decision.rememberShown else { return }
+            OnboardingProgress.markPaywallShown(uid)
+            if decision == .show {
+                conversionOffer = PaywallContext(reason: "first_save")
+            }
         }
     }
 

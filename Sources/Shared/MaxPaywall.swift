@@ -7,539 +7,536 @@ import SwiftUI
 struct PaywallContext: Identifiable, Equatable {
     var reason: String
     var resource: String? = nil
-    var id: String { reason }
+    /// The plan the server says would clear this wall. Nil on the first-save journey, which sells Pro.
+    var requiredPlan: SubscriptionPlan? = nil
+    var id: String { "\(reason)|\(resource ?? "")|\(requiredPlan?.rawValue ?? "")" }
 }
 
-/// During launch every paywall in the journey sells one thing: Queep Max, billed yearly.
-/// One headline, what changes against the plan the person has, one price, one button.
-/// The other plans stay one tap away in `SubscriptionView`.
+/// Prices and trial length for previews, so the sheet can be reviewed without StoreKit.
+struct PaywallPreviewOffer {
+    var yearlyPrice: String
+    var monthlyPrice: String
+    var yearlyPerMonth: String
+    var discountPercent: Int?
+    var yearlyTrialDays: Int?
+    var monthlyTrialDays: Int?
+
+    static let proTrial = PaywallPreviewOffer(
+        yearlyPrice: "R$ 249,90", monthlyPrice: "R$ 29,90", yearlyPerMonth: "R$ 20,83",
+        discountPercent: 30, yearlyTrialDays: 7, monthlyTrialDays: nil)
+    static let proPlain = PaywallPreviewOffer(
+        yearlyPrice: "R$ 249,90", monthlyPrice: "R$ 29,90", yearlyPerMonth: "R$ 20,83",
+        discountPercent: 30, yearlyTrialDays: nil, monthlyTrialDays: nil)
+    static let maxTrial = PaywallPreviewOffer(
+        yearlyPrice: "R$ 999,90", monthlyPrice: "R$ 129,90", yearlyPerMonth: "R$ 83,33",
+        discountPercent: 35, yearlyTrialDays: 7, monthlyTrialDays: nil)
+}
+
+/// The journey paywall: a ticker of saved references, why it opened, one hook, and Pro yearly
+/// (Max yearly when the wall is video or audio). The other plans stay one tap away.
 struct MaxPaywall: View {
     let context: PaywallContext
+    var preview: PaywallPreviewOffer? = nil
+    var onFinish: (() -> Void)? = nil
+
     @Environment(Session.self) private var session
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var store = SubscriptionStore.shared
+    @State private var annual = true
+    @State private var hookFlag: String?
     @State private var showingPlans = false
+    @State private var reported = false
+    @State private var completed = false
+    @State private var loading = true
 
-    private var package: Package? { store.journeyPackage }
-    private var access: SubscriptionAccess? { store.access }
-    private var paying: Bool { access?.active == true && access?.isDevelopment != true }
-    private var alreadyMax: Bool { paying && access?.plan == .max }
-
-    /// The column Max is compared with. A development session runs on Max quotas, so it
-    /// compares against Free like a new account would.
-    private var currentPlan: SubscriptionPlan {
-        guard let access, !access.isDevelopment, access.plan != .max else { return .free }
-        return access.plan
+    private var plan: SubscriptionPlan {
+        PaywallCopy.offeredPlan(reason: context.reason, resource: context.resource, requiredPlan: context.requiredPlan)
+    }
+    private var hook: PaywallHook {
+        PaywallCopy.hook(flag: hookFlag, reason: context.reason, resource: context.resource)
+    }
+    private var package: Package? {
+        guard preview == nil else { return nil }
+        return store.packageForJourney(plan: plan, annual: annual)
     }
 
     var body: some View {
-        layout
-            .overlay(alignment: .top) { header }
-            .background(Color.white)
-            .preferredColorScheme(.light)
-            #if os(iOS)
-            .presentationDetents([.large])
-            .presentationDragIndicator(.hidden)
-            .presentationCornerRadius(32)
+        Group {
+            #if os(macOS)
+            macCard
+            #else
+            phone
             #endif
-            .task { await store.load(session) }
-            .onAppear {
-                ProductAnalytics.paywallViewed(code: context.reason, targetPlan: SubscriptionPlan.max.rawValue)
-            }
-            .sheet(isPresented: $showingPlans) { SubscriptionView() }
+        }
+        .preferredColorScheme(.light)
+        .task { await prepare() }
+        .onChange(of: annual) { _, isAnnual in
+            ProductAnalytics.paywallPeriodToggled(period: isAnnual ? "year" : "month")
+        }
+        .onDisappear {
+            guard !completed else { return }
+            ProductAnalytics.paywallClosed(reason: context.reason)
+        }
+        .sheet(isPresented: $showingPlans) { SubscriptionView() }
     }
 
-    /// One column on iPhone and iPad. A Mac sheet is short and wide, so the references stand beside the offer.
-    @ViewBuilder private var layout: some View {
-        #if os(macOS)
-        HStack(spacing: 0) {
-            ReferenceTicker(lanes: 2, gap: 10, bleed: 10)
-                .frame(width: 280)
-            ScrollView {
-                VStack(spacing: 0) {
-                    intro.padding(.top, 28)
-                    PaywallComparison(current: currentPlan)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 16)
-                        .padding(.bottom, 12)
-                }
-            }
+    private var phone: some View {
+        ScrollView { storyContent }
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.basedOnSize)
-            .defaultScrollAnchor(.top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.white)
             .safeAreaInset(edge: .bottom, spacing: 0) { purchaseBar }
-        }
-        .frame(width: 740, height: 600)
-        #else
-        ScrollView {
-            VStack(spacing: 0) {
-                hero
-                intro.padding(.top, 30)
-                PaywallComparison(current: currentPlan)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 12)
-            }
-            .frame(maxWidth: 520)
-            .frame(maxWidth: .infinity)
-        }
-        .scrollIndicators(.hidden)
-        .scrollBounceBehavior(.basedOnSize)
-        .defaultScrollAnchor(.top)
-        .safeAreaInset(edge: .bottom, spacing: 0) { purchaseBar }
-        #endif
+            .overlay(alignment: .topLeading) { closeButton }
     }
 
-    /// The library's own chrome: glass chips floating over saved things.
-    private var header: some View {
-        HStack(spacing: 16) {
-            Button { dismiss() } label: {
-                HomeGlyph(asset: "HomeClose", size: 16, color: Theme.homeInk)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .queepGlass(.circle)
-            .keyboardShortcut(.cancelAction)
-            .accessibilityLabel("Fechar")
-            .accessibilityIdentifier("paywall.close")
-            Spacer(minLength: 0)
-            #if os(iOS)
-            Button { Task { await store.restore(session) } } label: {
-                Text("Restaurar")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Theme.homePreview)
-                    .padding(.horizontal, 16)
-                    .frame(height: 44)
-                    .contentShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .queepGlass(.capsule)
-            .disabled(store.busy)
-            .accessibilityLabel("Restaurar compras")
-            .accessibilityIdentifier("paywall.restore")
-            #endif
+    private var macCard: some View {
+        ViewThatFits(in: .vertical) {
+            macColumn
+            ScrollView { macColumn }
+                .scrollIndicators(.hidden)
+                .scrollBounceBehavior(.basedOnSize)
         }
-        .padding(.horizontal, Theme.homeNavInset)
-        .padding(.top, 12)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: .black.opacity(0.18), radius: 28, y: 16)
+        .overlay(alignment: .topLeading) { closeButton }
+    }
+
+    private var macColumn: some View {
+        VStack(spacing: 0) {
+            storyContent
+            purchaseBar
+        }
+    }
+
+    private var storyContent: some View {
+        VStack(spacing: 0) {
+            hero
+            VStack(spacing: 18) {
+                intro
+                benefits
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 22)
+            .padding(.bottom, 8)
+        }
     }
 
     private var hero: some View {
-        ReferenceTicker(axis: .horizontal, lanes: 1, gap: 10, speed: 9)
-            .frame(height: 140)
+        ReferenceTicker(axis: .horizontal, lanes: 2, gap: 8, bleed: 0, speed: 9)
+            .frame(height: typeSize.isAccessibilitySize ? 120 : 176)
+            .frame(maxWidth: .infinity)
             .mask {
                 LinearGradient(
                     stops: [
                         .init(color: .black, location: 0),
-                        .init(color: .black, location: 0.58),
+                        .init(color: .black, location: 0.78),
                         .init(color: .clear, location: 1)
                     ],
                     startPoint: .top, endPoint: .bottom)
             }
-            .overlay(alignment: .bottom) { LogoChip(size: 60).offset(y: 16) }
+            .accessibilityHidden(true)
     }
 
     private var intro: some View {
-        VStack(spacing: 12) {
-            if let notice = MaxPlan.notice(for: context.resource, on: currentPlan) {
-                Text(notice)
-                    .font(.system(size: 13, weight: .medium))
-                    .tracking(-0.2)
+        VStack(spacing: 10) {
+            if let badge = PaywallCopy.badge(reason: context.reason, resource: context.resource) {
+                Text(badge)
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(GalleryStyle.secondary)
-                    .padding(.horizontal, 14)
-                    .frame(height: 32)
-                    .overlay { Capsule().strokeBorder(GalleryStyle.ring) }
-                    .accessibilityIdentifier("paywall.notice")
-            }
-            Text("Salve tudo com o Max")
-                .font(.system(size: 30, weight: .bold))
-                .tracking(-0.89)
-                .foregroundStyle(GalleryStyle.ink)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier("paywall.title")
-        }
-        .padding(.horizontal, 24)
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: Offer
-
-    /// Floats over the page like the library's bottom bar.
-    private var purchaseBar: some View {
-        VStack(spacing: 0) {
-            if let package {
-                offer(package)
-            } else if store.busy {
-                HStack(spacing: 10) {
-                    ProgressView().controlSize(.small)
-                    Text("Verificando assinatura…")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(GalleryStyle.secondary)
-                }
-                .padding(.vertical, 20)
-            } else {
-                unavailable
-            }
-            if let error = store.error {
-                Text(error)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(red: 0.70, green: 0.16, blue: 0.14))
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 10)
-                    .accessibilityIdentifier("paywall.error")
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(GalleryStyle.fill, in: Capsule())
+                    .accessibilityLabel(badge)
+                    .accessibilityIdentifier("paywall.badge")
             }
-            links
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
-        .padding(.bottom, 12)
-        .frame(maxWidth: .infinity)
-        .queepGlass(.card)
-        .padding(.horizontal, 12)
-        .padding(.bottom, 8)
-        .frame(maxWidth: 520)
-        .frame(maxWidth: .infinity)
-    }
-
-    @ViewBuilder private func offer(_ package: Package) -> some View {
-        let product = package.storeProduct
-        let annual = SubscriptionStore.isAnnual(package)
-        let unit = annual ? "ano" : "mês"
-        let trial = store.offersTrial(package)
-        let launch = store.launchOffer(package)
-        HStack(spacing: 8) {
-            PaywallPlanLine(annual: annual, trial: trial, launch: launch)
-            if let savings = launch?.percent ?? store.annualDiscount(package) {
-                Text(launch == nil ? "Economize \(savings)%" : "−\(savings)%")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(GalleryStyle.onInk)
-                    .padding(.horizontal, 8)
-                    .frame(height: 22)
-                    .background(GalleryStyle.ink, in: Capsule())
-                    .fixedSize()
-            }
-        }
-        // The amount charged is the largest figure on the sheet; the monthly equivalent is fine print.
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(launch?.price ?? product.localizedPriceString)
-                .font(.system(size: 26, weight: .semibold))
-                .tracking(-0.8)
+            Text(hook.title)
+                .font(.title.weight(.bold))
                 .foregroundStyle(GalleryStyle.ink)
-                .accessibilityIdentifier("paywall.price")
-            if launch != nil {
-                Text(product.localizedPriceString)
-                    .font(.system(size: 15, weight: .medium))
-                    .strikethrough()
-                    .foregroundStyle(GalleryStyle.tertiary)
-                    .accessibilityLabel("Preço normal \(product.localizedPriceString)")
-            }
-            Text(launch.map { $0.years == 1 ? "no 1º ano" : "por ano, por \($0.years) anos" } ?? "por \(unit)")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(GalleryStyle.secondary)
-        }
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
-        .padding(.top, 4)
-        Button { Task { await buy(package) } } label: {
-            HStack(spacing: 8) {
-                if store.busy { ProgressView().controlSize(.small).tint(Theme.queepThingsInk) }
-                Text(store.busy ? "Confirmando…" : actionTitle(trial: trial))
-            }
-        }
-        .buttonStyle(MasterButtonStyle())
-        .disabled(store.busy)
-        .padding(.top, 12)
-        .accessibilityIdentifier("paywall.buy")
-        Text(store.message ?? finePrint(package, unit: unit, trial: trial, launch: launch))
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(GalleryStyle.tertiary)
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, 10)
-    }
-
-    private var unavailable: some View {
-        VStack(spacing: 12) {
-            Text(store.message ?? "Nenhum plano disponível agora. Tente novamente em instantes.")
-                .font(.system(size: 13, weight: .medium))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("paywall.title")
+            Text(PaywallCopy.subtitle(for: plan))
+                .font(.body)
                 .foregroundStyle(GalleryStyle.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Tentar de novo") { Task { await store.load(session, refresh: true) } }
-                .buttonStyle(MasterButtonStyle())
-                .accessibilityIdentifier("paywall.retry")
+                .accessibilityIdentifier("paywall.subtitle")
         }
-        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity)
     }
 
-    private var links: some View {
+    private var benefits: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(PaywallCopy.benefits(for: plan), id: \.text) { benefit in
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Image(systemName: benefit.symbol)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Theme.queepThingsInk)
+                        .frame(width: 22, alignment: .center)
+                        .accessibilityHidden(true)
+                    Text(benefit.text)
+                        .font(.body)
+                        .foregroundStyle(GalleryStyle.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("paywall.benefits")
+    }
+
+    private var periodToggle: some View {
+        HStack(spacing: 4) {
+            periodButton("Mensal", yearly: false)
+            periodButton("Anual", yearly: true)
+        }
+        .padding(4)
+        .background(GalleryStyle.fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Período da assinatura")
+        .accessibilityIdentifier("paywall.period")
+    }
+
+    private func periodButton(_ title: String, yearly: Bool) -> some View {
+        let selected = annual == yearly
+        let discount = yearly ? discountPercent : nil
+        return Button {
+            annual = yearly
+        } label: {
+            HStack(spacing: 6) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(selected ? GalleryStyle.ink : GalleryStyle.secondary)
+                if let discount {
+                    Text("\(discount)% off")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Theme.queepThingsInk)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.white, in: Capsule())
+                        .accessibilityHidden(true)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background {
+                if selected {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(Color.white)
+                        .shadow(color: .black.opacity(0.06), radius: 4, y: 1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(discount.map { "\(title), \($0)% off" } ?? title)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier(yearly ? "paywall.annual" : "paywall.monthly")
+    }
+
+    private var purchaseBar: some View {
+        VStack(spacing: 10) {
+            periodToggle
+            if hasOffer {
+                Button { Task { await buy() } } label: {
+                    HStack(spacing: 8) {
+                        if purchasing { ProgressView().controlSize(.small).tint(Theme.queepThingsInk) }
+                        Text(purchasing ? "Confirmando…" : ctaTitle)
+                    }
+                }
+                .buttonStyle(MasterButtonStyle())
+                .disabled(purchasing || (preview == nil && store.busy))
+                .accessibilityLabel(ctaTitle)
+                .accessibilityIdentifier("paywall.buy")
+                priceBlock
+            } else if loading || store.busy {
+                HStack(spacing: 10) {
+                    ProgressView().controlSize(.small)
+                    Text("Verificando assinatura…")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(GalleryStyle.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            } else {
+                VStack(spacing: 12) {
+                    Text(store.message ?? "Nenhum plano disponível agora. Tente novamente em instantes.")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(GalleryStyle.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Tentar de novo") { Task { await store.load(session, refresh: true) } }
+                        .buttonStyle(MasterButtonStyle())
+                        .accessibilityIdentifier("paywall.retry")
+                }
+            }
+            if let error = store.error {
+                Text(error)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Color(red: 0.70, green: 0.16, blue: 0.14))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("paywall.error")
+            }
+            Button("Ver todos os planos") {
+                ProductAnalytics.paywallAllPlansTapped()
+                showingPlans = true
+            }
+            .font(.body.weight(.medium))
+            .foregroundStyle(Theme.homeInk)
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 2)
+            .accessibilityIdentifier("paywall.plans")
+            footer
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity)
+        .background(Color.white)
+    }
+
+    private var priceBlock: some View {
+        let line = PaywallOfferCopy.priceLine(
+            price: billedPrice,
+            period: annual ? .year : .month,
+            trialDays: currentTrialDays,
+            monthlyEquivalent: annual ? monthlyEquivalent : nil)
+        return VStack(spacing: 2) {
+            Text(line.primary)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(GalleryStyle.ink)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            if let secondary = line.secondary {
+                Text(secondary)
+                    .font(.footnote)
+                    .foregroundStyle(GalleryStyle.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel([line.primary, line.secondary].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityIdentifier("paywall.price")
+    }
+
+    private var footer: some View {
         HStack(spacing: 16) {
-            #if os(macOS)
-            // The header chip would sit on the headline in a column this narrow.
-            Button("Restaurar") { Task { await store.restore(session) } }
-                .disabled(store.busy)
-                .accessibilityLabel("Restaurar compras")
+            Button("Restaurar compras") { Task { await store.restore(session) } }
+                .disabled(preview != nil || store.busy)
                 .accessibilityIdentifier("paywall.restore")
-            #endif
             if let terms = SubscriptionStore.configuredURL("QueepTermsURL") {
                 Link("Termos", destination: terms)
             }
             if let privacy = SubscriptionStore.configuredURL("QueepPrivacyURL") {
                 Link("Privacidade", destination: privacy)
             }
-            Button("Todos os planos") { showingPlans = true }
-                .accessibilityIdentifier("paywall.plans")
         }
-        .font(.system(size: 12, weight: .medium))
+        .font(.footnote.weight(.medium))
         .foregroundStyle(GalleryStyle.secondary)
         .tint(GalleryStyle.secondary)
         .buttonStyle(.plain)
-        .padding(.top, 10)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 2)
     }
 
-    private func actionTitle(trial: Bool) -> String {
-        if store.awaitingConfirmation { return "Atualizar assinatura" }
-        if alreadyMax { return "Gerenciar assinatura" }
-        if paying { return "Mudar para o Max" }
-        if trial { return "Começar 7 dias grátis" }
-        return "Assinar o Queep Max"
+    private var closeButton: some View {
+        Button {
+            close()
+        } label: {
+            HomeGlyph(asset: "HomeClose", size: 16, color: Theme.homeInk)
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .queepGlass(.circle)
+        .keyboardShortcut(.cancelAction)
+        .accessibilityLabel("Fechar")
+        .accessibilityIdentifier("paywall.close")
+        .padding(.leading, 12)
+        .padding(.top, 12)
     }
 
-    private func finePrint(_ package: Package, unit: String, trial: Bool, launch: LaunchOffer?) -> String {
-        let product = package.storeProduct
-        let price = product.localizedPriceString
-        if trial {
-            // Both plans share one subscription group, so the store grants a single free trial.
-            return "Depois, \(price) por \(unit). Cancele quando quiser. "
-                + "Ao começar o teste do Max, o teste do Pro deixa de estar disponível."
+    private var hasOffer: Bool { preview != nil || package != nil }
+    private var purchasing: Bool { preview == nil && store.busy && package != nil }
+
+    private var currentTrialDays: Int? {
+        if let preview {
+            return annual ? preview.yearlyTrialDays : preview.monthlyTrialDays
         }
-        if let launch {
-            let span = launch.years == 1 ? "no primeiro ano" : "por ano nos \(launch.years) primeiros anos"
-            return "\(launch.price) \(span). Depois, \(price) por ano. Cancele quando quiser."
-        }
-        if SubscriptionStore.isAnnual(package), let perMonth = product.localizedPricePerMonth {
-            return "Equivale a \(perMonth) por mês. Renova a cada ano; cancele quando quiser."
-        }
-        return "Renova a cada \(unit). Cancele quando quiser."
+        guard let package else { return nil }
+        return store.trialDays(for: package)
     }
 
-    private func buy(_ package: Package) async {
+    private var billedPrice: String {
+        if let preview { return annual ? preview.yearlyPrice : preview.monthlyPrice }
+        guard let package else { return "" }
+        if currentTrialDays == nil, let launch = store.launchOffer(package) { return launch.price }
+        return package.storeProduct.localizedPriceString
+    }
+
+    private var monthlyEquivalent: String? {
+        if let preview { return annual ? preview.yearlyPerMonth : nil }
+        guard let package else { return nil }
+        if currentTrialDays == nil, let launch = store.launchOffer(package) { return launch.perMonth }
+        return store.monthlyEquivalent(package)
+    }
+
+    private var discountPercent: Int? {
+        if let preview { return preview.discountPercent }
+        guard let yearly = store.packageForJourney(plan: plan, annual: true),
+              let monthly = store.packageForJourney(plan: plan, annual: false) else { return nil }
+        return PaywallPricing.annualDiscountPercent(
+            yearly: yearly.storeProduct.price, monthly: monthly.storeProduct.price)
+    }
+
+    private var ctaTitle: String {
+        if preview == nil && store.awaitingConfirmation { return "Atualizar assinatura" }
+        if preview == nil && SubscriptionCheckout.managesInAppStore(access: store.access, packagePlan: plan) {
+            return "Gerenciar na App Store"
+        }
+        return PaywallOfferCopy.callToAction(plan: plan, trialDays: currentTrialDays)
+    }
+
+    private func prepare() async {
+        guard !reported else { return }
+        var flag = hookFlag
+        if preview == nil {
+            async let loaded: Void = store.load(session)
+            flag = await ProductAnalytics.paywallTitleHook() ?? flag
+            await loaded
+        }
+        hookFlag = flag
+        loading = false
+        guard !reported else { return }
+        reported = true
+        let resolved = PaywallCopy.hook(flag: flag, reason: context.reason, resource: context.resource)
+        ProductAnalytics.paywallViewed(
+            reason: context.reason,
+            hook: resolved.rawValue,
+            plan: plan.rawValue,
+            period: annual ? "year" : "month",
+            trialEligible: currentTrialDays != nil)
+    }
+
+    private func buy() async {
+        let period = annual ? "year" : "month"
+        let trial = currentTrialDays != nil
+        ProductAnalytics.paywallCTATapped(plan: plan.rawValue, period: period, trial: trial)
+        guard preview == nil else { return }
         if store.awaitingConfirmation {
             await store.load(session, refresh: true)
             return
         }
-        if alreadyMax {
+        if SubscriptionCheckout.managesInAppStore(access: store.access, packagePlan: plan) {
             openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
             return
         }
-        if await store.purchase(package, session: session) { dismiss() }
-    }
-}
-
-// MARK: Pieces
-
-/// What is being bought and, during a launch price, how long it lasts.
-private struct PaywallPlanLine: View {
-    let annual: Bool
-    let trial: Bool
-    let launch: LaunchOffer?
-
-    var body: some View {
-        Group {
-            if let launch, let end = launch.endsAt {
-                TimelineView(.periodic(from: .now, by: 60)) { context in
-                    Text("\(launch.label) · \(Self.remaining(until: end, from: context.date))")
-                        .monospacedDigit()
-                }
-            } else if let launch {
-                Text("\(launch.label) · por tempo limitado")
+        guard let package else { return }
+        if await store.purchase(package, session: session) {
+            completed = true
+            if trial {
+                ProductAnalytics.paywallTrialStarted(plan: plan.rawValue, period: period)
             } else {
-                Text((annual ? "Max anual" : "Max mensal") + (trial ? " · 7 dias grátis" : ""))
+                ProductAnalytics.paywallPurchaseCompleted(plan: plan.rawValue, period: period)
             }
+            close()
         }
-        .font(.system(size: 13, weight: .medium))
-        .tracking(-0.2)
-        .foregroundStyle(GalleryStyle.secondary)
-        .lineLimit(1)
-        .minimumScaleFactor(0.8)
-        .accessibilityIdentifier(launch == nil ? "paywall.plan" : "paywall.launch")
     }
 
-    static func remaining(until end: Date, from now: Date) -> String {
-        let seconds = max(0, Int(end.timeIntervalSince(now)))
-        let days = seconds / 86_400
-        let hours = (seconds % 86_400) / 3_600
-        let minutes = (seconds % 3_600) / 60
-        if days > 0 { return "termina em \(days)d \(hours)h" }
-        if hours > 0 { return "termina em \(hours)h \(minutes)min" }
-        return "termina em \(max(1, minutes))min"
+    private func close() {
+        if let onFinish { onFinish() } else { dismiss() }
     }
 }
 
-/// The plan the person has beside Max, row by row, in words rather than quotas. The gallery's
-/// tile holds it; Max sits on a white column so the eye lands there.
-private struct PaywallComparison: View {
-    let current: SubscriptionPlan
-    private let currentWidth: CGFloat = 68
-    private let maxWidth: CGFloat = 80
-    #if os(macOS)
-    private let rowInset: CGFloat = 10
-    #else
-    private let rowInset: CGFloat = 12
-    #endif
+extension View {
+    /// iPhone covers the screen. Mac floats a 520pt card over the dimmed app.
+    func journeyPaywall(_ offer: Binding<PaywallContext?>) -> some View {
+        modifier(JourneyPaywallModifier(offer: offer))
+    }
+}
+
+private struct JourneyPaywallModifier: ViewModifier {
+    @Binding var offer: PaywallContext?
+
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        content.overlay {
+            if let context = offer {
+                GeometryReader { proxy in
+                        ZStack {
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Color.black.opacity(0.22))
+                            .ignoresSafeArea()
+                            .contentShape(Rectangle())
+                            .onTapGesture { offer = nil }
+                            .accessibilityHidden(true)
+                        MaxPaywall(context: context, onFinish: { offer = nil })
+                            .frame(width: 520)
+                            .frame(maxHeight: max(320, proxy.size.height - 64))
+                    }
+                }
+            }
+        }
+        #else
+        content.fullScreenCover(item: $offer) { context in
+            MaxPaywall(context: context)
+        }
+        #endif
+    }
+}
+
+#if DEBUG
+private struct PaywallPreviewCanvas: View {
+    let context: PaywallContext
+    let offer: PaywallPreviewOffer
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
-                Text(current.title)
-                    .foregroundStyle(GalleryStyle.tertiary)
-                    .frame(width: currentWidth)
-                Text("Max")
-                    .foregroundStyle(GalleryStyle.ink)
-                    .frame(width: maxWidth)
-            }
-            .font(.system(size: 13, weight: .medium))
-            .tracking(-0.2)
-            .frame(height: 38)
-            .accessibilityHidden(true)
-            ForEach(MaxPlan.rows(comparedWith: current)) { row in
-                Rectangle()
-                    .fill(Color.black.opacity(0.06))
-                    .frame(height: 1)
-                HStack(spacing: 0) {
-                    Text(row.label)
-                        .font(.system(size: 15, weight: .medium))
-                        .tracking(-0.3)
-                        .foregroundStyle(GalleryStyle.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    cell(row.current, strong: false)
-                        .frame(width: currentWidth)
-                    cell(row.max, strong: true)
-                        .frame(width: maxWidth)
-                }
-                .padding(.vertical, rowInset)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(row.label). \(current.title): \(row.current.spoken). Max: \(row.max.spoken).")
-            }
+        #if os(macOS)
+        ZStack {
+            Color.black.opacity(0.18)
+            MaxPaywall(context: context, preview: offer)
+                .frame(width: 520)
+                .frame(maxHeight: 680)
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 6)
-        .padding(.vertical, 6)
-        .background(alignment: .trailing) {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(GalleryStyle.ring)
-                }
-                .frame(width: maxWidth)
-                .padding(6)
-        }
-        .background(GalleryStyle.fill)
-        .galleryTile()
-        .accessibilityIdentifier("paywall.comparison")
-    }
-
-    @ViewBuilder private func cell(_ value: MaxPlan.Value, strong: Bool) -> some View {
-        switch value {
-        case .missing:
-            Text("–")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(GalleryStyle.dot)
-        case .included:
-            Image(systemName: "checkmark")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(strong ? GalleryStyle.ink : GalleryStyle.tertiary)
-        case .limited, .less, .plenty:
-            Text(value.word ?? "")
-                .font(.system(size: 13, weight: .medium))
-                .tracking(-0.2)
-                .lineLimit(1)
-                .foregroundStyle(strong ? GalleryStyle.ink : GalleryStyle.tertiary)
-        case .soon:
-            // Announced, not shipped: a tag, never the check that means "you get this today".
-            Text("Em breve")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(GalleryStyle.secondary)
-                .padding(.horizontal, 8)
-                .frame(height: 22)
-                .overlay { Capsule().strokeBorder(GalleryStyle.ring) }
-                .fixedSize()
-        }
+        .frame(width: 900, height: 760)
+        .environment(Session())
+        #else
+        MaxPaywall(context: context, preview: offer)
+            .environment(Session())
+        #endif
     }
 }
 
-/// What each plan gives, in the words a person would use, and the line that explains why the
-/// sheet opened. No figures on purpose: quotas change on the server and this sheet should not
-/// have to follow them. The exact numbers stay in Conta → Uso, which reads them from the API.
-enum MaxPlan {
-    enum Value: Equatable {
-        case missing, included, limited, less, plenty, soon
-
-        /// Cells that say it in a word. The others draw a mark.
-        var word: String? {
-            switch self {
-            case .limited: "Limitado"
-            case .less: "Menos"
-            case .plenty: "De sobra"
-            case .missing, .included, .soon: nil
-            }
-        }
-
-        var spoken: String {
-            switch self {
-            case .missing: "não inclui"
-            case .included: "inclui"
-            case .limited: "limitado"
-            case .less: "menos"
-            case .plenty: "de sobra"
-            case .soon: "em breve"
-            }
-        }
-    }
-
-    struct Row: Identifiable {
-        let id: String
-        let label: String
-        let current: Value
-        let max: Value
-    }
-
-    static func rows(comparedWith plan: SubscriptionPlan) -> [Row] {
-        // Every plan saves and searches; what changes is how far it goes before the month resets.
-        let room: Value = switch plan {
-        case .free: .limited
-        case .pro: .less
-        case .max: .plenty
-        }
-        return [
-            Row(id: "video", label: "Captura de Reels, TikToks e vídeos",
-                current: plan == .max ? .included : .missing, max: .included),
-            Row(id: "ai", label: "Capturas e buscas com IA", current: room, max: .plenty),
-            Row(id: "library", label: "Espaço na biblioteca", current: room, max: .plenty),
-            Row(id: "spaces", label: "Spaces para organizar",
-                current: plan == .free ? .missing : .included, max: .included),
-            Row(id: "mcp", label: "MCP do Queep", current: .missing, max: .soon)
-        ]
-    }
-
-    /// One short line on why the sheet opened. Unknown limits show nothing rather than the API's sentence.
-    static func notice(for resource: String?, on plan: SubscriptionPlan) -> String? {
-        switch resource {
-        case "media_av", "media_seconds": "Vídeos e áudios fazem parte do Max"
-        case "operations": "Você usou as capturas deste mês"
-        case "searches": "Você usou as buscas deste mês"
-        case "items": "Sua biblioteca está cheia"
-        case "storage_bytes": "Seu espaço acabou"
-        case "upload_bytes": "Você usou o envio de arquivos deste mês"
-        case "spaces": plan == .free ? "Spaces fazem parte dos planos pagos" : "Você chegou ao limite de Spaces"
-        default: nil
-        }
-    }
+#Preview("Primeiro save, com teste") {
+    PaywallPreviewCanvas(context: PaywallContext(reason: "first_save"), offer: .proTrial)
 }
+
+#Preview("Limite de Spaces") {
+    PaywallPreviewCanvas(
+        context: PaywallContext(reason: "plan_limit", resource: "spaces", requiredPlan: .pro),
+        offer: .proPlain)
+}
+
+#Preview("Vídeo e áudio") {
+    PaywallPreviewCanvas(
+        context: PaywallContext(reason: "media_av_required", resource: "media_av", requiredPlan: .max),
+        offer: .maxTrial)
+}
+
+#Preview("Sem teste") {
+    PaywallPreviewCanvas(context: PaywallContext(reason: "first_save"), offer: .proPlain)
+}
+#endif
