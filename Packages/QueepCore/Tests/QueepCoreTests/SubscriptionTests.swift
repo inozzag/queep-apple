@@ -54,4 +54,74 @@ final class SubscriptionContractTests: XCTestCase {
         XCTAssertEqual(usage.counters["operations"]?.used, 12)
         XCTAssertEqual(usage.counters["storage_bytes"]?.limit, 500)
     }
+
+    func testProToMaxUpgradePurchasesInTheApp() throws {
+        let pro = try Self.access(plan: "pro", active: true)
+        XCTAssertFalse(SubscriptionCheckout.managesInAppStore(access: pro, packagePlan: .max))
+        XCTAssertTrue(SubscriptionCheckout.managesInAppStore(access: pro, packagePlan: .pro))
+    }
+
+    func testSamePlanAndDowngradeStayOnApple() throws {
+        let max = try Self.access(plan: "max", active: true)
+        XCTAssertTrue(SubscriptionCheckout.managesInAppStore(access: max, packagePlan: .max))
+        let pro = try Self.access(plan: "pro", active: true)
+        XCTAssertTrue(SubscriptionCheckout.managesInAppStore(access: pro, packagePlan: .pro))
+        XCTAssertTrue(SubscriptionCheckout.managesInAppStore(access: pro, packagePlan: .free))
+    }
+
+    func testInactiveAndDevelopmentAccountsPurchaseInTheApp() throws {
+        XCTAssertFalse(SubscriptionCheckout.managesInAppStore(access: nil, packagePlan: .max))
+        let lapsed = try Self.access(plan: "pro", active: false)
+        XCTAssertFalse(SubscriptionCheckout.managesInAppStore(access: lapsed, packagePlan: .max))
+        XCTAssertFalse(SubscriptionCheckout.managesInAppStore(access: lapsed, packagePlan: .pro))
+        let development = try Self.access(plan: "max", active: true, mode: "development")
+        XCTAssertFalse(SubscriptionCheckout.managesInAppStore(access: development, packagePlan: .max))
+        let pro = try Self.access(plan: "pro", active: true)
+        XCTAssertTrue(SubscriptionCheckout.managesInAppStore(access: pro, packagePlan: nil))
+    }
+
+    func testFirstPaywallWaitsUntilOffersAndKnownAccess() throws {
+        let free = try Self.access(plan: "free", active: false)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: false, access: free), .wait)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: false, access: nil), .wait)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: true, access: nil), .wait)
+        XCTAssertFalse(FirstPaywall.decide(offersLoaded: true, access: nil).rememberShown)
+        XCTAssertNotEqual(FirstPaywall.decide(offersLoaded: true, access: nil),
+                          FirstPaywall.decide(offersLoaded: true, access: free))
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: true, access: free), .show)
+        XCTAssertTrue(FirstPaywall.decide(offersLoaded: true, access: free).rememberShown)
+    }
+
+    func testFirstPaywallSkipsKnownPayingSubscribers() throws {
+        let pro = try Self.access(plan: "pro", active: true)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: true, access: pro), .skip)
+        XCTAssertTrue(FirstPaywall.decide(offersLoaded: true, access: pro).rememberShown)
+        let lapsed = try Self.access(plan: "pro", active: false)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: true, access: lapsed), .skip)
+        let development = try Self.access(plan: "max", active: true, mode: "development")
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: false, access: development), .wait)
+        XCTAssertEqual(FirstPaywall.decide(offersLoaded: true, access: development), .show)
+    }
+
+    func testTrialLineUsesThePackagePlanAndPeriod() {
+        XCTAssertEqual(
+            SubscriptionOfferCopy.trialLine(plan: .max, price: "R$ 999,90", period: "ano"),
+            "7 dias grátis de Max; depois, R$ 999,90 por ano")
+        XCTAssertEqual(
+            SubscriptionOfferCopy.trialLine(plan: .pro, price: "R$ 49,90", period: "mês"),
+            "7 dias grátis de Pro; depois, R$ 49,90 por mês")
+        XCTAssertFalse(SubscriptionOfferCopy.trialLine(plan: .max, price: "R$ 129,90", period: "mês")
+            .contains("de Pro"))
+        XCTAssertFalse(SubscriptionOfferCopy.trialLine(plan: .max, price: "R$ 129,90", period: "mês")
+            .contains("por ano"))
+    }
+
+    private static func access(plan: String, active: Bool, mode: String = "required") throws -> SubscriptionAccess {
+        let json = """
+        {"mode":"\(mode)","active":\(active),"checked_at":"2026-09-21T00:00:00Z",
+         "expires_at":null,"will_renew":false,"plan":"\(plan)",
+         "features":{"spaces":false,"media_av":false},"limits":{"operations":12}}
+        """
+        return try APIClient.decoder().decode(SubscriptionAccess.self, from: Data(json.utf8))
+    }
 }
