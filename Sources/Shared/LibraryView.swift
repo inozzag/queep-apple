@@ -325,7 +325,7 @@ struct LibraryView: View {
                         .accessibilityIdentifier("onboarding.dismissHint")
                 }.card(padding: 14, elevated: false)
             }
-            if SearchPresentation.showsPending(store.hasPending, showingSearch: searching) {
+            if SearchPresentation.showsPending(hasPending: store.hasPending, showingSearch: searching) {
                 Label(SearchPresentation.pending, systemImage: "clock")
                     .font(.caption)
                     .foregroundStyle(Color.muted)
