@@ -1,13 +1,87 @@
 import SwiftUI
 import QueepCore
 
+/// One poll loop for every analysis screen: interval, cap, terminal status, and a network error
+/// that must not leave the UI on "Analisando" with the task already finished.
+@MainActor
+enum AnalysisPolling {
+    static func run(
+        policy: AnalysisPoll.Policy,
+        interval: Duration,
+        fetch: () async throws -> Reference,
+        apply: (Reference) -> Void,
+        onFailure: (String) -> Void
+    ) async {
+        var snapshot = AnalysisPoll.Snapshot()
+        while !Task.isCancelled {
+            let outcome: AnalysisPoll.Outcome
+            do {
+                let fresh = try await fetch()
+                if Task.isCancelled { return }
+                apply(fresh)
+                let step = AnalysisPoll.afterFetch(
+                    status: fresh.status,
+                    galleryEmpty: fresh.gallery.isEmpty,
+                    mediaIncomplete: fresh.mediaIncomplete == true,
+                    snapshot: snapshot,
+                    policy: policy
+                )
+                snapshot = step.0
+                outcome = step.1
+            } catch is CancellationError {
+                return
+            } catch {
+                let step = AnalysisPoll.afterNetworkError(
+                    error.localizedDescription,
+                    snapshot: snapshot,
+                    policy: policy
+                )
+                snapshot = step.0
+                outcome = step.1
+            }
+            switch outcome {
+            case .keepPolling:
+                do { try await Task.sleep(for: interval) } catch { return }
+            case .stop:
+                return
+            case .failed(let message):
+                onFailure(message)
+                return
+            }
+        }
+    }
+}
+
+/// Shown when a poll stops on a connection error while analysis is still queued.
+struct AnalysisPollFailure: View {
+    let message: String
+    var canPollAgain = false
+    let retry: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(message, systemImage: "exclamationmark.circle")
+                .font(.callout)
+                .foregroundStyle(.red)
+                .fixedSize(horizontal: false, vertical: true)
+            if canPollAgain {
+                Button("Tentar novamente", systemImage: "arrow.clockwise", action: retry)
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("analysis.pollRetry")
+            }
+        }
+    }
+}
+
 /// What the AI understood, kept quiet: a summary, a few tags, details on demand.
 struct AnalysisView: View {
     @Environment(Session.self) private var session
+    @Environment(LibraryStore.self) private var store
     let reference: Reference
     @State private var updated: Reference?
     @State private var error: String?
     @State private var busy = false
+    @State private var pollEpoch = 0
 
     private var current: Reference { updated ?? reference }
 
@@ -63,37 +137,57 @@ struct AnalysisView: View {
                         .accessibilityIdentifier("media.transcript")
                 }.font(.callout).accessibilityIdentifier("media.showTranscript")
             }
-            if current.status == "error" && !current.isArchived {
+            if current.showsAnalysisRetry {
                 Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
-                    Task {
-                        guard let api = session.client(), let uid = session.userID else { return }
-                        busy = true; error = nil
-                        defer { busy = false }
-                        do {
-                            let value = try await api.retryAnalysis(current)
-                            guard session.userID == uid else { return }
-                            updated = value
-                        } catch { self.error = error.localizedDescription }
-                    }
+                    Task { await retry() }
                 }.buttonStyle(.bordered).disabled(busy)
             }
-            if let error { Text(error).font(.caption).foregroundStyle(.red) }
+            if let error {
+                AnalysisPollFailure(
+                    message: error,
+                    canPollAgain: current.status == "queued" || current.status == "processing"
+                ) {
+                    self.error = nil
+                    pollEpoch += 1
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card(padding: 18, elevated: false)
-        .task(id: "\(session.userID ?? "")/\(reference.id)/\(current.status)") {
-            guard let api = session.client(), let uid = session.userID else { return }
-            // Also refresh once on opening: search cards may outlive a processing update.
-            repeat {
-                do {
-                    let value = try await api.get(id: reference.id)
-                    guard !Task.isCancelled, session.userID == uid else { return }
+        .task(id: "\(session.userID ?? "")/\(reference.id)/\(pollEpoch)") {
+            guard let uid = session.userID else { return }
+            await AnalysisPolling.run(
+                policy: .analysis,
+                interval: .seconds(5),
+                fetch: {
+                    guard let api = session.client(), session.userID == uid else { throw CancellationError() }
+                    return try await api.get(id: reference.id)
+                },
+                apply: { value in
                     updated = value
-                    if value.status == "ready" || value.status == "error" { return }
-                    try await Task.sleep(for: .seconds(5))
-                } catch is CancellationError { return }
-                catch { return }
-            } while !Task.isCancelled
+                    store.adopt(value)
+                    error = nil
+                },
+                onFailure: { error = $0 }
+            )
+        }
+    }
+
+    private func retry() async {
+        guard let api = session.client(), let uid = session.userID else { return }
+        busy = true
+        error = nil
+        defer { busy = false }
+        do {
+            let value = try await api.retryAnalysis(current)
+            guard session.userID == uid else { return }
+            updated = value
+            store.adopt(value)
+            if AnalysisPoll.resumes(afterRetry: value.status) {
+                pollEpoch += 1
+            }
+        } catch {
+            self.error = AnalysisRetry.failureCopy(error)
         }
     }
 

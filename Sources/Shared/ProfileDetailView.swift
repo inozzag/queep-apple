@@ -12,6 +12,8 @@ struct ProfileDetailView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var confirmDelete = false
+    @State private var pollEpoch = 0
+    @State private var pollError: String?
 
     private var live: Reference {
         let fromStore = store.items.first(where: { $0.id == reference.id })
@@ -37,6 +39,15 @@ struct ProfileDetailView: View {
                     tags
                     if let error {
                         Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red)
+                    }
+                    if let pollError {
+                        AnalysisPollFailure(
+                            message: pollError,
+                            canPollAgain: live.status == "queued" || live.status == "processing"
+                        ) {
+                            self.pollError = nil
+                            pollEpoch += 1
+                        }
                     }
                 }
                 .padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 40)
@@ -66,7 +77,7 @@ struct ProfileDetailView: View {
         }
         .subscriptionGate()
         .interactiveDismissDisabled(busy)
-        .task(id: reference.id) { await refresh() }
+        .task(id: "\(reference.id)/\(pollEpoch)") { await poll() }
         #if os(macOS)
         .frame(minWidth: 560, idealWidth: 720, minHeight: 480, idealHeight: 640)
         #endif
@@ -113,7 +124,6 @@ struct ProfileDetailView: View {
                 .accessibilityValue(live.isArchived ? "Arquivado" : "")
             ReferenceSpaceButton(reference: reference)
                 .accessibilityIdentifier("profile.space")
-                .accessibilityHint("Em breve")
         }
         .buttonStyle(.bordered)
     }
@@ -135,7 +145,7 @@ struct ProfileDetailView: View {
                 FlowChips(items: items)
             }
         }
-        if live.status == "error" && !live.isArchived {
+        if live.showsAnalysisRetry {
             Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
                 Task { await retry() }
             }
@@ -162,18 +172,22 @@ struct ProfileDetailView: View {
             .accessibilityIdentifier("reference.more")
     }
 
-    private func refresh() async {
-        guard let api = session.client() else { return }
-        for _ in 0..<45 {
-            if Task.isCancelled { return }
-            do {
-                let fresh = try await api.get(id: reference.id)
+    private func poll() async {
+        guard let uid = session.userID else { return }
+        await AnalysisPolling.run(
+            policy: .detail,
+            interval: .seconds(2),
+            fetch: {
+                guard let api = session.client(), session.userID == uid else { throw CancellationError() }
+                return try await api.get(id: reference.id)
+            },
+            apply: { fresh in
                 latest = fresh
-                if fresh.status == "error" || fresh.status == "ready" { return }
-            } catch is CancellationError { return }
-            catch { }
-            do { try await Task.sleep(for: .seconds(2)) } catch { return }
-        }
+                store.adopt(fresh)
+                pollError = nil
+            },
+            onFailure: { pollError = $0 }
+        )
     }
 
     private func retry() async {
@@ -184,7 +198,11 @@ struct ProfileDetailView: View {
             let value = try await api.retryAnalysis(live)
             guard session.userID == uid else { return }
             latest = value
-        } catch { self.error = error.localizedDescription }
+            store.adopt(value)
+            if AnalysisPoll.resumes(afterRetry: value.status) {
+                pollEpoch += 1
+            }
+        } catch { self.error = AnalysisRetry.failureCopy(error) }
     }
 
     private func archive() {
@@ -200,7 +218,7 @@ struct ProfileDetailView: View {
             try await api.delete(live)
             guard session.userID == uid else { return }
             store.discardSearchReference(live.id)
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }

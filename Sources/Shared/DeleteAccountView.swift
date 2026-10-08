@@ -2,8 +2,11 @@ import FirebaseAuth
 import SwiftUI
 
 struct DeleteAccountView: View {
+    /// Pushed inside Ajustes. Back returns to that list; Cancelar still dismisses the sheet.
+    var pushedInSettings = false
     @Environment(Session.self) private var session
     @Environment(\.dismiss) private var dismiss
+    @Environment(LibraryStore.self) private var library
     @State private var password = ""
     @State private var owner: String?
     @State private var error: String?
@@ -12,8 +15,22 @@ struct DeleteAccountView: View {
     @State private var version = 0
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        Group {
+            if pushedInSettings {
+                detail
+            } else {
+                NavigationStack { detail }
+                    #if os(macOS)
+                    .frame(width: 510, height: 660)
+                    #endif
+            }
+        }
+        .interactiveDismissDisabled(session.deletingAccount)
+        .task { owner = session.userID; version = session.accountState?.version ?? 0 }
+    }
+
+    private var detail: some View {
+        ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     Text("Excluir sua conta?").font(.title2.bold())
                     Text("Sua biblioteca será bloqueada agora. Você terá 30 dias para cancelar a exclusão e recuperar suas referências. Depois desse prazo, a conta e os conteúdos serão apagados automaticamente.")
@@ -37,17 +54,15 @@ struct DeleteAccountView: View {
             }
             .navigationTitle("Excluir conta")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }.disabled(session.deletingAccount)
+                ToolbarItem(placement: pushedInSettings ? .confirmationAction : .cancellationAction) {
+                    Button("Cancelar") { close() }.disabled(session.deletingAccount)
                         .accessibilityIdentifier("account.delete.cancel")
                 }
             }
-        }
-        .interactiveDismissDisabled(session.deletingAccount)
-        .task { owner = session.userID; version = session.accountState?.version ?? 0 }
-        #if os(macOS)
-        .frame(width: 510, height: 660)
-        #endif
+    }
+
+    private func close() {
+        if pushedInSettings { library.presentation = nil } else { dismiss() }
     }
 
     @ViewBuilder private var confirmControls: some View {

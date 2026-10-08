@@ -1,14 +1,12 @@
 import SwiftUI
+import PhotosUI
 import QueepCore
+import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
-#else
-import PhotosUI
-import UIKit
 #endif
 
 struct LibraryView: View {
-    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
     @State private var logoutError: String?
@@ -16,6 +14,12 @@ struct LibraryView: View {
     @State private var pendingDelete: Reference?
     @State private var pendingSelectionDelete: [Reference] = []
     @State private var macHeaderHeight: CGFloat = 140
+    @State private var libraryViewport = CGRect.null
+    @State private var libraryScroll = LibraryScrollLive()
+    @State private var libraryScrollTick = 0
+    #if os(macOS)
+    @State private var macAddOpen = false
+    #endif
     @State private var selecting = false
     @State private var selectedIDs: Set<String> = []
     @State private var spaceSelection: [Reference] = []
@@ -24,11 +28,11 @@ struct LibraryView: View {
     @State private var onboardingPresented = false
     @State private var onboardingDismissed = false
     @State private var sawEmptyLibrary = false
-    @State private var conversionOffer: ConversionFocus?
-    #if os(iOS)
+    @State private var conversionOffer: PaywallContext?
+    @State private var consideringFirstPaywall = false
     @State private var galleryPhoto: PhotosPickerItem?
     @State private var sendingPhoto = false
-    #endif
+    @State private var sendingMessage = "Enviando imagem…"
 
     private var filtered: [Reference] {
         let items = store.searchItems ?? store.items
@@ -49,7 +53,7 @@ struct LibraryView: View {
                 case .usage: UsagePrivacyView()
                 case .help: HelpView()
                 case .deleteAccount: DeleteAccountView()
-                case .subscription: SubscriptionView()
+                case .subscription: SubscriptionView(managesOnly: true)
                 case .newSpace: SpaceNameSheet()
                 case .capture:
                     if store.captureKind == "link" && (store.captureIntent == "post" || store.captureIntent == "site") {
@@ -58,16 +62,10 @@ struct LibraryView: View {
                         CaptureView(reference: nil, initialKind: store.captureKind)
                     }
                 case .reference(let reference):
-                    if GalleryDetailView.supports(reference) {
-                        GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
-                            #if os(iOS)
-                            .presentationDragIndicator(.hidden)
-                            #endif
-                    } else {
-                        LiveReferenceView(reference: reference) { live in
-                            ReferenceDetail(reference: live)
-                        }
-                    }
+                    GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
+                        #if os(iOS)
+                        .presentationDragIndicator(.hidden)
+                        #endif
                 }
             }
             .alert("Não foi possível sair", isPresented: Binding(get: { logoutError != nil }, set: { if !$0 { logoutError = nil } })) {
@@ -76,15 +74,18 @@ struct LibraryView: View {
             .alert("Não foi possível concluir", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
                 Button("OK") { actionError = nil }
             } message: { Text(actionError ?? "") }
-            #if os(iOS)
             .photosPicker(isPresented: $store.openPhotoLibrary, selection: $galleryPhoto,
                           matching: .images, preferredItemEncoding: .current)
+            #if os(macOS)
+            .fileImporter(isPresented: $store.openFileImporter, allowedContentTypes: [.image, .movie, .audio]) { result in
+                Task { await sendImportedFile(result) }
+            }
+            #endif
             .onChange(of: galleryPhoto) { _, item in
                 guard let item else { return }
                 galleryPhoto = nil
                 Task { await sendGalleryPhoto(item) }
             }
-            #endif
             .confirmationDialog("Excluir permanentemente esta referência?",
                                 isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
                                 titleVisibility: .visible, presenting: pendingDelete) { reference in
@@ -126,21 +127,21 @@ struct LibraryView: View {
             selecting = false
             selectedIDs = []
             Task {
-                await refresh()
+                await refresh(force: false)
                 if !store.searchChips.isEmpty { await search() }
             }
         }
         .onChange(of: store.surface) { _, _ in
             selecting = false
             selectedIDs = []
-            Task { await refresh() }
+            Task { await refresh(force: false) }
         }
         .onAppear {
             noteEmptyLibrary()
             presentOnboardingIfNeeded()
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--preview-paywall") {
-                conversionOffer = .pro
+                conversionOffer = PaywallContext(reason: "preview")
             }
             FeedNotice.scheduleAfterLibraryAppears(
                 isLocal: session.isLocal,
@@ -156,16 +157,22 @@ struct LibraryView: View {
             considerFirstPaywall()
         }
         .onChange(of: onboardingPresented) { _, _ in considerFirstPaywall() }
-        .onboardingCover(isPresented: $onboardingPresented) {
+        .modifier(OnboardingCover(isPresented: $onboardingPresented) {
             OnboardingFlow {
                 onboardingDismissed = true
                 onboardingPresented = false
             }
-        }
-        .sheet(item: $conversionOffer) { focus in
-            ConversionPaywall(focus: focus)
-        }
+        })
+        .journeyPaywall($conversionOffer)
         .task(id: session.userID) { await restoreOnboarding() }
+        .onPreferenceChange(LibraryViewportKey.self) { frame in
+            guard frame.width > 1, frame.height > 1 else { return }
+            guard abs(frame.minX - libraryViewport.minX) > 0.5
+                    || abs(frame.minY - libraryViewport.minY) > 0.5
+                    || abs(frame.width - libraryViewport.width) > 0.5
+                    || abs(frame.height - libraryViewport.height) > 0.5 else { return }
+            libraryViewport = frame
+        }
     }
 
     private var uiTesting: Bool { ProcessInfo.processInfo.arguments.contains("--ui-testing") }
@@ -187,15 +194,19 @@ struct LibraryView: View {
     private func considerFirstPaywall() {
         guard !uiTesting, sawEmptyLibrary, !store.items.isEmpty, !onboardingPresented else { return }
         guard let uid = session.userID, !OnboardingProgress.paywallShown(uid), conversionOffer == nil else { return }
-        OnboardingProgress.markPaywallShown(uid)
+        guard !consideringFirstPaywall else { return }
+        consideringFirstPaywall = true
         Task {
+            defer { consideringFirstPaywall = false }
             await SubscriptionStore.shared.load(session)
-            guard session.userID == uid else { return }
-            let access = SubscriptionStore.shared.access
-            let plan = access?.plan ?? .free
-            // Local emulators grant Max, so a development session can still preview the trial sheet.
-            guard plan == .free || access?.isDevelopment == true else { return }
-            conversionOffer = .pro
+            guard session.userID == uid, conversionOffer == nil, !OnboardingProgress.paywallShown(uid) else { return }
+            let subscription = SubscriptionStore.shared
+            let decision = FirstPaywall.decide(
+                offersLoaded: subscription.storeAvailable && !subscription.packages.isEmpty,
+                access: subscription.access)
+            guard decision.rememberShown else { return }
+            OnboardingProgress.markPaywallShown(uid)
+            if decision == .show { conversionOffer = PaywallContext(reason: "first_save") }
         }
     }
 
@@ -213,16 +224,46 @@ struct LibraryView: View {
         ZStack(alignment: .top) {
             ScrollView {
                 libraryContents
-                    .padding(.horizontal, 16).padding(.bottom, 36)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 36 + (selecting ? 76 : 0))
                     .padding(.top, max(8, macHeaderHeight))
                     .frame(maxWidth: .infinity)
             }
+            .modifier(MacScrollGeometryPublisher(live: libraryScroll) {
+                libraryScrollTick += 1
+            })
             .libraryScrollPosition()
-            MacLibraryHeader(search: { Task { await search() } }, refresh: { Task { await refresh() } })
-                .homeTopBar()
-                .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
+            .libraryViewport()
+            MacLibraryHeader(
+                search: { Task { await search() } },
+                refresh: { Task { await refresh(force: true) } },
+                selecting: selecting,
+                canSelect: !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil),
+                toggleSelect: {
+                    selecting.toggle()
+                    if !selecting { selectedIDs = [] }
+                },
+                addOpen: $macAddOpen
+            )
+            .homeTopBar()
+            .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
+        }
+        .queepThingsMenu(isPresented: $macAddOpen)
+        .onChange(of: store.requestAddMenu) { _, open in
+            guard open else { return }
+            store.requestAddMenu = false
+            macAddOpen = true
+        }
+        .overlay(alignment: .bottom) {
+            if selecting {
+                selectionDock
+                    .fixedSize(horizontal: true, vertical: true)
+                    .padding(.bottom, 16)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .overlay { macGallery }
+        .animation(.spring(duration: 0.28), value: selecting)
         .animation(.easeOut(duration: 0.15), value: macGalleryID)
         .background(Color.white)
         .preferredColorScheme(.light)
@@ -230,7 +271,7 @@ struct LibraryView: View {
         #else
         iPhoneLibrary(
             search: { Task { await search() } },
-            refresh: { await refresh() },
+            refresh: { await refresh(force: true) },
             selecting: selecting,
             canSelect: !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil),
             toggleSelect: {
@@ -281,59 +322,51 @@ struct LibraryView: View {
                     .foregroundStyle(Theme.homeInk)
                     .accessibilityAddTraits(.isHeader)
             }
-            if !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil) {
-                #if os(macOS)
-                HStack(spacing: 8) {
-                    if selecting { selectionActions }
-                    Button {
-                        selecting.toggle()
-                        if !selecting { selectedIDs = [] }
-                    } label: { GalleryChip(title: selecting ? "Cancelar" : "Selecionar") }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("library.select")
-                }
-                #endif
-            }
-            #if os(iOS)
             if sendingPhoto {
-                Label("Enviando imagem…", systemImage: "arrow.up.circle")
-                    .font(.callout)
-                    .foregroundStyle(Color.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .card(padding: 14, elevated: false)
+                Label(sendingMessage, systemImage: "arrow.up.circle")
+                    .galleryBanner()
                     .accessibilityIdentifier("library.sendingPhoto")
             }
-            #endif
             if let error = store.error {
                 HStack(spacing: 12) {
-                    Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
-                    Text(error).font(.callout).fixedSize(horizontal: false, vertical: true)
+                    Image(systemName: "wifi.exclamationmark").foregroundStyle(GalleryStyle.secondary)
+                    Text(error).fixedSize(horizontal: false, vertical: true)
                     Spacer()
-                    Button("Tentar novamente") { Task { await refresh() } }
-                }.card(padding: 14, elevated: false)
+                    Button("Tentar novamente") { Task { await refresh(force: true) } }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(GalleryStyle.ink)
+                }
+                .galleryBanner()
             }
             if store.surface == .home && store.items.count == 1 && !searching && !searchHintDismissed && conversionOffer == nil {
                 HStack(alignment: .top, spacing: 12) {
-                    Sparkle()
                     Text("Referência salva. Use a busca da biblioteca para encontrá-la pelo nome ou, depois da análise, pelo assunto e pela aparência.")
-                        .font(.callout).fixedSize(horizontal: false, vertical: true)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("onboarding.searchHint")
                     Spacer()
                     Button { searchHintDismissed = true } label: {
                         Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityLabel("Dispensar dica de busca")
                         .accessibilityIdentifier("onboarding.dismissHint")
-                }.card(padding: 14, elevated: false)
+                }
+                .galleryBanner()
+            }
+            if SearchPresentation.showsPending(hasPending: store.hasPending, showingSearch: searching) {
+                Label(SearchPresentation.pending, systemImage: "clock")
+                    .font(.caption)
+                    .foregroundStyle(Color.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("search.pending")
             }
             if store.searching {
                 #if os(macOS)
                 MacSearchSkeleton()
                 #else
-                SearchSkeleton(columns: columns)
+                SearchSkeleton()
                 #endif
-            } else if store.searchError != nil {
-                ContentUnavailableView("Não foi possível buscar", systemImage: "magnifyingglass",
-                                       description: Text("Tente novamente em instantes. Suas referências continuam salvas."))
+            } else if let searchError = store.searchError {
+                ContentUnavailableView(SearchPresentation.failureMessage(searchError), systemImage: "magnifyingglass",
+                                       description: Text("Suas referências continuam salvas."))
             } else if store.items.isEmpty && store.loading && !store.hasLoaded {
                 ProgressView("Carregando suas referências…").frame(maxWidth: .infinity).padding(.top, 80)
             } else if store.items.isEmpty && store.error != nil && !searching {
@@ -356,20 +389,30 @@ struct LibraryView: View {
                     Label(searching ? "Nada parecido por aqui" : store.kindFilter == nil ? "Seu espaço para lembrar" : "Nada neste filtro",
                           systemImage: searching ? "sparkle.magnifyingglass" : "bookmark")
                 } description: {
-                    Text(searching ? (store.surface == .archived
-                         ? "Nenhum arquivado tem esse título ou endereço."
-                         : "Nenhuma correspondência entre os candidatos analisados. Tente descrever de outro jeito.")
+                    Text(searching ? SearchPresentation.emptyDescription(
+                        archived: store.surface == .archived,
+                        localFilterHidMatches: store.kindFilter != nil && store.searchItems?.isEmpty == false)
                          : store.kindFilter == nil
                          ? "Guarde uma imagem, um link ou uma nota. Eles aparecem nos seus dispositivos."
                          : "Esse tipo ainda não está na biblioteca. Queep things guarda o próximo.")
                 } actions: {
-                    if !searching { Button("Adicionar referência") { store.startCapture() }.buttonStyle(.borderedProminent) }
+                    if !searching {
+                        Button("Adicionar referência") { store.requestAddMenu = true }
+                            .buttonStyle(MasterButtonStyle())
+                            .accessibilityIdentifier("library.add.reference")
+                    }
                 }
             } else {
                 LibraryGallery(items: filtered, more: !searching && store.nextCursor != nil,
-                               loading: store.loading, failed: store.error != nil,
+                               loading: store.loadingMore,
+                               busy: store.loading || store.loadingMore || store.refreshing,
+                               failed: store.error != nil,
+                               viewport: galleryLoopViewport,
                                selecting: selecting, selectedIDs: selectedIDs,
                                resetID: "\(store.filterKey)|\(store.kindFilter ?? "")|\(searching)",
+                               scrollLive: libraryScroll,
+                               scrollTick: libraryScrollTick,
+                               onScrollPage: { libraryScrollTick += 1 },
                                open: { open($0) },
                                brush: { id, include in
                                    if include {
@@ -423,8 +466,11 @@ struct LibraryView: View {
                 Text("Spaces")
                     .font(.system(size: 17, weight: .bold))
                     .lineLimit(1)
-                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 6)
+                    #if os(iOS)
+                    .frame(maxWidth: .infinity)
+                    #endif
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -463,33 +509,6 @@ struct LibraryView: View {
         .shadow(color: .black.opacity(0.22), radius: 16, y: 6)
     }
 
-    private var selectionActions: some View {
-        HStack(spacing: 8) {
-            Text(selectionCountLabel)
-                .font(.system(size: 13, weight: .medium)).tracking(-0.2)
-                .foregroundStyle(GalleryStyle.secondary)
-                .padding(.trailing, 4)
-            Button(action: assignSelectionToSpaces) {
-                GalleryChip(title: "Spaces", symbol: "square.stack.3d.up", selected: true)
-            }
-            .buttonStyle(.plain)
-            .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
-            .accessibilityIdentifier("library.spaceSelection")
-            Button(action: archiveSelection) {
-                GalleryChip(title: store.surface == .archived ? "Desarquivar" : "Arquivar")
-            }
-            .buttonStyle(.plain)
-            .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
-            .accessibilityIdentifier("library.archiveSelection")
-            Button(action: deleteSelection) {
-                GalleryChip(title: "Excluir")
-            }
-            .buttonStyle(.plain)
-            .disabled(selectedIDs.isEmpty).opacity(selectedIDs.isEmpty ? 0.5 : 1)
-            .accessibilityIdentifier("library.deleteSelection")
-        }
-    }
-
     private func assignSelectionToSpaces() {
         spaceSelection = filtered.filter { selectedIDs.contains($0.id) }
         pickingSpaces = !spaceSelection.isEmpty
@@ -506,13 +525,19 @@ struct LibraryView: View {
         pendingSelectionDelete = filtered.filter { selectedIDs.contains($0.id) }
     }
 
-    private var galleryItems: [Reference] { filtered.filter(GalleryDetailView.supports) }
+    private var galleryItems: [Reference] { filtered }
+
+    /// Grid loops stop while an item is open so the focused slide is the one that plays.
+    private var galleryLoopViewport: CGRect {
+        if case .reference = store.presentation { return .null }
+        return libraryViewport
+    }
 
     /// On the Mac the opened picture covers the library like saved.design; everything else is a sheet.
     private var sheetPresentation: Binding<LibraryPresentation?> {
         Binding(get: {
             #if os(macOS)
-            if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) { return nil }
+            if case .reference = store.presentation { return nil }
             #endif
             return store.presentation
         }, set: { store.presentation = $0 })
@@ -520,12 +545,12 @@ struct LibraryView: View {
 
     #if os(macOS)
     private var macGalleryID: String? {
-        if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) { return reference.id }
+        if case .reference(let reference) = store.presentation { return reference.id }
         return nil
     }
 
     @ViewBuilder private var macGallery: some View {
-        if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) {
+        if case .reference(let reference) = store.presentation {
             GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
                 .transition(.opacity)
         }
@@ -587,17 +612,13 @@ struct LibraryView: View {
             }
         }
         guard session.userID == uid else { return }
-        await store.refresh(api, account: uid)
+        await store.refresh(api, account: uid, force: true)
         if let failure { actionError = failure }
     }
 
-    private var columns: [GridItem] {
-        typeSize.isAccessibilitySize ? [.init(.flexible())] : [.init(.adaptive(minimum: 240, maximum: 360), spacing: 18)]
-    }
-
-    private func refresh() async {
+    private func refresh(force: Bool) async {
         guard let api = session.client(), let uid = session.userID else { return }
-        await store.refresh(api, account: uid)
+        await store.refresh(api, account: uid, force: force)
     }
 
     private func search() async {
@@ -605,10 +626,10 @@ struct LibraryView: View {
         await store.search(api, account: uid)
     }
 
-    #if os(iOS)
     private func sendGalleryPhoto(_ selection: PhotosPickerItem) async {
         guard !sendingPhoto else { return }
         sendingPhoto = true
+        sendingMessage = "Enviando imagem…"
         actionError = nil
         defer { sendingPhoto = false }
         do {
@@ -619,7 +640,7 @@ struct LibraryView: View {
             let saved = try await api.uploadImage(id: UUID(), title: "", data: image.data)
             ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library")
             guard session.userID == uid else { return }
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
         } catch is CancellationError {
         } catch let failure as QueepError {
             if case .planRequired = failure { return }
@@ -628,76 +649,78 @@ struct LibraryView: View {
             actionError = error.localizedDescription
         }
     }
+
+    #if os(macOS)
+    private func sendImportedFile(_ result: Result<URL, Error>) async {
+        guard !sendingPhoto else { return }
+        sendingPhoto = true
+        sendingMessage = "Enviando arquivo…"
+        actionError = nil
+        defer { sendingPhoto = false }
+        do {
+            let url = try result.get()
+            guard let api = session.client(), let uid = session.userID else { return }
+            let saved: Reference
+            switch importedKind(url) {
+            case .image:
+                let image = try ImportedImage.prepare(url: url)
+                saved = try await api.uploadImage(id: UUID(), title: "", data: image.data)
+            case .media:
+                try await api.requireMediaAccess()
+                let media = try await ImportedMedia.prepare(url: url)
+                saved = try await api.uploadMedia(id: UUID(), title: "", file: media.file.url)
+            case .other:
+                throw QueepError.server("Escolha uma imagem, um áudio ou um vídeo.")
+            }
+            ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library")
+            guard session.userID == uid else { return }
+            await store.refresh(api, account: uid, force: true)
+        } catch is CancellationError {
+        } catch let failure as QueepError {
+            if case .planRequired = failure { return }
+            actionError = failure.localizedDescription
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    private enum ImportedKind { case image, media, other }
+
+    private func importedKind(_ url: URL) -> ImportedKind {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType else { return .other }
+        if type.conforms(to: .movie) || type.conforms(to: .video) || type.conforms(to: .audio) { return .media }
+        if type.conforms(to: .image) { return .image }
+        return .other
+    }
     #endif
 }
 
-/// The search reads as a conversation with the library: what it is doing, what it found.
-private struct SearchHeader: View {
-    @Environment(LibraryStore.self) private var store
-    let query: String
-    let search: () -> Void
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            ZStack {
-                Circle().fill(Theme.aiGradient.opacity(0.14)).frame(width: 40, height: 40)
-                Sparkle(size: 17)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                if store.searching {
-                    Text("Interpretando “\(query)”").font(.headline)
-                    Text("Comparando o significado com o que a IA entendeu das suas referências.")
-                        .font(.callout).foregroundStyle(Color.muted)
-                } else if let items = store.searchItems {
-                    Text(items.isEmpty ? "Nada parecido com “\(query)”" : "\(items.count) \(items.count == 1 ? "referência conferida" : "referências conferidas") por IA")
-                        .font(.headline)
-                    Text("Referências mais relevantes do seu acervo · até 10 por busca")
-                        .font(.callout).foregroundStyle(Color.muted)
-                    if store.hasPending {
-                        Label("Algumas referências ainda aguardam análise ou precisam de uma nova tentativa.", systemImage: "clock")
-                            .font(.caption).foregroundStyle(Color.muted)
-                    }
-                } else {
-                    Text("Pergunte à sua biblioteca").font(.headline)
-                    Text("Descreva o assunto, a aparência ou o que você lembra e pressione Enter.")
-                        .font(.callout).foregroundStyle(Color.muted)
-                }
-            }.fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 8)
-            HStack(spacing: 8) {
-                Button(store.searchItems == nil ? "Buscar" : "Buscar novamente", action: search)
-                    .buttonStyle(.borderedProminent).disabled(store.searching)
-                Button("Limpar") { store.query = "" }.buttonStyle(.bordered)
-            }.controlSize(.small)
-        }
-        .card(padding: 16)
-        .overlay(alignment: .bottom) {
-            if store.searching {
-                Rectangle().fill(Theme.aiGradient).frame(height: 2)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
-                    .padding(.horizontal, 1).shimmer()
-            }
-        }
-        .accessibilityElement(children: .contain)
-    }
-}
-
 private struct SearchSkeleton: View {
-    let columns: [GridItem]
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
-            ForEach(0..<3, id: \.self) { _ in
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Título da referência").font(.headline)
-                    Text("Resumo do que a inteligência artificial entendeu sobre esta referência salva.")
-                        .font(.callout)
-                    Text("assunto · utilidade").font(.caption)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading).card(padding: 18)
-                .shimmer()
+        MasonryLayout(spacing: GalleryStyle.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : 2) {
+            ForEach(0..<6, id: \.self) { index in
+                GalleryStyle.fill
+                    .frame(height: index.isMultiple(of: 3) ? 220 : 150)
+                    .galleryTile()
+                    .shimmer()
             }
         }
         .accessibilityLabel("Buscando nas suas referências")
+    }
+}
+
+private extension View {
+    func galleryBanner() -> some View {
+        font(.system(size: 13, weight: .medium))
+            .foregroundStyle(GalleryStyle.ink)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(GalleryStyle.fill)
+            .galleryTile()
     }
 }
 
@@ -772,21 +795,30 @@ struct LibraryGallery<MenuContent: View>: View {
     let items: [Reference]
     let more: Bool
     let loading: Bool
+    /// True while any library request is in flight, including a background refresh.
+    let busy: Bool
     let failed: Bool
+    let viewport: CGRect
     let selecting: Bool
     let selectedIDs: Set<String>
     let resetID: String
+    var scrollLive = LibraryScrollLive()
+    var scrollTick = 0
+    var onScrollPage: () -> Void = {}
     let open: (Reference) -> Void
     var brush: ((String, Bool) -> Void)? = nil
     let loadMore: () -> Void
     @ViewBuilder var menu: (Reference) -> MenuContent
 
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(Session.self) private var session
     @State private var shown = GalleryPaging.batch
     @State private var gate = false
-    /// Scroll position of the page tail. A class so each pan tick does not invalidate the gallery.
+    /// Latest tail position. A class so scroll ticks do not invalidate the gallery.
     @State private var tail = GalleryTailPosition()
     @State private var cardFrames: [String: CGRect] = [:]
+    @State private var playingLoopIDs: Set<String> = []
+    @State private var nearbyLoopIDs: Set<String> = []
     @State private var brushRemoves = false
     @State private var brushArmed = false
     @State private var brushPoint: CGPoint?
@@ -797,11 +829,13 @@ struct LibraryGallery<MenuContent: View>: View {
         VStack(spacing: GalleryStyle.gap) {
             MasonryLayout(spacing: GalleryStyle.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : nil) {
                 ForEach(visible) { reference in
-                    LibraryCardCell(reference: reference, open: { open(reference) }) {
+                    LibraryCardCell(reference: reference, playsLoop: playingLoopIDs.contains(reference.id),
+                                    open: { open(reference) }) {
                         menu(reference)
                     }
                     .id(reference.id)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .background { loopProbe(reference) }
                     .overlay(alignment: .topTrailing) {
                         if selecting {
                             Image(systemName: selectedIDs.contains(reference.id) ? "checkmark.circle.fill" : "circle")
@@ -838,15 +872,38 @@ struct LibraryGallery<MenuContent: View>: View {
         .onPreferenceChange(GalleryCardFrames.self) { frames in
             if frames != cardFrames { cardFrames = frames }
         }
+        .onPreferenceChange(LoopWindowKey.self) { window in
+            let playing = Set(visible.filter { window.playing.contains($0.id) }.prefix(InlineLoop.playerCap).map(\.id))
+            if playing != playingLoopIDs { playingLoopIDs = playing }
+            if window.nearby != nearbyLoopIDs {
+                nearbyLoopIDs = window.nearby
+                prefetchNearbyLoops(window.nearby)
+            }
+        }
         .modifier(SelectionBrush(enabled: selecting, gesture: brushGesture))
         .onChange(of: resetID) { _, _ in
             shown = GalleryPaging.batch
             gate = false
+            scrollLive.armAgain()
         }
+        #if os(macOS)
+        .onChange(of: scrollTick, initial: true) { _, _ in reconsider() }
+        .modifier(LegacyMacScrollProbe(live: scrollLive, onPage: onScrollPage))
+        #endif
         .onChange(of: items.count) { old, new in
-            if new < old { shown = min(GalleryPaging.batch, new) }
-            if !gate { consider(tail.y) }
+            // A page that arrives while the end gate is closed must still be shown.
+            // `items` on a later retry is the array from before the append.
+            let next = LibraryEndTrigger.nextShownCount(shown: shown, previousCount: old, newCount: new)
+            if next != shown { shown = next }
+            #if os(macOS)
+            reconsider()
+            #endif
         }
+        .onChange(of: viewport) { _, _ in reconsider() }
+        .onChange(of: busy) { _, busy in
+            if !busy { reconsider() }
+        }
+        .onChange(of: more) { _, _ in reconsider() }
     }
 
     private var brushGesture: some Gesture {
@@ -869,6 +926,27 @@ struct LibraryGallery<MenuContent: View>: View {
             }
     }
 
+    @ViewBuilder private func loopProbe(_ reference: Reference) -> some View {
+        if reference.playsInlineLoop {
+            GeometryReader { proxy in
+                let frame = proxy.frame(in: .global)
+                let near = viewport.isNull ? viewport : viewport.insetBy(dx: -80, dy: -InlineLoop.prefetchMargin)
+                Color.clear.preference(
+                    key: LoopWindowKey.self,
+                    value: LoopWindow(
+                        playing: viewport.intersects(frame) ? [reference.id] : [],
+                        nearby: near.intersects(frame) ? [reference.id] : []
+                    )
+                )
+            }
+        }
+    }
+
+    private func prefetchNearbyLoops(_ ids: Set<String>) {
+        guard let api = session.client(), let account = session.userID, !ids.isEmpty else { return }
+        ImagePrefetch.warmMotion(visible.filter { ids.contains($0.id) }, client: api, account: account)
+    }
+
     private func hit(_ point: CGPoint) -> String? {
         cardFrames.first { $0.value.contains(point) }?.key
     }
@@ -885,9 +963,27 @@ struct LibraryGallery<MenuContent: View>: View {
     }
 
     private func consider(_ y: CGFloat) {
-        tail.y = y
-        guard y < viewportHeight + 320 else { return }
+        tail.minY = y
+        #if os(iOS)
+        guard !gate else { return }
+        guard LibraryEndTrigger.isNearEnd(tailMinY: y, viewport: viewport) else { return }
         reveal()
+        #endif
+    }
+
+    /// `distance` is loaded content still below the visible bottom of the library scroll view.
+    private func considerScrollDistance(_ distance: CGFloat, containerHeight: CGFloat) {
+        guard !gate else { return }
+        guard LibraryEndTrigger.shouldPage(distanceToEnd: distance, containerHeight: containerHeight) else { return }
+        reveal()
+    }
+
+    private func reconsider() {
+        #if os(macOS)
+        considerScrollDistance(scrollLive.distance, containerHeight: scrollLive.containerHeight)
+        #else
+        consider(tail.minY)
+        #endif
     }
 
     private func reveal() {
@@ -895,29 +991,26 @@ struct LibraryGallery<MenuContent: View>: View {
         if shown < items.count {
             gate = true
             shown = min(items.count, shown + GalleryPaging.batch)
-            release()
+            disarm()
             return
         }
-        guard more, !loading, !failed else { return }
+        guard !failed else { return }
+        guard LibraryEndTrigger.shouldRequestNextPage(distanceToEnd: scrollLive.distance,
+                                                       containerHeight: scrollLive.containerHeight,
+                                                       hasCursor: more,
+                                                       inFlight: loading) else { return }
         gate = true
         loadMore()
-        release()
+        disarm()
     }
 
-    private func release() {
-        Task {
-            try? await Task.sleep(for: .milliseconds(450))
+    /// Lets layout publish a new tail position before another page can start.
+    private func disarm() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
             gate = false
-            consider(tail.y)
+            reconsider()
         }
-    }
-
-    private var viewportHeight: CGFloat {
-        #if os(macOS)
-        NSScreen.main?.visibleFrame.height ?? 900
-        #else
-        UIScreen.main.bounds.height
-        #endif
     }
 }
 
@@ -927,8 +1020,198 @@ private enum GalleryPaging {
 
 /// Holds the page-tail offset without publishing a SwiftUI update on every scroll tick.
 private final class GalleryTailPosition {
-    var y: CGFloat = .greatestFiniteMagnitude
+    var minY: CGFloat = .greatestFiniteMagnitude
 }
+
+/// Latest Mac scroll measurement. A class so offset ticks do not redraw the gallery.
+@MainActor
+final class LibraryScrollLive {
+    var distance: CGFloat = .greatestFiniteMagnitude
+    var containerHeight: CGFloat = 0
+    private var signaled = false
+    private var contentHeight: CGFloat = 0
+
+    func apply(distance: CGFloat, containerHeight: CGFloat, contentHeight: CGFloat, onPage: () -> Void) {
+        self.distance = distance
+        self.containerHeight = containerHeight
+        let page = LibraryEndTrigger.shouldPage(distanceToEnd: distance, containerHeight: containerHeight)
+        let grew = contentHeight > self.contentHeight + 24
+        self.contentHeight = contentHeight
+        if page && (!signaled || grew) {
+            signaled = true
+            onPage()
+        } else if !page {
+            signaled = false
+        }
+    }
+
+    func armAgain() {
+        signaled = false
+        contentHeight = 0
+    }
+}
+
+/// macOS 15+ reads the scroll view's own geometry. Clip-view KVO does not fire while SwiftUI tracks.
+private struct MacScrollGeometryPublisher: ViewModifier {
+    var live: LibraryScrollLive
+    var onPage: () -> Void
+
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        if #available(macOS 15.0, *) {
+            content.libraryScrollGeometry(live: live, onPage: onPage)
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+}
+
+#if os(macOS)
+@available(macOS 15.0, *)
+private struct LibraryScrollMeasurement: Equatable {
+    var distance: CGFloat
+    var containerHeight: CGFloat
+    var contentHeight: CGFloat
+
+    init(geometry geo: ScrollGeometry) {
+        contentHeight = geo.contentSize.height
+        containerHeight = geo.containerSize.height
+        distance = LibraryEndTrigger.resolvedDistance(
+            contentHeight: geo.contentSize.height,
+            contentOffsetY: geo.contentOffset.y,
+            containerHeight: geo.containerSize.height,
+            visibleMaxY: geo.visibleRect.maxY,
+            visibleHeight: geo.visibleRect.height)
+    }
+}
+
+@available(macOS 15.0, *)
+private extension View {
+    func libraryScrollGeometry(live: LibraryScrollLive, onPage: @escaping () -> Void) -> some View {
+        onScrollGeometryChange(for: LibraryScrollMeasurement.self) { geo in
+            LibraryScrollMeasurement(geometry: geo)
+        } action: { _, sample in
+            live.apply(distance: sample.distance,
+                       containerHeight: sample.containerHeight,
+                       contentHeight: sample.contentHeight,
+                       onPage: onPage)
+        }
+    }
+}
+
+/// macOS 14 has no scroll-geometry callback. The probe has to sit inside the scrolled content
+/// and listen for clip-view bounds notifications — KVO on `bounds` never arrives during tracking.
+private struct LegacyMacScrollProbe: ViewModifier {
+    var live: LibraryScrollLive
+    var onPage: () -> Void
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content
+        } else {
+            content.background {
+                LibraryScrollEndProbe { distance, container, contentHeight in
+                    live.apply(distance: distance,
+                               containerHeight: container,
+                               contentHeight: contentHeight,
+                               onPage: onPage)
+                }
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+            }
+        }
+    }
+}
+
+private struct LibraryScrollEndProbe: NSViewRepresentable {
+    var onMeasure: (CGFloat, CGFloat, CGFloat) -> Void
+
+    func makeNSView(context: Context) -> LibraryScrollEndView {
+        let view = LibraryScrollEndView()
+        view.onMeasure = onMeasure
+        return view
+    }
+
+    func updateNSView(_ view: LibraryScrollEndView, context: Context) {
+        view.onMeasure = onMeasure
+        view.attachIfNeeded()
+    }
+}
+
+private final class LibraryScrollEndView: NSView {
+    var onMeasure: ((CGFloat, CGFloat, CGFloat) -> Void)?
+    private var attachedClip = false
+    private var attachedDocument = false
+    private var scheduled = false
+    private var latest: (CGFloat, CGFloat, CGFloat) = (.greatestFiniteMagnitude, 0, 0)
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        attachIfNeeded()
+    }
+
+    override func layout() {
+        super.layout()
+        attachIfNeeded()
+        note()
+    }
+
+    func attachIfNeeded() {
+        guard let scroll = enclosingScrollView else { return }
+        if !attachedClip {
+            attachedClip = true
+            let clip = scroll.contentView
+            clip.postsBoundsChangedNotifications = true
+            NotificationCenter.default.addObserver(self, selector: #selector(scrollChanged),
+                                                   name: NSView.boundsDidChangeNotification, object: clip)
+        }
+        if !attachedDocument, let document = scroll.documentView {
+            attachedDocument = true
+            document.postsFrameChangedNotifications = true
+            NotificationCenter.default.addObserver(self, selector: #selector(scrollChanged),
+                                                   name: NSView.frameDidChangeNotification, object: document)
+        }
+        note()
+    }
+
+    @objc private func scrollChanged(_ notification: Notification) {
+        note()
+    }
+
+    private func note() {
+        guard let scroll = enclosingScrollView, let document = scroll.documentView else { return }
+        let clip = scroll.contentView.bounds
+        let visible = scroll.documentVisibleRect
+        let contentHeight = max(document.frame.height, document.bounds.height)
+        var offset = clip.origin.y
+        if abs(offset) < 0.5, document.frame.origin.y < -1 {
+            offset = -document.frame.origin.y
+        }
+        let visibleMaxY = document.isFlipped ? visible.maxY : (contentHeight - visible.minY)
+        latest = (LibraryEndTrigger.resolvedDistance(contentHeight: contentHeight,
+                                                     contentOffsetY: offset,
+                                                     containerHeight: clip.height,
+                                                     visibleMaxY: visibleMaxY,
+                                                     visibleHeight: visible.height),
+                  clip.height,
+                  contentHeight)
+        guard !scheduled else { return }
+        scheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.scheduled = false
+            self.onMeasure?(self.latest.0, self.latest.1, self.latest.2)
+        }
+    }
+}
+#endif
 
 /// Installs the selection drag only while Selecionar is on. A drag left on the gallery
 /// wins the pan and the library stops scrolling.
@@ -979,6 +1262,34 @@ private struct LibraryScrollPosition: ViewModifier {
     }
 }
 
+/// iOS presents onboarding edge to edge. macOS has no full-screen cover, so it uses a sheet.
+private struct OnboardingCover<Cover: View>: ViewModifier {
+    @Binding var isPresented: Bool
+    @ViewBuilder var cover: () -> Cover
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        content.fullScreenCover(isPresented: $isPresented, content: cover)
+        #else
+        content.sheet(isPresented: $isPresented, content: cover)
+        #endif
+    }
+}
+
+private struct LoopWindow: Equatable {
+    var playing: Set<String> = []
+    var nearby: Set<String> = []
+}
+
+private struct LoopWindowKey: PreferenceKey {
+    static let defaultValue = LoopWindow()
+    static func reduce(value: inout LoopWindow, nextValue: () -> LoopWindow) {
+        let next = nextValue()
+        value.playing.formUnion(next.playing)
+        value.nearby.formUnion(next.nearby)
+    }
+}
+
 private struct GalleryCardFrames: PreferenceKey {
     static let defaultValue: [String: CGRect] = [:]
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
@@ -991,7 +1302,23 @@ private struct GalleryTailKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
-/// Reports its distance from the top of the screen so the gallery can reveal the next batch.
+private struct LibraryViewportKey: PreferenceKey {
+    static let defaultValue = CGRect.null
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
+}
+
+extension View {
+    /// Publishes the scroll view's visible frame so paging uses the window, not the whole screen.
+    func libraryViewport() -> some View {
+        background {
+            GeometryReader { geo in
+                Color.clear.preference(key: LibraryViewportKey.self, value: geo.frame(in: .global))
+            }
+        }
+    }
+}
+
+/// Reports its position in screen space. The gallery compares that with the scroll view's frame.
 private struct GalleryPageTail: View {
     let onMove: (CGFloat) -> Void
 
@@ -1005,29 +1332,6 @@ private struct GalleryPageTail: View {
             }
             .onPreferenceChange(GalleryTailKey.self, perform: onMove)
             .accessibilityHidden(true)
-    }
-}
-
-/// Keeps detail sheets on the freshest library copy while polling updates the store.
-private struct LiveReferenceView<Content: View>: View {
-    @Environment(LibraryStore.self) private var store
-    let reference: Reference
-    @ViewBuilder var content: (Reference) -> Content
-
-    var body: some View {
-        content(store.items.first(where: { $0.id == reference.id }) ?? reference)
-    }
-}
-
-
-private extension View {
-    @ViewBuilder
-    func onboardingCover<Content: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) -> some View {
-        #if os(iOS)
-        fullScreenCover(isPresented: isPresented, content: content)
-        #else
-        sheet(isPresented: isPresented, content: content)
-        #endif
     }
 }
 

@@ -216,7 +216,7 @@ struct MediaDetailView: View {
             _ = try await api.editMetadata(reference, title: title, text: text, mutationID: mutationID)
             guard owner == session.userID else { return }
             store.discardSearchReference(reference.id)
-            await store.refresh(api, account: owner)
+            await store.refresh(api, account: owner, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }
@@ -229,7 +229,7 @@ struct MediaDetailView: View {
             try await api.delete(reference)
             guard owner == session.userID else { return }
             clear(); store.discardSearchReference(reference.id)
-            await store.refresh(api, account: owner)
+            await store.refresh(api, account: owner, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }
@@ -268,6 +268,8 @@ struct MediaPlaybackView: View {
                     Label(playing ? "Pausar" : "Reproduzir",
                           systemImage: playing ? "pause.fill" : "play.fill")
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(GalleryStyle.ink)
                 .disabled(failed).accessibilityIdentifier("media.playPause")
                 Spacer()
                 Text(timestamp(elapsed)).monospacedDigit().font(.caption)
@@ -279,6 +281,7 @@ struct MediaPlaybackView: View {
                     elapsed = value
                     player.seek(to: CMTime(seconds: value, preferredTimescale: 600))
                 }), in: 0...max(duration, 0.1))
+                .tint(GalleryStyle.ink)
                 .accessibilityLabel("Posição do áudio")
                 .accessibilityValue("\(timestamp(elapsed)) de \(timestamp(duration))")
                 .disabled(failed)

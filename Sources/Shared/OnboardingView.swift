@@ -586,7 +586,7 @@ struct OnboardingFlow: View {
         let saved = try await api.uploadImage(id: UUID(), title: "", data: image.data)
         ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library")
         guard session.userID == uid else { return }
-        await store.refresh(api, account: uid)
+        await store.refresh(api, account: uid, force: true)
         captured = true
     }
 
@@ -598,7 +598,7 @@ struct OnboardingFlow: View {
             let saved = try await api.create(id: UUID(), capture: Capture(kind: "link", title: "", text: "", url: url))
             ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library")
             guard session.userID == uid else { return }
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             captured = true
         } catch {
             busy = false

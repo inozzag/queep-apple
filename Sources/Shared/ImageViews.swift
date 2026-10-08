@@ -150,16 +150,24 @@ enum ImageByteCache {
     }
 }
 
-/// Downloads the first screen of posters before the cells ask, four at a time.
+/// How many muted loops may play at once, and how far ahead of the viewport their bytes are fetched.
+enum InlineLoop {
+    static let playerCap = 4
+    static let prefetchMargin: CGFloat = 360
+}
+
+/// Downloads posters for the first screen, and loop bytes only for cells near the viewport.
 enum ImagePrefetch {
     static func warm(_ items: [Reference], client: APIClient, account: String) {
-        let posters = Array(items.prefix(24))
-        let moving = Array(items.prefix(12))
+        let posters = Array(items.prefix(18))
         guard !posters.isEmpty else { return }
-        Task {
-            await fetch(posters, client: client, account: account, motion: false)
-            await fetch(moving, client: client, account: account, motion: true)
-        }
+        Task { await fetch(posters, client: client, account: account, motion: false) }
+    }
+
+    static func warmMotion(_ items: [Reference], client: APIClient, account: String) {
+        let moving = items.filter(\.playsInlineLoop)
+        guard !moving.isEmpty else { return }
+        Task { await fetch(moving, client: client, account: account, motion: true) }
     }
 
     private static func fetch(_ items: [Reference], client: APIClient, account: String, motion: Bool) async {
@@ -181,9 +189,7 @@ enum ImagePrefetch {
 
     private static func load(_ reference: Reference, client: APIClient, account: String, motion: Bool) async {
         if motion {
-            let videoLoop = reference.kind == "video" && reference.media?.loop == true && reference.gallery.isEmpty
-            let galleryMotion = reference.gallery.first?.motion == true
-            guard videoLoop || galleryMotion else { return }
+            guard reference.playsInlineLoop else { return }
         } else if reference.kind != "video" && reference.gallery.isEmpty {
             return
         }
@@ -191,7 +197,9 @@ enum ImagePrefetch {
         if ImageByteCache.data(for: key) != nil { return }
         do {
             let bytes: Data
-            if reference.kind == "video" && reference.gallery.isEmpty {
+            if motion, reference.kind == "video", reference.media?.loop == true {
+                bytes = try await client.mediaData(reference, loop: true)
+            } else if reference.kind == "video", reference.gallery.isEmpty {
                 bytes = try await client.mediaData(reference, thumbnail: !motion, loop: motion)
             } else if motion {
                 bytes = try await client.imageData(reference, motion: true)
@@ -296,8 +304,8 @@ struct RemoteImageCarousel: View {
                                     ZStack {
                                         if abs(index - current) <= 1 {
                                             RemoteImage(reference: reference, thumbnail: thumbnail, fill: fill, index: index)
-                                            if gallery[index].motion == true {
-                                                MotionLoop(reference: reference, index: index, fill: fill)
+                                            if gallery[index].motion == true, index == current {
+                                                MotionLoop(reference: reference, index: index, fill: fill, active: true)
                                             }
                                         } else {
                                             Color.primary.opacity(0.05)
@@ -575,7 +583,7 @@ struct ImageDetailView: View {
             _ = try await api.editMetadata(reference, title: title, text: text, mutationID: mutationID)
             guard session.userID == uid else { return }
             store.discardSearchReference(reference.id)
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }
@@ -588,7 +596,7 @@ struct ImageDetailView: View {
             try await api.delete(reference)
             guard session.userID == uid else { return }
             store.discardSearchReference(reference.id)
-            await store.refresh(api, account: uid)
+            await store.refresh(api, account: uid, force: true)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }
@@ -600,17 +608,20 @@ struct ImageDetailView: View {
 }
 
 /// Poster stays underneath until the muted loop is ready, then the GIF or the first 8 seconds play.
+/// `active` is false for off-screen cells so the player, looper, and temp file are released.
 struct MotionLoop: View {
     @Environment(Session.self) private var session
     let reference: Reference
     var index = 0
     var fill = true
+    var active = false
     @State private var data: Data?
 
-    private var videoFile: Bool { reference.kind == "video" && reference.gallery.isEmpty }
+    /// Uploaded videos keep their loop even when a poster image is stored beside the file.
+    private var usesUploadedLoop: Bool { reference.kind == "video" && reference.media?.loop == true }
 
     private var enabled: Bool {
-        if videoFile { return reference.media?.loop == true }
+        if usesUploadedLoop { return true }
         return reference.gallery.indices.contains(index) && reference.gallery[index].motion == true
     }
 
@@ -621,21 +632,21 @@ struct MotionLoop: View {
 
     var body: some View {
         Group {
-            if let data {
+            if active, let data {
                 LoopFilm(data: data, fill: fill)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .task(id: cacheKey) {
-            guard enabled, let api = session.client(), let uid = session.userID else { return }
+        .task(id: active ? cacheKey : "off-\(cacheKey)") {
+            guard active, enabled, let api = session.client(), let uid = session.userID else { return }
             if let cached = ImageByteCache.data(for: cacheKey) {
                 data = cached
                 return
             }
             do {
-                let bytes = try await videoFile
+                let bytes = try await usesUploadedLoop
                     ? api.mediaData(reference, loop: true)
                     : api.imageData(reference, index: index, motion: true)
                 guard !Task.isCancelled, uid == session.userID else { return }
@@ -660,7 +671,16 @@ private struct LoopFilm: View {
             }
         }
         .onAppear { start() }
-        .onDisappear { player?.pause() }
+        .onDisappear { stop() }
+    }
+
+    private func stop() {
+        player?.pause()
+        looper?.disableLooping()
+        looper = nil
+        player?.removeAllItems()
+        player = nil
+        file = nil
     }
 
     private func start() {

@@ -12,6 +12,11 @@ final class SubscriptionStore {
     private(set) var access: SubscriptionAccess?
     private(set) var packages: [Package] = []
     private(set) var trialEligible: Set<String> = []
+    /// Packages whose introductory offer this account can still redeem, free or paid.
+    private(set) var introEligible: Set<String> = []
+    /// Optional launch messaging from the offering's metadata (`launch_label`, `launch_ends_at`).
+    private(set) var launchLabel: String?
+    private(set) var launchEndsAt: Date?
     private var pendingPlan: SubscriptionPlan?
     private(set) var busy = false
     private(set) var error: String?
@@ -28,7 +33,7 @@ final class SubscriptionStore {
         defer { busy = false }
         ownerID = nil; access = nil; packages = []; error = nil; message = nil
         storeAvailable = false; awaitingConfirmation = false
-        pendingPlan = nil; trialEligible = []
+        pendingPlan = nil; trialEligible = []; clearOffers()
         if Purchases.isConfigured && !Purchases.shared.isAnonymous {
             _ = try? await Purchases.shared.logOut()
         }
@@ -71,7 +76,7 @@ final class SubscriptionStore {
         guard !busy, let uid = session.userID, let api = session.client() else { return }
         if ownerID != uid {
             access = nil; packages = []; storeAvailable = false; awaitingConfirmation = false
-            pendingPlan = nil; trialEligible = []
+            pendingPlan = nil; trialEligible = []; clearOffers()
         }
         ownerID = uid
         busy = true; error = nil; message = nil
@@ -79,7 +84,7 @@ final class SubscriptionStore {
             busy = false
             if session.userID != uid {
                 access = nil; packages = []; storeAvailable = false; message = nil; error = nil
-                awaitingConfirmation = false; pendingPlan = nil; trialEligible = []
+                awaitingConfirmation = false; pendingPlan = nil; trialEligible = []; clearOffers()
             }
         }
         do { try await operation(uid, api) }
@@ -99,11 +104,18 @@ final class SubscriptionStore {
     }
 
     func load(_ session: Session, refresh: Bool = false) async {
+        #if DEBUG
+        if Self.previewSample {
+            applySample()
+            return
+        }
+        #endif
         await perform(session) { uid, api in
             let result = try await api.subscriptionAccess(refresh: refresh)
             guard session.userID == uid else { return }
             access = result
-            ProductAnalytics.identify(uid: uid, plan: result.plan.rawValue)
+            ProductAnalytics.identify(uid: uid, plan: result.plan.rawValue,
+                                      email: session.identity?.email, name: session.identity?.displayName)
             if result.plan.rank >= (pendingPlan?.rank ?? 0) { awaitingConfirmation = false; pendingPlan = nil }
             guard key != nil else {
                 storeAvailable = false
@@ -122,6 +134,13 @@ final class SubscriptionStore {
             pendingPlan = storePlan.rank > result.plan.rank ? storePlan : nil
             awaitingConfirmation = pendingPlan != nil
             trialEligible = []
+            clearOffers()
+            if let current = offerings.current {
+                let label: String = current.getMetadataValue(for: "launch_label", default: "")
+                let ends: String = current.getMetadataValue(for: "launch_ends_at", default: "")
+                launchLabel = label.isEmpty ? nil : label
+                launchEndsAt = ISO8601DateFormatter().date(from: ends)
+            }
             packages = offerings.current?.availablePackages.filter {
                 $0.storeProduct.productType == .autoRenewableSubscription && Self.plan($0) != nil
             } ?? []
@@ -131,21 +150,17 @@ final class SubscriptionStore {
             }
             let eligibility = await Purchases.shared.checkTrialOrIntroDiscountEligibility(packages: packages)
             guard session.userID == uid else { return }
+            introEligible = Set(packages.filter { eligibility[$0]?.status == .eligible }.map(\.identifier))
             trialEligible = Set(packages.compactMap { package -> String? in
-                guard let plan = Self.plan(package), plan == .pro || plan == .max,
-                      Self.isAnnual(package) else { return nil }
+                guard let plan = Self.plan(package), plan == .pro || plan == .max else { return nil }
                 #if DEBUG
                 // The Test Store fixture is named "yearly" and has no intro offer attached.
-                // Production annual plans carry the 7-day trial this sheet is meant to sell.
+                // Production plans carry whatever free trial the store configured.
                 if package.storeProduct.productIdentifier == "yearly" { return package.identifier }
                 #endif
                 guard eligibility[package]?.status == .eligible,
-                      let offer = package.storeProduct.introductoryDiscount,
-                      offer.paymentMode == .freeTrial else { return nil }
-                let period = offer.subscriptionPeriod
-                let week = (period.unit == .day && period.value == 7)
-                    || (period.unit == .week && period.value == 1)
-                return week ? package.identifier : nil
+                      Self.freeTrialDays(package) != nil else { return nil }
+                return package.identifier
             })
             storeAvailable = true
             if awaitingConfirmation {
@@ -155,7 +170,10 @@ final class SubscriptionStore {
         }
     }
 
-    func purchase(_ package: Package, session: Session) async {
+    /// True when the store charged and the API already confirms the plan.
+    @discardableResult
+    func purchase(_ package: Package, session: Session) async -> Bool {
+        var confirmedPurchase = false
         await perform(session) { uid, api in
             try await prepare(uid)
             guard !awaitingConfirmation, session.userID == uid,
@@ -181,14 +199,18 @@ final class SubscriptionStore {
             guard session.userID == uid else { return }
             access = confirmed
             awaitingConfirmation = confirmed.plan.rank < (pendingPlan?.rank ?? 1)
-            ProductAnalytics.identify(uid: uid, plan: confirmed.plan.rawValue)
+            ProductAnalytics.identify(uid: uid, plan: confirmed.plan.rawValue,
+                                      email: session.identity?.email, name: session.identity?.displayName)
             if !awaitingConfirmation, let period = Self.billingPeriod(package) {
-                ProductAnalytics.subscriptionStarted(plan: confirmed.plan.rawValue, period: period, uid: uid)
+                ProductAnalytics.subscriptionStarted(plan: confirmed.plan.rawValue, period: period, uid: uid,
+                                                     email: session.identity?.email, name: session.identity?.displayName)
             }
             message = confirmed.isDevelopment ? "Compra de teste concluída. O acesso de desenvolvimento permanece liberado."
                 : !awaitingConfirmation ? "Assinatura confirmada. Ela vale também nos seus outros dispositivos."
                 : "Compra recebida. Aguarde alguns segundos e toque em Atualizar assinatura para confirmar."
+            confirmedPurchase = !awaitingConfirmation
         }
+        return confirmedPurchase
     }
 
     static func plan(_ package: Package) -> SubscriptionPlan? {
@@ -219,11 +241,37 @@ final class SubscriptionStore {
             && package.storeProduct.subscriptionPeriod?.value == 1
     }
 
+    /// Days of the free intro on this package, when this account can still redeem it.
+    /// An active paid plan does not start a second trial. The length is the store's, not a fixed week.
+    func trialDays(for package: Package) -> Int? {
+        guard trialEligible.contains(package.identifier) else { return nil }
+        if let access, access.active, !access.isDevelopment, access.plan != .free { return nil }
+        if let days = Self.freeTrialDays(package) { return days }
+        #if DEBUG
+        // Sample prices and the Test Store yearly fixture have no intro product attached.
+        if Self.previewSample || package.storeProduct.productIdentifier == "yearly" { return 7 }
+        #endif
+        return nil
+    }
+
     /// An active Pro trial upgrades to Max at the Max price. It does not start a second free trial.
     func offersTrial(_ package: Package) -> Bool {
-        guard trialEligible.contains(package.identifier) else { return false }
-        if let access, access.active, !access.isDevelopment, access.plan != .free { return false }
-        return true
+        trialDays(for: package) != nil
+    }
+
+    static func freeTrialDays(_ package: Package) -> Int? {
+        guard let offer = package.storeProduct.introductoryDiscount,
+              offer.paymentMode == .freeTrial else { return nil }
+        let period = offer.subscriptionPeriod
+        let days: Int
+        switch period.unit {
+        case .day: days = period.value
+        case .week: days = period.value * 7
+        case .month: days = period.value * 30
+        case .year: days = period.value * 365
+        @unknown default: return nil
+        }
+        return days > 0 ? days : nil
     }
 
     func package(plan: SubscriptionPlan, annual: Bool) -> Package? {
@@ -234,16 +282,105 @@ final class SubscriptionStore {
         package(plan: plan, annual: annual) ?? packages.first { Self.plan($0) == plan }
     }
 
+    /// What the journey sells when the wall does not ask for a plan: Queep Pro, billed yearly.
+    var journeyPackage: Package? {
+        packageForJourney(plan: .pro, annual: true)
+    }
+
+    /// The exact period. A missing monthly package stays missing so the toggle cannot pretend.
+    func packageForJourney(plan: SubscriptionPlan, annual: Bool) -> Package? {
+        if let package = package(plan: plan, annual: annual) { return package }
+        #if DEBUG
+        // The Test Store has no Queep products. Its fixtures stand in for Pro.
+        let fixture = annual ? "yearly" : "monthly"
+        if plan == .pro {
+            return packages.first { $0.storeProduct.productIdentifier == fixture }
+        }
+        #endif
+        return nil
+    }
+
+    func monthlyEquivalent(_ package: Package) -> String? {
+        guard Self.isAnnual(package) else { return nil }
+        if let text = package.storeProduct.localizedPricePerMonth, !text.isEmpty { return text }
+        return Self.format(package.storeProduct.price / 12, package.storeProduct)
+    }
+
+    /// A paid introductory price on the yearly plan, shown as the launch price.
+    /// It comes from the store, so the sheet never promises a discount the purchase will not apply.
+    /// The offering's metadata only adds a label and the day the promotion ends.
+    func launchOffer(_ package: Package, now: Date = .now) -> LaunchOffer? {
+        let product = package.storeProduct
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview-launch-offer") {
+            let price = product.price * Decimal(string: "0.7")!
+            return LaunchOffer(label: "Preço de lançamento",
+                               price: Self.format(price, product) ?? product.localizedPriceString,
+                               perMonth: Self.format(price / 12, product), percent: 30, years: 1,
+                               endsAt: now.addingTimeInterval(3 * 86_400 + 5 * 3_600))
+        }
+        #endif
+        guard Self.isAnnual(package), introEligible.contains(package.identifier),
+              let intro = product.introductoryDiscount, intro.paymentMode != .freeTrial,
+              intro.subscriptionPeriod.unit == .year, intro.subscriptionPeriod.value == 1,
+              intro.price < product.price, product.price > 0 else { return nil }
+        if let access, access.active, !access.isDevelopment, access.plan != .free { return nil }
+        let saved = NSDecimalNumber(decimal: 1 - intro.price / product.price).doubleValue
+        return LaunchOffer(label: launchLabel ?? "Preço de lançamento",
+                           price: intro.localizedPriceString,
+                           perMonth: Self.format(intro.price / 12, product),
+                           percent: Int((saved * 100).rounded(.down)),
+                           years: max(1, intro.numberOfPeriods),
+                           endsAt: launchEndsAt.flatMap { $0 > now ? $0 : nil })
+    }
+
+    private static func format(_ amount: Decimal, _ product: StoreProduct) -> String? {
+        product.priceFormatter?.string(from: NSDecimalNumber(decimal: amount))
+    }
+
+    private func clearOffers() {
+        introEligible = []; launchLabel = nil; launchEndsAt = nil
+    }
+
+    #if DEBUG
+    /// `--preview-paywall-sample`: the Brazilian launch prices with no store and no session,
+    /// to review the sheet on a machine where the emulators are not running. Nothing can be bought.
+    static let previewSample = ProcessInfo.processInfo.arguments.contains("--preview-paywall-sample")
+
+    private func applySample() {
+        func package(_ id: String, _ product: String, _ price: Decimal, _ text: String,
+                     _ unit: SubscriptionPeriod.Unit) -> Package {
+            let sample = TestStoreProduct(
+                localizedTitle: "Queep Max", price: price, currencyCode: "BRL", localizedPriceString: text,
+                productIdentifier: product, productType: .autoRenewableSubscription,
+                localizedDescription: "", subscriptionGroupIdentifier: "preview",
+                subscriptionPeriod: SubscriptionPeriod(value: 1, unit: unit),
+                locale: Locale(identifier: "pt_BR"))
+            return Package(identifier: id, packageType: .custom, storeProduct: sample.toStoreProduct(),
+                           offeringIdentifier: "preview", webCheckoutUrl: nil)
+        }
+        packages = [
+            package("pro_yearly", "app.queep.pro.yearly", Decimal(string: "249.90")!, "R$ 249,90", .year),
+            package("pro_monthly", "app.queep.pro.monthly", Decimal(string: "29.90")!, "R$ 29,90", .month),
+            package("max_yearly", "app.queep.max.yearly", Decimal(string: "999.90")!, "R$ 999,90", .year),
+            package("max_monthly", "app.queep.max.monthly", Decimal(string: "129.90")!, "R$ 129,90", .month)
+        ]
+        trialEligible = ["pro_yearly", "max_yearly"]
+        // A Free account, so the sheet can show how each quota compares.
+        let free = #"{"mode":"required","active":false,"expires_at":null,"will_renew":false,"checked_at":"2026-10-06T12:00:00.000Z","plan":"free","features":{"spaces":false,"media_av":false},"limits":{"operations":12,"searches":8,"items":100,"spaces":0}}"#
+        access = try? APIClient.decoder().decode(SubscriptionAccess.self, from: Data(free.utf8))
+        storeAvailable = true
+    }
+    #endif
+
     func annualDiscount(_ package: Package) -> Int? {
         guard Self.isAnnual(package), let monthly = packages.first(where: {
             Self.plan($0) == Self.plan(package) && $0.storeProduct.subscriptionPeriod?.unit == .month
                 && $0.storeProduct.subscriptionPeriod?.value == 1
                 && $0.storeProduct.currencyCode == package.storeProduct.currencyCode
         }) else { return nil }
-        let year = NSDecimalNumber(decimal: package.storeProduct.price).doubleValue
-        let month = NSDecimalNumber(decimal: monthly.storeProduct.price).doubleValue
-        guard month > 0, year < month * 12 else { return nil }
-        return Int(((1 - year / (month * 12)) * 100).rounded(.down))
+        return PaywallPricing.annualDiscountPercent(
+            yearly: package.storeProduct.price, monthly: monthly.storeProduct.price)
     }
 
     func restore(_ session: Session) async {
@@ -259,13 +396,26 @@ final class SubscriptionStore {
             guard session.userID == uid else { return }
             access = confirmed
             awaitingConfirmation = confirmed.plan.rank < (pendingPlan?.rank ?? 0)
-            ProductAnalytics.identify(uid: uid, plan: confirmed.plan.rawValue)
+            ProductAnalytics.identify(uid: uid, plan: confirmed.plan.rawValue,
+                                      email: session.identity?.email, name: session.identity?.displayName)
             if !awaitingConfirmation, let period = Self.billingPeriod(customer) {
-                ProductAnalytics.subscriptionStarted(plan: confirmed.plan.rawValue, period: period, uid: uid)
+                ProductAnalytics.subscriptionStarted(plan: confirmed.plan.rawValue, period: period, uid: uid,
+                                                     email: session.identity?.email, name: session.identity?.displayName)
             }
             message = confirmed.isDevelopment ? "Restauração solicitada na loja de teste."
                 : confirmed.active ? "Sua assinatura está ativa nesta conta."
                 : "Nenhuma assinatura ativa confirmada. Confira a conta da App Store e tente atualizar em instantes."
         }
     }
+}
+
+/// The yearly plan at its launch price. `price` is what the store charges for each of the
+/// first `years`; after that the plan renews at its regular price.
+struct LaunchOffer: Equatable {
+    let label: String
+    let price: String
+    let perMonth: String?
+    let percent: Int?
+    let years: Int
+    let endsAt: Date?
 }

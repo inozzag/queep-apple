@@ -14,6 +14,7 @@ struct QueepMacApp: App {
             RootView().environment(capture.session).environment(capture.library)
                 .frame(minWidth: 1080, minHeight: 640)
                 .background(LibraryOpener(capture: capture))
+                .background(LibraryCloseMonitor())
                 .modifier(HideLibraryWindowTitle())
         }.defaultSize(width: 1315, height: 848)
         MenuBarExtra {
@@ -92,7 +93,7 @@ private final class TitleHidingView: NSView {
     }
 }
 
-/// Hands the scene's window opener to the capture controller so the island can reopen the library.
+/// Hands the scene's window opener to the capture controller so the pin can reopen the library.
 private struct LibraryOpener: View {
     @Environment(\.openWindow) private var openWindow
     let capture: MacCapture
@@ -114,7 +115,7 @@ private struct QueepMenu: View {
         Button("Captura rápida · ⌘⇧Espaço") { capture.show() }
         Button("Colar e salvar") { capture.paste() }.disabled(session.userID == nil)
         Button("Capturar tela · ⌘⇧7") { capture.captureScreen() }.disabled(session.userID == nil)
-        Toggle("Ilha de captura no topo da tela", isOn: Binding(get: { capture.islandEnabled }, set: { capture.islandEnabled = $0 }))
+        Toggle("Pin de captura na tela", isOn: Binding(get: { capture.pinEnabled }, set: { capture.pinEnabled = $0 }))
         ForEach(capture.shortcutIssues, id: \.self) { Text($0) }
         Divider()
         Toggle("Iniciar com o Mac", isOn: Binding(
@@ -133,7 +134,97 @@ private struct QueepMenu: View {
     }
 
     private func showLibrary() {
+        CloseAndHide.restoreDockIcon()
         openWindow(id: "library")
+        CloseAndHide.libraryWindow?.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+}
+
+/// When enabled, closing the library window drops the Dock icon without quitting.
+/// The menu-bar item and capture pin stay. Opening the library restores `.regular`.
+@MainActor
+enum CloseAndHide {
+    nonisolated static let defaultsKey = "queep.closeAndHide"
+    static weak var libraryWindow: NSWindow?
+    private static var terminating = false
+
+    static var isEnabled: Bool {
+        UserDefaults.standard.bool(forKey: defaultsKey)
+    }
+
+    static func markTerminating() {
+        terminating = true
+    }
+
+    static func restoreDockIcon() {
+        guard NSApp.activationPolicy() != .regular else { return }
+        NSApp.setActivationPolicy(.regular)
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        MacCapture.shared.showPinIfEnabled()
+    }
+
+    static func hideFromDockIfLibraryClosed(retry: Bool = true) {
+        guard isEnabled, !terminating else { return }
+        let libraryStillOpen = libraryWindow?.isVisible == true
+            || NSApp.windows.contains { $0.identifier?.rawValue == "library" && $0.isVisible }
+        if libraryStillOpen {
+            guard retry else { return }
+            Task { @MainActor in hideFromDockIfLibraryClosed(retry: false) }
+            return
+        }
+        NSApp.setActivationPolicy(.accessory)
+        MacCapture.shared.showPinIfEnabled()
+        Task { @MainActor in
+            guard !terminating else { return }
+            MacCapture.shared.showPinIfEnabled()
+        }
+    }
+}
+
+/// Watches the library window's close button (and any other close of that window).
+private struct LibraryCloseMonitor: NSViewRepresentable {
+    func makeNSView(context: Context) -> LibraryCloseMonitorView { LibraryCloseMonitorView() }
+    func updateNSView(_ nsView: LibraryCloseMonitorView, context: Context) {
+        nsView.attachIfNeeded()
+    }
+}
+
+private final class LibraryCloseMonitorView: NSView {
+    /// Block-based notification tokens are not Sendable; this view only touches the token on the main thread.
+    private nonisolated(unsafe) var observer: NSObjectProtocol?
+    private weak var observed: NSWindow?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        attachIfNeeded()
+    }
+
+    func attachIfNeeded() {
+        if window === observed { return }
+        if let observer {
+            NotificationCenter.default.removeObserver(observer)
+            self.observer = nil
+        }
+        observed = window
+        MainActor.assumeIsolated { CloseAndHide.libraryWindow = window }
+        guard let window else { return }
+        if window.identifier == nil {
+            window.identifier = NSUserInterfaceItemIdentifier("library")
+        }
+        observer = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                CloseAndHide.hideFromDockIfLibraryClosed()
+            }
+        }
+    }
+
+    deinit {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
     }
 }

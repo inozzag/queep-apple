@@ -9,6 +9,8 @@ enum ProductAnalytics {
     private static var configuredEnvironment: String?
     private static var identifiedUID: String?
     private static var identifiedPlan: String?
+    private static var identifiedEmail: String?
+    private static var identifiedName: String?
     private static var firedShareIDs: Set<String> = []
 
     static var platform: String {
@@ -62,13 +64,13 @@ enum ProductAnalytics {
     static func syncIdentity(_ session: Session) async {
         guard enabled, let uid = session.userID, let api = session.client() else { return }
         let plan = (try? await api.subscriptionAccess())?.plan.rawValue
-        identify(uid: uid, plan: plan)
+        identify(uid: uid, plan: plan, email: session.identity?.email, name: session.identity?.displayName)
     }
 
     static func recordSignIn(created: Bool, method: String, session: Session) async {
         guard enabled, let uid = session.userID else { return }
         let plan = (try? await session.client()?.subscriptionAccess())?.plan.rawValue
-        identify(uid: uid, plan: plan)
+        identify(uid: uid, plan: plan, email: session.identity?.email, name: session.identity?.displayName)
         guard let event = ProductEvent.auth(created: created, method: method, platform: platform) else { return }
         emit(event.name, event.properties.mapValues { $0 as Any })
     }
@@ -78,6 +80,8 @@ enum ProductAnalytics {
         PostHogSDK.shared.reset()
         identifiedUID = nil
         identifiedPlan = nil
+        identifiedEmail = nil
+        identifiedName = nil
         if let configuredEnvironment {
             PostHogSDK.shared.register(["environment": configuredEnvironment])
         }
@@ -110,14 +114,80 @@ enum ProductAnalytics {
         emit("paywall_viewed", properties.mapValues { $0 as Any })
     }
 
+    /// Journey sheet. `hook` is the `paywall_title_hook` variant actually shown (`a`...`e`).
+    static func paywallViewed(reason: String, hook: String, plan: String, period: String, trialEligible: Bool) {
+        emit("paywall_viewed", [
+            "reason": reason,
+            "hook": hook,
+            "platform": platform,
+            "plan": plan,
+            "period": period,
+            "trial_eligible": trialEligible
+        ])
+    }
+
+    static func paywallPeriodToggled(period: String) {
+        emit("paywall_period_toggled", ["period": period])
+    }
+
+    static func paywallAllPlansTapped() {
+        emit("paywall_all_plans_tapped", [:])
+    }
+
+    static func paywallCTATapped(plan: String, period: String, trial: Bool) {
+        emit("paywall_cta_tapped", ["plan": plan, "period": period, "trial": trial])
+    }
+
+    static func paywallPurchaseCompleted(plan: String, period: String) {
+        emit("paywall_purchase_completed", ["plan": plan, "period": period])
+    }
+
+    static func paywallTrialStarted(plan: String, period: String) {
+        emit("paywall_trial_started", ["plan": plan, "period": period])
+    }
+
+    static func paywallClosed(reason: String) {
+        emit("paywall_closed", ["reason": reason])
+    }
+
+    /// Multivariate `paywall_title_hook` (`a`...`e`). Nil when analytics is off, the flag
+    /// is missing, or it is not a string variant — the sheet then uses its reason default.
+    /// The flag itself is not created here.
+    static func paywallTitleHook() async -> String? {
+        guard enabled else { return nil }
+        let cached = flagString(PostHogSDK.shared.getFeatureFlag(paywallHookFlag, sendFeatureFlagEvent: false))
+        return await withCheckedContinuation { continuation in
+            let gate = ResumeOnce()
+            PostHogSDK.shared.reloadFeatureFlags {
+                Task { @MainActor in
+                    let fresh = Self.flagString(PostHogSDK.shared.getFeatureFlag(Self.paywallHookFlag, sendFeatureFlagEvent: false))
+                    gate.resume(continuation, returning: fresh ?? cached)
+                }
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2))
+                gate.resume(continuation, returning: cached)
+            }
+        }
+    }
+
+    private static let paywallHookFlag = "paywall_title_hook"
+
+    private static func flagString(_ value: Any?) -> String? {
+        guard let text = value as? String else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     static func purchaseStarted(plan: String, period: String) {
         guard let properties = ProductEvent.purchase(plan: plan, period: period) else { return }
         emit("purchase_started", properties.mapValues { $0 as Any })
     }
 
-    static func subscriptionStarted(plan: String, period: String, uid: String) {
+    static func subscriptionStarted(plan: String, period: String, uid: String,
+                                    email: String? = nil, name: String? = nil) {
         guard let properties = ProductEvent.purchase(plan: plan, period: period) else { return }
-        identify(uid: uid, plan: plan)
+        identify(uid: uid, plan: plan, email: email, name: name)
         emit("subscription_started", properties.mapValues { $0 as Any })
     }
 
@@ -152,7 +222,7 @@ enum ProductAnalytics {
         ShareCaptureQueue.remove(ids: done)
     }
 
-    static func identify(uid: String, plan: String?) {
+    static func identify(uid: String, plan: String?, email: String? = nil, name: String? = nil) {
         guard enabled else { return }
         // PostHog ignores identify() once a person is already identified. A new account on a
         // device that still has the previous user must reset first, or account_created stays
@@ -162,19 +232,22 @@ enum ProductAnalytics {
             PostHogSDK.shared.reset()
             identifiedUID = nil
             identifiedPlan = nil
+            identifiedEmail = nil
+            identifiedName = nil
             if let configuredEnvironment {
                 PostHogSDK.shared.register(["environment": configuredEnvironment])
             }
         }
-        let planChanged = plan != nil && plan != identifiedPlan
-        guard uid != identifiedUID || planChanged else { return }
-        var properties: [String: Any] = ["platform": platform]
-        if let plan {
-            properties["plan"] = plan
-            identifiedPlan = plan
-        }
-        PostHogSDK.shared.identify(uid, userProperties: properties)
+        let person = ProductEvent.person(platform: platform, email: email, name: name, plan: plan)
+        let planChanged = person["plan"] != nil && person["plan"] != identifiedPlan
+        let emailChanged = person["email"] != nil && person["email"] != identifiedEmail
+        let nameChanged = person["name"] != nil && person["name"] != identifiedName
+        guard uid != identifiedUID || planChanged || emailChanged || nameChanged else { return }
+        PostHogSDK.shared.identify(uid, userProperties: person.mapValues { $0 as Any })
         identifiedUID = uid
+        if let plan = person["plan"] { identifiedPlan = plan }
+        if let email = person["email"] { identifiedEmail = email }
+        if let name = person["name"] { identifiedName = name }
     }
 
     private static func emit(_ name: String, _ properties: [String: Any]) {
@@ -198,5 +271,22 @@ enum ProductAnalytics {
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard value.count > 8, !value.contains("$("), !value.contains(" ") else { return nil }
         return value
+    }
+}
+
+/// Resumes a flag read once. The reload callback and the timeout can both finish.
+private final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+
+    func resume(_ continuation: CheckedContinuation<String?, Never>, returning value: String?) {
+        lock.lock()
+        if done {
+            lock.unlock()
+            return
+        }
+        done = true
+        lock.unlock()
+        continuation.resume(returning: value)
     }
 }

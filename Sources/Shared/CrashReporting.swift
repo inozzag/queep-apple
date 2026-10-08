@@ -239,7 +239,11 @@ enum CrashReporting {
         let status = failure.status.map(String.init) ?? "transport"
         let event = Event(level: .error)
         event.message = SentryMessage(formatted: "API \(failure.method) \(failure.path) failed (\(status))")
-        event.tags = ["api.method": failure.method, "api.status": status]
+        var tags = ["api.method": failure.method, "api.status": status]
+        if let code = failure.transportCode {
+            tags["api.transport_code"] = String(code)
+        }
+        event.tags = tags
         SentrySDK.capture(event: event)
     }
 
