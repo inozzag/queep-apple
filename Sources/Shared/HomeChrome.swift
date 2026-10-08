@@ -746,6 +746,11 @@ private struct LibraryAddMenu: View {
             addRow("Galeria", "photo.on.rectangle", "library.add.files", symbol: true) {
                 DispatchQueue.main.async { store.openPhotoLibrary = true }
             }
+            #if os(macOS)
+            addRow("Arquivos", "folder", "library.add.arquivo", symbol: true) {
+                DispatchQueue.main.async { store.openFileImporter = true }
+            }
+            #endif
             addRow("Sites", "HomeLink", "library.add.site") {
                 store.startCapture(kind: "link", intent: "site")
             }

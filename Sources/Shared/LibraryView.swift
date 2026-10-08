@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import QueepCore
+import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
 #endif
@@ -32,6 +33,7 @@ struct LibraryView: View {
     @State private var consideringFirstPaywall = false
     @State private var galleryPhoto: PhotosPickerItem?
     @State private var sendingPhoto = false
+    @State private var sendingMessage = "Enviando imagem…"
 
     private var filtered: [Reference] {
         let items = store.searchItems ?? store.items
@@ -75,6 +77,11 @@ struct LibraryView: View {
             } message: { Text(actionError ?? "") }
             .photosPicker(isPresented: $store.openPhotoLibrary, selection: $galleryPhoto,
                           matching: .images, preferredItemEncoding: .current)
+            #if os(macOS)
+            .fileImporter(isPresented: $store.openFileImporter, allowedContentTypes: [.image, .movie, .audio]) { result in
+                Task { await sendImportedFile(result) }
+            }
+            #endif
             .onChange(of: galleryPhoto) { _, item in
                 guard let item else { return }
                 galleryPhoto = nil
@@ -314,7 +321,7 @@ struct LibraryView: View {
                     .accessibilityAddTraits(.isHeader)
             }
             if sendingPhoto {
-                Label("Enviando imagem…", systemImage: "arrow.up.circle")
+                Label(sendingMessage, systemImage: "arrow.up.circle")
                     .font(.callout)
                     .foregroundStyle(Color.muted)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -613,6 +620,7 @@ struct LibraryView: View {
     private func sendGalleryPhoto(_ selection: PhotosPickerItem) async {
         guard !sendingPhoto else { return }
         sendingPhoto = true
+        sendingMessage = "Enviando imagem…"
         actionError = nil
         defer { sendingPhoto = false }
         do {
@@ -632,6 +640,52 @@ struct LibraryView: View {
             actionError = error.localizedDescription
         }
     }
+
+    #if os(macOS)
+    private func sendImportedFile(_ result: Result<URL, Error>) async {
+        guard !sendingPhoto else { return }
+        sendingPhoto = true
+        sendingMessage = "Enviando arquivo…"
+        actionError = nil
+        defer { sendingPhoto = false }
+        do {
+            let url = try result.get()
+            guard let api = session.client(), let uid = session.userID else { return }
+            let saved: Reference
+            switch importedKind(url) {
+            case .image:
+                let image = try ImportedImage.prepare(url: url)
+                saved = try await api.uploadImage(id: UUID(), title: "", data: image.data)
+            case .media:
+                try await api.requireMediaAccess()
+                let media = try await ImportedMedia.prepare(url: url)
+                saved = try await api.uploadMedia(id: UUID(), title: "", file: media.file.url)
+            case .other:
+                throw QueepError.server("Escolha uma imagem, um áudio ou um vídeo.")
+            }
+            ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library")
+            guard session.userID == uid else { return }
+            await store.refresh(api, account: uid, force: true)
+        } catch is CancellationError {
+        } catch let failure as QueepError {
+            if case .planRequired = failure { return }
+            actionError = failure.localizedDescription
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    private enum ImportedKind { case image, media, other }
+
+    private func importedKind(_ url: URL) -> ImportedKind {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType else { return .other }
+        if type.conforms(to: .movie) || type.conforms(to: .video) || type.conforms(to: .audio) { return .media }
+        if type.conforms(to: .image) { return .image }
+        return .other
+    }
+    #endif
 }
 
 /// The search reads as a conversation with the library: what it is doing, what it found.

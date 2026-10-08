@@ -73,6 +73,8 @@ final class LibraryStore {
     var captureIntent = "note"
     /// iPhone Galeria presents the system photo library without the capture card.
     var openPhotoLibrary = false
+    /// Mac Arquivos presents the system file panel for a still, a movie, or audio.
+    var openFileImporter = false
     var kindFilter: String?
     var presentation: LibraryPresentation?
     var surface: LibrarySurface = .home
