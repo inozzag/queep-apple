@@ -36,6 +36,8 @@ extension View {
 /// top right. References without a picture become text tiles of the same family.
 struct HomeReferenceCard: View {
     let reference: Reference
+    /// The gallery turns this on for a visible cell that won one of the four loop slots.
+    var playsLoop = false
 
     private var isAnalyzing: Bool { reference.status == "queued" || reference.status == "processing" }
     private var hasVisual: Bool { reference.kind == "video" || !reference.gallery.isEmpty }
@@ -62,7 +64,7 @@ struct HomeReferenceCard: View {
 
     private var analyzingTile: some View {
         HStack(spacing: 12) {
-            Text("Enviando novos itens...")
+            Text(LibrarySync.analyzingTile(reference.status) ?? "Analisando…")
                 .font(.system(size: 13, weight: .medium))
                 .tracking(-0.2)
                 .foregroundStyle(GalleryStyle.secondary)
@@ -83,8 +85,8 @@ struct HomeReferenceCard: View {
             .overlay(alignment: .top) {
                 ZStack {
                     RemoteImage(reference: reference, thumbnail: true, fill: true)
-                    if reference.kind == "video" || reference.gallery.first?.motion == true {
-                        MotionLoop(reference: reference)
+                    if playsLoop, reference.playsInlineLoop {
+                        MotionLoop(reference: reference, active: true)
                     }
                 }
             }
@@ -417,15 +419,14 @@ struct PostBrandMark: View {
 /// A plain button opens the item and leaves the library pan with the scroll view.
 struct LibraryCardCell<MenuContent: View>: View {
     let reference: Reference
+    var playsLoop = false
     let open: () -> Void
     @ViewBuilder var menu: () -> MenuContent
     @State private var hovered = false
 
-    private var isAnalyzing: Bool { reference.status == "queued" || reference.status == "processing" }
-
     var body: some View {
         Button(action: open) {
-            HomeReferenceCard(reference: reference)
+            HomeReferenceCard(reference: reference, playsLoop: playsLoop)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .opacity(hovered ? 0.92 : 1)
                 .animation(.easeOut(duration: 0.15), value: hovered)
@@ -436,7 +437,7 @@ struct LibraryCardCell<MenuContent: View>: View {
         .contextMenu { menu() }
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
-        .accessibilityLabel(isAnalyzing ? "Enviando novos itens" : reference.displayTitle)
+        .accessibilityLabel(LibrarySync.analyzingTile(reference.status) ?? reference.displayTitle)
         .accessibilityIdentifier("reference.\(reference.id)")
         .accessibilityValue("\(reference.kindLabel), \(reference.statusLabel)")
         .accessibilityHint("Abrir \(reference.kindLabel.lowercased())")

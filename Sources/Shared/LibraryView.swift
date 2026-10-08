@@ -1,12 +1,12 @@
 import SwiftUI
 import PhotosUI
 import QueepCore
+import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
 #endif
 
 struct LibraryView: View {
-    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
     @State private var logoutError: String?
@@ -29,8 +29,10 @@ struct LibraryView: View {
     @State private var onboardingDismissed = false
     @State private var sawEmptyLibrary = false
     @State private var conversionOffer: PaywallContext?
+    @State private var consideringFirstPaywall = false
     @State private var galleryPhoto: PhotosPickerItem?
     @State private var sendingPhoto = false
+    @State private var sendingMessage = "Enviando imagem…"
 
     private var filtered: [Reference] {
         let items = store.searchItems ?? store.items
@@ -51,7 +53,7 @@ struct LibraryView: View {
                 case .usage: UsagePrivacyView()
                 case .help: HelpView()
                 case .deleteAccount: DeleteAccountView()
-                case .subscription: SubscriptionView()
+                case .subscription: SubscriptionView(managesOnly: true)
                 case .newSpace: SpaceNameSheet()
                 case .capture:
                     if store.captureKind == "link" && (store.captureIntent == "post" || store.captureIntent == "site") {
@@ -60,16 +62,10 @@ struct LibraryView: View {
                         CaptureView(reference: nil, initialKind: store.captureKind)
                     }
                 case .reference(let reference):
-                    if GalleryDetailView.supports(reference) {
-                        GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
-                            #if os(iOS)
-                            .presentationDragIndicator(.hidden)
-                            #endif
-                    } else {
-                        LiveReferenceView(reference: reference) { live in
-                            ReferenceDetail(reference: live)
-                        }
-                    }
+                    GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
+                        #if os(iOS)
+                        .presentationDragIndicator(.hidden)
+                        #endif
                 }
             }
             .alert("Não foi possível sair", isPresented: Binding(get: { logoutError != nil }, set: { if !$0 { logoutError = nil } })) {
@@ -80,6 +76,11 @@ struct LibraryView: View {
             } message: { Text(actionError ?? "") }
             .photosPicker(isPresented: $store.openPhotoLibrary, selection: $galleryPhoto,
                           matching: .images, preferredItemEncoding: .current)
+            #if os(macOS)
+            .fileImporter(isPresented: $store.openFileImporter, allowedContentTypes: [.image, .movie, .audio]) { result in
+                Task { await sendImportedFile(result) }
+            }
+            #endif
             .onChange(of: galleryPhoto) { _, item in
                 guard let item else { return }
                 galleryPhoto = nil
@@ -162,9 +163,7 @@ struct LibraryView: View {
                 onboardingPresented = false
             }
         })
-        .sheet(item: $conversionOffer) { context in
-            MaxPaywall(context: context)
-        }
+        .journeyPaywall($conversionOffer)
         .task(id: session.userID) { await restoreOnboarding() }
         .onPreferenceChange(LibraryViewportKey.self) { frame in
             guard frame.width > 1, frame.height > 1 else { return }
@@ -195,15 +194,19 @@ struct LibraryView: View {
     private func considerFirstPaywall() {
         guard !uiTesting, sawEmptyLibrary, !store.items.isEmpty, !onboardingPresented else { return }
         guard let uid = session.userID, !OnboardingProgress.paywallShown(uid), conversionOffer == nil else { return }
-        OnboardingProgress.markPaywallShown(uid)
+        guard !consideringFirstPaywall else { return }
+        consideringFirstPaywall = true
         Task {
+            defer { consideringFirstPaywall = false }
             await SubscriptionStore.shared.load(session)
-            guard session.userID == uid else { return }
-            let access = SubscriptionStore.shared.access
-            let plan = access?.plan ?? .free
-            // Local emulators grant Max, so a development session can still preview the sheet.
-            guard plan == .free || access?.isDevelopment == true else { return }
-            conversionOffer = PaywallContext(reason: "first_save")
+            guard session.userID == uid, conversionOffer == nil, !OnboardingProgress.paywallShown(uid) else { return }
+            let subscription = SubscriptionStore.shared
+            let decision = FirstPaywall.decide(
+                offersLoaded: subscription.storeAvailable && !subscription.packages.isEmpty,
+                access: subscription.access)
+            guard decision.rememberShown else { return }
+            OnboardingProgress.markPaywallShown(uid)
+            if decision == .show { conversionOffer = PaywallContext(reason: "first_save") }
         }
     }
 
@@ -246,6 +249,11 @@ struct LibraryView: View {
             .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
         }
         .queepThingsMenu(isPresented: $macAddOpen)
+        .onChange(of: store.requestAddMenu) { _, open in
+            guard open else { return }
+            store.requestAddMenu = false
+            macAddOpen = true
+        }
         .overlay(alignment: .bottom) {
             if selecting {
                 selectionDock
@@ -315,43 +323,50 @@ struct LibraryView: View {
                     .accessibilityAddTraits(.isHeader)
             }
             if sendingPhoto {
-                Label("Enviando imagem…", systemImage: "arrow.up.circle")
-                    .font(.callout)
-                    .foregroundStyle(Color.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .card(padding: 14, elevated: false)
+                Label(sendingMessage, systemImage: "arrow.up.circle")
+                    .galleryBanner()
                     .accessibilityIdentifier("library.sendingPhoto")
             }
             if let error = store.error {
                 HStack(spacing: 12) {
-                    Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
-                    Text(error).font(.callout).fixedSize(horizontal: false, vertical: true)
+                    Image(systemName: "wifi.exclamationmark").foregroundStyle(GalleryStyle.secondary)
+                    Text(error).fixedSize(horizontal: false, vertical: true)
                     Spacer()
                     Button("Tentar novamente") { Task { await refresh(force: true) } }
-                }.card(padding: 14, elevated: false)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(GalleryStyle.ink)
+                }
+                .galleryBanner()
             }
             if store.surface == .home && store.items.count == 1 && !searching && !searchHintDismissed && conversionOffer == nil {
                 HStack(alignment: .top, spacing: 12) {
-                    Sparkle()
                     Text("Referência salva. Use a busca da biblioteca para encontrá-la pelo nome ou, depois da análise, pelo assunto e pela aparência.")
-                        .font(.callout).fixedSize(horizontal: false, vertical: true)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("onboarding.searchHint")
                     Spacer()
                     Button { searchHintDismissed = true } label: {
                         Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityLabel("Dispensar dica de busca")
                         .accessibilityIdentifier("onboarding.dismissHint")
-                }.card(padding: 14, elevated: false)
+                }
+                .galleryBanner()
+            }
+            if SearchPresentation.showsPending(hasPending: store.hasPending, showingSearch: searching) {
+                Label(SearchPresentation.pending, systemImage: "clock")
+                    .font(.caption)
+                    .foregroundStyle(Color.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("search.pending")
             }
             if store.searching {
                 #if os(macOS)
                 MacSearchSkeleton()
                 #else
-                SearchSkeleton(columns: columns)
+                SearchSkeleton()
                 #endif
-            } else if store.searchError != nil {
-                ContentUnavailableView("Não foi possível buscar", systemImage: "magnifyingglass",
-                                       description: Text("Tente novamente em instantes. Suas referências continuam salvas."))
+            } else if let searchError = store.searchError {
+                ContentUnavailableView(SearchPresentation.failureMessage(searchError), systemImage: "magnifyingglass",
+                                       description: Text("Suas referências continuam salvas."))
             } else if store.items.isEmpty && store.loading && !store.hasLoaded {
                 ProgressView("Carregando suas referências…").frame(maxWidth: .infinity).padding(.top, 80)
             } else if store.items.isEmpty && store.error != nil && !searching {
@@ -374,21 +389,25 @@ struct LibraryView: View {
                     Label(searching ? "Nada parecido por aqui" : store.kindFilter == nil ? "Seu espaço para lembrar" : "Nada neste filtro",
                           systemImage: searching ? "sparkle.magnifyingglass" : "bookmark")
                 } description: {
-                    Text(searching ? (store.surface == .archived
-                         ? "Nenhum arquivado tem esse título ou endereço."
-                         : "Nenhuma correspondência entre os candidatos analisados. Tente descrever de outro jeito.")
+                    Text(searching ? SearchPresentation.emptyDescription(
+                        archived: store.surface == .archived,
+                        localFilterHidMatches: store.kindFilter != nil && store.searchItems?.isEmpty == false)
                          : store.kindFilter == nil
                          ? "Guarde uma imagem, um link ou uma nota. Eles aparecem nos seus dispositivos."
                          : "Esse tipo ainda não está na biblioteca. Queep things guarda o próximo.")
                 } actions: {
-                    if !searching { Button("Adicionar referência") { store.startCapture() }.buttonStyle(.borderedProminent) }
+                    if !searching {
+                        Button("Adicionar referência") { store.requestAddMenu = true }
+                            .buttonStyle(MasterButtonStyle())
+                            .accessibilityIdentifier("library.add.reference")
+                    }
                 }
             } else {
                 LibraryGallery(items: filtered, more: !searching && store.nextCursor != nil,
                                loading: store.loadingMore,
                                busy: store.loading || store.loadingMore || store.refreshing,
                                failed: store.error != nil,
-                               viewport: libraryViewport,
+                               viewport: galleryLoopViewport,
                                selecting: selecting, selectedIDs: selectedIDs,
                                resetID: "\(store.filterKey)|\(store.kindFilter ?? "")|\(searching)",
                                scrollLive: libraryScroll,
@@ -506,13 +525,19 @@ struct LibraryView: View {
         pendingSelectionDelete = filtered.filter { selectedIDs.contains($0.id) }
     }
 
-    private var galleryItems: [Reference] { filtered.filter(GalleryDetailView.supports) }
+    private var galleryItems: [Reference] { filtered }
+
+    /// Grid loops stop while an item is open so the focused slide is the one that plays.
+    private var galleryLoopViewport: CGRect {
+        if case .reference = store.presentation { return .null }
+        return libraryViewport
+    }
 
     /// On the Mac the opened picture covers the library like saved.design; everything else is a sheet.
     private var sheetPresentation: Binding<LibraryPresentation?> {
         Binding(get: {
             #if os(macOS)
-            if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) { return nil }
+            if case .reference = store.presentation { return nil }
             #endif
             return store.presentation
         }, set: { store.presentation = $0 })
@@ -520,12 +545,12 @@ struct LibraryView: View {
 
     #if os(macOS)
     private var macGalleryID: String? {
-        if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) { return reference.id }
+        if case .reference(let reference) = store.presentation { return reference.id }
         return nil
     }
 
     @ViewBuilder private var macGallery: some View {
-        if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) {
+        if case .reference(let reference) = store.presentation {
             GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
                 .transition(.opacity)
         }
@@ -591,10 +616,6 @@ struct LibraryView: View {
         if let failure { actionError = failure }
     }
 
-    private var columns: [GridItem] {
-        typeSize.isAccessibilitySize ? [.init(.flexible())] : [.init(.adaptive(minimum: 240, maximum: 360), spacing: 18)]
-    }
-
     private func refresh(force: Bool) async {
         guard let api = session.client(), let uid = session.userID else { return }
         await store.refresh(api, account: uid, force: force)
@@ -608,6 +629,7 @@ struct LibraryView: View {
     private func sendGalleryPhoto(_ selection: PhotosPickerItem) async {
         guard !sendingPhoto else { return }
         sendingPhoto = true
+        sendingMessage = "Enviando imagem…"
         actionError = nil
         defer { sendingPhoto = false }
         do {
@@ -627,75 +649,78 @@ struct LibraryView: View {
             actionError = error.localizedDescription
         }
     }
-}
 
-/// The search reads as a conversation with the library: what it is doing, what it found.
-private struct SearchHeader: View {
-    @Environment(LibraryStore.self) private var store
-    let query: String
-    let search: () -> Void
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            ZStack {
-                Circle().fill(Theme.aiGradient.opacity(0.14)).frame(width: 40, height: 40)
-                Sparkle(size: 17)
+    #if os(macOS)
+    private func sendImportedFile(_ result: Result<URL, Error>) async {
+        guard !sendingPhoto else { return }
+        sendingPhoto = true
+        sendingMessage = "Enviando arquivo…"
+        actionError = nil
+        defer { sendingPhoto = false }
+        do {
+            let url = try result.get()
+            guard let api = session.client(), let uid = session.userID else { return }
+            let saved: Reference
+            switch importedKind(url) {
+            case .image:
+                let image = try ImportedImage.prepare(url: url)
+                saved = try await api.uploadImage(id: UUID(), title: "", data: image.data)
+            case .media:
+                try await api.requireMediaAccess()
+                let media = try await ImportedMedia.prepare(url: url)
+                saved = try await api.uploadMedia(id: UUID(), title: "", file: media.file.url)
+            case .other:
+                throw QueepError.server("Escolha uma imagem, um áudio ou um vídeo.")
             }
-            VStack(alignment: .leading, spacing: 4) {
-                if store.searching {
-                    Text("Interpretando “\(query)”").font(.headline)
-                    Text("Comparando o significado com o que a IA entendeu das suas referências.")
-                        .font(.callout).foregroundStyle(Color.muted)
-                } else if let items = store.searchItems {
-                    Text(items.isEmpty ? "Nada parecido com “\(query)”" : "\(items.count) \(items.count == 1 ? "referência conferida" : "referências conferidas") por IA")
-                        .font(.headline)
-                    Text("Referências mais relevantes do seu acervo · até 10 por busca")
-                        .font(.callout).foregroundStyle(Color.muted)
-                    if store.hasPending {
-                        Label("Algumas referências ainda aguardam análise ou precisam de uma nova tentativa.", systemImage: "clock")
-                            .font(.caption).foregroundStyle(Color.muted)
-                    }
-                } else {
-                    Text("Pergunte à sua biblioteca").font(.headline)
-                    Text("Descreva o assunto, a aparência ou o que você lembra e pressione Enter.")
-                        .font(.callout).foregroundStyle(Color.muted)
-                }
-            }.fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 8)
-            HStack(spacing: 8) {
-                Button(store.searchItems == nil ? "Buscar" : "Buscar novamente", action: search)
-                    .buttonStyle(.borderedProminent).disabled(store.searching)
-                Button("Limpar") { store.query = "" }.buttonStyle(.bordered)
-            }.controlSize(.small)
+            ProductAnalytics.captureSaved(kind: saved.kind, url: saved.url, source: "library")
+            guard session.userID == uid else { return }
+            await store.refresh(api, account: uid, force: true)
+        } catch is CancellationError {
+        } catch let failure as QueepError {
+            if case .planRequired = failure { return }
+            actionError = failure.localizedDescription
+        } catch {
+            actionError = error.localizedDescription
         }
-        .card(padding: 16)
-        .overlay(alignment: .bottom) {
-            if store.searching {
-                Rectangle().fill(Theme.aiGradient).frame(height: 2)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
-                    .padding(.horizontal, 1).shimmer()
-            }
-        }
-        .accessibilityElement(children: .contain)
     }
+
+    private enum ImportedKind { case image, media, other }
+
+    private func importedKind(_ url: URL) -> ImportedKind {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType else { return .other }
+        if type.conforms(to: .movie) || type.conforms(to: .video) || type.conforms(to: .audio) { return .media }
+        if type.conforms(to: .image) { return .image }
+        return .other
+    }
+    #endif
 }
 
 private struct SearchSkeleton: View {
-    let columns: [GridItem]
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
-            ForEach(0..<3, id: \.self) { _ in
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Título da referência").font(.headline)
-                    Text("Resumo do que a inteligência artificial entendeu sobre esta referência salva.")
-                        .font(.callout)
-                    Text("assunto · utilidade").font(.caption)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading).card(padding: 18)
-                .shimmer()
+        MasonryLayout(spacing: GalleryStyle.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : 2) {
+            ForEach(0..<6, id: \.self) { index in
+                GalleryStyle.fill
+                    .frame(height: index.isMultiple(of: 3) ? 220 : 150)
+                    .galleryTile()
+                    .shimmer()
             }
         }
         .accessibilityLabel("Buscando nas suas referências")
+    }
+}
+
+private extension View {
+    func galleryBanner() -> some View {
+        font(.system(size: 13, weight: .medium))
+            .foregroundStyle(GalleryStyle.ink)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(GalleryStyle.fill)
+            .galleryTile()
     }
 }
 
@@ -786,11 +811,14 @@ struct LibraryGallery<MenuContent: View>: View {
     @ViewBuilder var menu: (Reference) -> MenuContent
 
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(Session.self) private var session
     @State private var shown = GalleryPaging.batch
     @State private var gate = false
     /// Latest tail position. A class so scroll ticks do not invalidate the gallery.
     @State private var tail = GalleryTailPosition()
     @State private var cardFrames: [String: CGRect] = [:]
+    @State private var playingLoopIDs: Set<String> = []
+    @State private var nearbyLoopIDs: Set<String> = []
     @State private var brushRemoves = false
     @State private var brushArmed = false
     @State private var brushPoint: CGPoint?
@@ -801,11 +829,13 @@ struct LibraryGallery<MenuContent: View>: View {
         VStack(spacing: GalleryStyle.gap) {
             MasonryLayout(spacing: GalleryStyle.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : nil) {
                 ForEach(visible) { reference in
-                    LibraryCardCell(reference: reference, open: { open(reference) }) {
+                    LibraryCardCell(reference: reference, playsLoop: playingLoopIDs.contains(reference.id),
+                                    open: { open(reference) }) {
                         menu(reference)
                     }
                     .id(reference.id)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .background { loopProbe(reference) }
                     .overlay(alignment: .topTrailing) {
                         if selecting {
                             Image(systemName: selectedIDs.contains(reference.id) ? "checkmark.circle.fill" : "circle")
@@ -841,6 +871,14 @@ struct LibraryGallery<MenuContent: View>: View {
         .coordinateSpace(name: "galleryBrush")
         .onPreferenceChange(GalleryCardFrames.self) { frames in
             if frames != cardFrames { cardFrames = frames }
+        }
+        .onPreferenceChange(LoopWindowKey.self) { window in
+            let playing = Set(visible.filter { window.playing.contains($0.id) }.prefix(InlineLoop.playerCap).map(\.id))
+            if playing != playingLoopIDs { playingLoopIDs = playing }
+            if window.nearby != nearbyLoopIDs {
+                nearbyLoopIDs = window.nearby
+                prefetchNearbyLoops(window.nearby)
+            }
         }
         .modifier(SelectionBrush(enabled: selecting, gesture: brushGesture))
         .onChange(of: resetID) { _, _ in
@@ -886,6 +924,27 @@ struct LibraryGallery<MenuContent: View>: View {
                 brushArmed = false
                 brushPoint = nil
             }
+    }
+
+    @ViewBuilder private func loopProbe(_ reference: Reference) -> some View {
+        if reference.playsInlineLoop {
+            GeometryReader { proxy in
+                let frame = proxy.frame(in: .global)
+                let near = viewport.isNull ? viewport : viewport.insetBy(dx: -80, dy: -InlineLoop.prefetchMargin)
+                Color.clear.preference(
+                    key: LoopWindowKey.self,
+                    value: LoopWindow(
+                        playing: viewport.intersects(frame) ? [reference.id] : [],
+                        nearby: near.intersects(frame) ? [reference.id] : []
+                    )
+                )
+            }
+        }
+    }
+
+    private func prefetchNearbyLoops(_ ids: Set<String>) {
+        guard let api = session.client(), let account = session.userID, !ids.isEmpty else { return }
+        ImagePrefetch.warmMotion(visible.filter { ids.contains($0.id) }, client: api, account: account)
     }
 
     private func hit(_ point: CGPoint) -> String? {
@@ -1217,6 +1276,20 @@ private struct OnboardingCover<Cover: View>: ViewModifier {
     }
 }
 
+private struct LoopWindow: Equatable {
+    var playing: Set<String> = []
+    var nearby: Set<String> = []
+}
+
+private struct LoopWindowKey: PreferenceKey {
+    static let defaultValue = LoopWindow()
+    static func reduce(value: inout LoopWindow, nextValue: () -> LoopWindow) {
+        let next = nextValue()
+        value.playing.formUnion(next.playing)
+        value.nearby.formUnion(next.nearby)
+    }
+}
+
 private struct GalleryCardFrames: PreferenceKey {
     static let defaultValue: [String: CGRect] = [:]
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
@@ -1261,18 +1334,6 @@ private struct GalleryPageTail: View {
             .accessibilityHidden(true)
     }
 }
-
-/// Keeps detail sheets on the freshest library copy while polling updates the store.
-private struct LiveReferenceView<Content: View>: View {
-    @Environment(LibraryStore.self) private var store
-    let reference: Reference
-    @ViewBuilder var content: (Reference) -> Content
-
-    var body: some View {
-        content(store.items.first(where: { $0.id == reference.id }) ?? reference)
-    }
-}
-
 
 #if os(macOS)
 private extension View {

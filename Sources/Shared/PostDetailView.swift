@@ -20,6 +20,8 @@ struct PostDetailView: View {
     @State private var file: TemporaryMediaFile?
     @State private var mediaError: String?
     @State private var mediaAttempt = 0
+    @State private var pollEpoch = 0
+    @State private var pollError: String?
 
     init(reference: Reference) {
         self.reference = reference
@@ -69,6 +71,15 @@ struct PostDetailView: View {
                     if let error {
                         Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red)
                     }
+                    if let pollError {
+                        AnalysisPollFailure(
+                            message: pollError,
+                            canPollAgain: live.status == "queued" || live.status == "processing"
+                        ) {
+                            self.pollError = nil
+                            pollEpoch += 1
+                        }
+                    }
                 }
                 .padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 40)
                 .frame(maxWidth: 760).frame(maxWidth: .infinity)
@@ -114,7 +125,7 @@ struct PostDetailView: View {
         }
         .subscriptionGate()
         .interactiveDismissDisabled(busy)
-        .task(id: reference.id) { await refresh() }
+        .task(id: "\(reference.id)/\(pollEpoch)") { await poll() }
         .task(id: "\(session.userID ?? "")/\(live.id)/\(live.media?.sha256 ?? "")/\(mediaAttempt)") {
             await loadAudio()
         }
@@ -166,7 +177,6 @@ struct PostDetailView: View {
                 .accessibilityValue(live.isArchived ? "Arquivado" : "")
             ReferenceSpaceButton(reference: reference)
                 .accessibilityIdentifier("post.space")
-                .accessibilityHint("Em breve")
         }
         .buttonStyle(.bordered)
     }
@@ -188,7 +198,7 @@ struct PostDetailView: View {
                 FlowChips(items: items)
             }
         }
-        if live.status == "error" && !live.isArchived {
+        if live.showsAnalysisRetry {
             Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
                 Task { await retry() }
             }
@@ -232,23 +242,22 @@ struct PostDetailView: View {
             .accessibilityIdentifier("reference.more")
     }
 
-    private func refresh() async {
-        guard let api = session.client() else { return }
-        var readyPolls = 0
-        for _ in 0..<45 {
-            if Task.isCancelled { return }
-            do {
-                let fresh = try await api.get(id: reference.id)
+    private func poll() async {
+        guard let uid = session.userID else { return }
+        await AnalysisPolling.run(
+            policy: .post,
+            interval: .seconds(2),
+            fetch: {
+                guard let api = session.client(), session.userID == uid else { throw CancellationError() }
+                return try await api.get(id: reference.id)
+            },
+            apply: { fresh in
                 latest = fresh
-                if fresh.status == "error" { return }
-                if fresh.status == "ready" {
-                    readyPolls += 1
-                    if !fresh.gallery.isEmpty || readyPolls >= 15 { return }
-                }
-            } catch is CancellationError { return }
-            catch { }
-            do { try await Task.sleep(for: .seconds(2)) } catch { return }
-        }
+                store.adopt(fresh)
+                pollError = nil
+            },
+            onFailure: { pollError = $0 }
+        )
     }
 
     private func loadAudio() async {
@@ -299,7 +308,11 @@ struct PostDetailView: View {
             let value = try await api.retryAnalysis(live)
             guard session.userID == uid else { return }
             latest = value
-        } catch { self.error = error.localizedDescription }
+            store.adopt(value)
+            if AnalysisPoll.resumes(afterRetry: value.status) {
+                pollEpoch += 1
+            }
+        } catch { self.error = AnalysisRetry.failureCopy(error) }
     }
 
     private func remove() async {

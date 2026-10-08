@@ -268,6 +268,8 @@ struct MediaPlaybackView: View {
                     Label(playing ? "Pausar" : "Reproduzir",
                           systemImage: playing ? "pause.fill" : "play.fill")
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(GalleryStyle.ink)
                 .disabled(failed).accessibilityIdentifier("media.playPause")
                 Spacer()
                 Text(timestamp(elapsed)).monospacedDigit().font(.caption)
@@ -279,6 +281,7 @@ struct MediaPlaybackView: View {
                     elapsed = value
                     player.seek(to: CMTime(seconds: value, preferredTimescale: 600))
                 }), in: 0...max(duration, 0.1))
+                .tint(GalleryStyle.ink)
                 .accessibilityLabel("Posição do áudio")
                 .accessibilityValue("\(timestamp(elapsed)) de \(timestamp(duration))")
                 .disabled(failed)

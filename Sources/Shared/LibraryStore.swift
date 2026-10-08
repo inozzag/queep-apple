@@ -73,6 +73,10 @@ final class LibraryStore {
     var captureIntent = "note"
     /// iPhone Galeria presents the system photo library without the capture card.
     var openPhotoLibrary = false
+    /// Mac Arquivos presents the system file panel for a still, a movie, or audio.
+    var openFileImporter = false
+    /// The library chrome opens Queep things when this flips on, then clears it.
+    var requestAddMenu = false
     var kindFilter: String?
     var presentation: LibraryPresentation?
     var surface: LibrarySurface = .home
@@ -89,6 +93,17 @@ final class LibraryStore {
     var archiveUndo: ArchiveUndo?
     var hasArchivedItems = false
     var hasActiveCollection: Bool { !searchChips.isEmpty || kindFilter != nil }
+    /// A reference sheet or the capture editor is open. Gallery photos can still arrive after `ready`.
+    var detailIsOpen: Bool {
+        switch presentation {
+        case .reference, .capture: true
+        default: false
+        }
+    }
+    var shouldKeepRefreshing: Bool {
+        let statuses = items.map(\.status) + (searchItems?.map(\.status) ?? [])
+        return LibrarySync.shouldRefresh(statuses: statuses, detailOpen: detailIsOpen)
+    }
     private var searchGeneration = 0
     private var accountID: String?
     private var generation = 0
@@ -104,10 +119,6 @@ final class LibraryStore {
     private static let staleInterval: TimeInterval = 60
     static let cachedPageLimit = 18
     private static let cachedFilterLimit = 8
-
-    var hasPendingAnalysis: Bool {
-        items.contains { $0.status == "queued" || $0.status == "processing" }
-    }
 
     private func isStale(_ key: String) -> Bool {
         guard let at = fetchedAt[key] else { return true }
@@ -154,6 +165,8 @@ final class LibraryStore {
         hasLoaded = false
         presentation = nil
         openPhotoLibrary = false
+        openFileImporter = false
+        requestAddMenu = false
         query = ""
         kindFilter = nil
         searchChips = []
@@ -291,11 +304,7 @@ final class LibraryStore {
             applyFirstPage(page)
             ImagePrefetch.warm(items, client: client, account: account)
             if let matches = searchItems {
-                let fresh = Dictionary(uniqueKeysWithValues: page.items.map { ($0.id, $0) })
-                searchItems = matches.compactMap { previous in
-                    guard let current = fresh[previous.id] else { return previous }
-                    return current.revision == previous.revision && current.status == "ready" ? current : nil
-                }
+                searchItems = SearchHits.updated(matches, with: page.items)
             }
             if surface == .home, items.isEmpty {
                 let archived = try await client.list(archived: true)
@@ -452,6 +461,26 @@ final class LibraryStore {
             if selectedSpaceID == space.id { selectSpace(nil) }
             persistCache()
         } catch { if account == accountID { spaceError = error.localizedDescription } }
+    }
+
+    /// Replaces the copy already in memory so a poll or a retry updates the card without reordering the library.
+    func adopt(_ reference: Reference) {
+        knownReferences[reference.id] = reference
+        if let index = items.firstIndex(where: { $0.id == reference.id }) {
+            items[index] = reference
+        }
+        if let index = searchItems?.firstIndex(where: { $0.id == reference.id }) {
+            searchItems?[index] = reference
+        }
+        for key in Array(cachedPages.keys) {
+            guard let page = cachedPages[key],
+                  let index = page.items.firstIndex(where: { $0.id == reference.id }) else { continue }
+            var values = page.items
+            values[index] = reference
+            cachedPages[key] = LibraryPage(items: values, nextCursor: page.nextCursor)
+        }
+        rememberPage()
+        persistCache()
     }
 
     func reference(_ id: String) -> Reference? {

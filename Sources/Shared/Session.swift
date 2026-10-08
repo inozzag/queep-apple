@@ -38,6 +38,8 @@ final class Session {
     var preparing = true
     var planRequirement: PlanRequirement?
     var accountNotice: String?
+    /// Set when Firebase still has a user but `GET v1/account` did not return a status.
+    var accountLoadError: String?
     var accountState: AccountStatus?
     var accountOwner: String?
     var deletingAccount = false
@@ -97,8 +99,7 @@ final class Session {
             }
         }
         if let user = Auth.auth().currentUser {
-            do { try await refreshAccount(owner: user.uid) }
-            catch { accountNotice = "Conecte-se à internet e entre novamente para verificar sua conta." }
+            try? await refreshAccount(owner: user.uid)
         }
         #if DEBUG
         // Explicit UI tests may sign in against the configured Firebase, including CloudDevelopment.
@@ -289,6 +290,37 @@ final class Session {
 
     private func clearAccountState() {
         userID = nil; accountState = nil; accountOwner = nil
+        accountLoadError = nil
+    }
+
+    private func noteAccountLoadFailure(_ error: Error) {
+        if error is CancellationError { return }
+        guard userID == nil, Auth.auth().currentUser != nil else { return }
+        if let queep = error as? QueepError {
+            switch queep {
+            case .unauthorized:
+                accountLoadError = nil
+                accountNotice = queep.localizedDescription
+            case .unavailable:
+                accountNotice = nil
+                accountLoadError = "A conexão falhou antes de receber sua conta. Verifique a internet e tente novamente."
+            default:
+                accountNotice = nil
+                accountLoadError = queep.localizedDescription
+            }
+        } else {
+            accountNotice = nil
+            accountLoadError = "A conexão falhou antes de receber sua conta. Verifique a internet e tente novamente."
+        }
+    }
+
+    func retryAccountLoad() async {
+        guard let owner = Auth.auth().currentUser?.uid else {
+            accountLoadError = nil
+            return
+        }
+        do { try await refreshAccount(owner: owner) }
+        catch { noteAccountLoadFailure(error) }
     }
 
     func apply(_ state: AccountStatus, owner: String) {
@@ -304,8 +336,14 @@ final class Session {
             guard let self else { throw QueepError.unauthorized }
             return try await self.token(for: owner)
         }
-        let state = try await api.accountStatus()
-        apply(state, owner: owner)
+        do {
+            let state = try await api.accountStatus()
+            apply(state, owner: owner)
+            accountLoadError = nil
+        } catch {
+            noteAccountLoadFailure(error)
+            throw error
+        }
         #if DEBUG
         await probePlanLimitIfNeeded(api, owner: owner)
         #endif
@@ -358,9 +396,11 @@ final class Session {
     }
     #endif
 
+    /// Re-reads account status. A dropped connection must not sign the user out; only HTTP 401 does.
     func handleUnauthorized(_ owner: String) async {
         do { try await refreshAccount(owner: owner) }
-        catch { invalidate(owner) }
+        catch QueepError.unauthorized { invalidate(owner) }
+        catch { }
     }
 
     func invalidate(_ owner: String) {

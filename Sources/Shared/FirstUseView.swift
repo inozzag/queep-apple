@@ -8,38 +8,87 @@ struct FirstUseView: View {
 
     var body: some View {
         Group {
-            if scrolls { ScrollView { content }.background(Color.canvas) }
+            if scrolls { ScrollView { content }.background(Color.white) }
             else { content }
         }
     }
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 28) {
-            VStack(alignment: .leading, spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.aiGradient.opacity(0.16)).frame(width: 52, height: 52)
-                    Image(systemName: "bookmark.fill").font(.system(size: 22, weight: .semibold)).foregroundStyle(Theme.aiGradient)
-                }.accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 10) {
                 Text(showActions ? "Salve sua primeira referência" : "Como usar o Queep")
-                    .font(.largeTitle.bold()).accessibilityIdentifier("onboarding.title")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(GalleryStyle.ink)
+                    .accessibilityIdentifier("onboarding.title")
                 Text("Guarde o que vale lembrar. Suas referências aparecem no Mac e no iPhone, na mesma conta.")
-                    .font(.title3).foregroundStyle(Color.muted).fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(GalleryStyle.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if showActions {
-                LazyVGrid(columns: typeSize.isAccessibilitySize ? [.init(.flexible())] : [.init(.flexible()), .init(.flexible())], spacing: 12) {
-                    captureButton("Anotar uma ideia", detail: "Com títulos, listas e tarefas", symbol: "square.and.pencil", kind: "note")
-                    captureButton("Salvar um link", detail: "O Queep lê a página pública", symbol: "link", kind: "link")
-                    captureButton("Guardar uma imagem", detail: "Encontre depois pela aparência", symbol: "photo", kind: "image")
-                    captureButton("Salvar áudio ou vídeo", detail: "Transcrito e resumido", symbol: "play.rectangle", kind: "media")
+                MasonryLayout(spacing: GalleryStyle.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : 2) {
+                    actionTile(
+                        "Posts",
+                        detail: "X, Instagram, Dribbble, Behance ou Medium",
+                        identifier: "onboarding.capture.link"
+                    ) {
+                        HomeGlyph(asset: "HomeHashtag", size: 22)
+                    } action: {
+                        store.startCapture(kind: "link", intent: "post")
+                    }
+                    actionTile(
+                        "Galeria",
+                        detail: "Uma foto da sua biblioteca",
+                        identifier: "onboarding.capture.image"
+                    ) {
+                        Image(systemName: "photo.on.rectangle")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Theme.homePreview)
+                            .frame(width: 22, height: 22)
+                    } action: {
+                        store.openPhotoLibrary = true
+                    }
+                    #if os(macOS)
+                    actionTile(
+                        "Arquivos",
+                        detail: "Imagem, áudio ou vídeo do computador",
+                        identifier: "onboarding.capture.arquivo"
+                    ) {
+                        Image(systemName: "folder")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Theme.homePreview)
+                            .frame(width: 22, height: 22)
+                    } action: {
+                        store.openFileImporter = true
+                    }
+                    #endif
+                    actionTile(
+                        "Sites",
+                        detail: "Uma página pública para o Queep ler",
+                        identifier: "onboarding.capture.site"
+                    ) {
+                        HomeGlyph(asset: "HomeLink", size: 22)
+                    } action: {
+                        store.startCapture(kind: "link", intent: "site")
+                    }
+                    actionTile(
+                        "Notes",
+                        detail: "Títulos, listas e tarefas",
+                        identifier: "onboarding.capture.note"
+                    ) {
+                        HomeGlyph(asset: "HomeFile", size: 22)
+                    } action: {
+                        store.startCapture(kind: "note")
+                    }
                 }
             }
             VStack(alignment: .leading, spacing: 0) {
                 tip("Salve e continue", symbol: "checkmark.circle",
                     text: "Você não precisa escolher pastas ou etiquetas. Depois de salvar, a interpretação acontece em segundo plano.")
-                Divider().padding(.vertical, 14)
+                Divider().overlay(GalleryStyle.ring).padding(.vertical, 14)
                 tip("Encontre pelo que você lembra", symbol: "sparkles",
                     text: "Na busca da biblioteca, descreva o assunto, o nome ou a aparência. Por exemplo: interfaces claras de CRM. Os resultados vêm das suas referências salvas.")
-                Divider().padding(.vertical, 14)
+                Divider().overlay(GalleryStyle.ring).padding(.vertical, 14)
                 #if os(macOS)
                 tip("Capture de qualquer lugar", symbol: "keyboard",
                     text: "⌘⇧Espaço abre a captura rápida. ⌘⇧7 recorta a tela. O pin do Queep fica na tela: arraste para onde quiser e passe o mouse para colar, capturar ou abrir a biblioteca. Essas ações também estão no menu da barra superior.")
@@ -47,54 +96,99 @@ struct FirstUseView: View {
                 tip("Salve sem sair de outro app", symbol: "square.and.arrow.up",
                     text: "Toque em Compartilhar e escolha Queep para enviar um link, texto, imagem, áudio ou vídeo. Entre na sua conta no Queep antes do primeiro envio.")
                 #endif
-            }.card(padding: 20, elevated: false)
-        }.padding(28).frame(maxWidth: 640)
-            .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(GalleryStyle.fill)
+            .galleryTile()
+        }
+        .padding(28)
+        .frame(maxWidth: 720)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    private func captureButton(_ title: String, detail: String, symbol: String, kind: String) -> some View {
-        Button { store.startCapture(kind: kind) } label: {
-            HStack(spacing: 12) {
-                KindTile(symbol: symbol, size: 40)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.headline).foregroundStyle(.primary)
-                    Text(detail).font(.caption).foregroundStyle(Color.muted)
-                }.fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
+    private func actionTile<Glyph: View>(
+        _ title: String,
+        detail: String,
+        identifier: String,
+        @ViewBuilder glyph: () -> Glyph,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                glyph().accessibilityHidden(true)
+                Text(title)
+                    .font(.system(size: GalleryStyle.tileTitle, weight: .medium))
+                    .foregroundStyle(GalleryStyle.ink)
+                Text(detail)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(GalleryStyle.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(14).frame(maxWidth: .infinity, alignment: .leading).card()
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+            .background(GalleryStyle.fill)
+            .galleryTile()
         }
-        .buttonStyle(CardButtonStyle())
+        .buttonStyle(.plain)
         .accessibilityLabel(title)
-        .accessibilityIdentifier("onboarding.capture.\(kind)")
+        .accessibilityIdentifier(identifier)
     }
 
     private func tip(_ title: String, symbol: String, text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: symbol).font(.body.weight(.semibold)).foregroundStyle(.tint).frame(width: 24)
+            Image(systemName: symbol)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(GalleryStyle.ink)
+                .frame(width: 24)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.headline)
-                Text(text).foregroundStyle(Color.muted).fixedSize(horizontal: false, vertical: true)
+                Text(title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(GalleryStyle.ink)
+                Text(text)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(GalleryStyle.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 }
 
 struct HelpView: View {
+    /// Pushed inside Ajustes. Back returns to that list; Fechar still dismisses the sheet.
+    var pushedInSettings = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(LibraryStore.self) private var library
+
     var body: some View {
-        NavigationStack {
-            FirstUseView(showActions: false)
-                .navigationTitle("Primeiros passos")
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Fechar") { dismiss() }.accessibilityIdentifier("onboarding.close")
-                    }
-                }
+        Group {
+            if pushedInSettings {
+                detail
+            } else {
+                NavigationStack { detail }
+                    #if os(macOS)
+                    .frame(minWidth: 440, idealWidth: 560, minHeight: 500, idealHeight: 660)
+                    #endif
+            }
         }
-        #if os(macOS)
-        .frame(minWidth: 440, idealWidth: 560, minHeight: 500, idealHeight: 660)
-        #endif
+        .environment(\.colorScheme, .light)
+    }
+
+    private var detail: some View {
+        FirstUseView(showActions: false)
+            .background(Color.white)
+            .navigationTitle("Primeiros passos")
+            .toolbar {
+                ToolbarItem(placement: pushedInSettings ? .confirmationAction : .cancellationAction) {
+                    Button { close() } label: { GalleryPill(title: "Fechar", leading: "xmark") }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("onboarding.close")
+                }
+            }
+    }
+
+    private func close() {
+        if pushedInSettings { library.presentation = nil } else { dismiss() }
     }
 }

@@ -30,6 +30,9 @@ struct RootView: View {
             if let error = session.configurationError {
                 ContentUnavailableView("Configuração pendente", systemImage: "icloud.slash",
                                        description: Text(error))
+            } else if let message = session.accountLoadError {
+                AccountLoadFailureView(message: message)
+                    .transition(.opacity)
             } else if showsEntry {
                 EntryView(loading: loading)
                     .transition(.opacity)
@@ -42,9 +45,14 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: showsEntry)
         #if DEBUG
-        .sheet(isPresented: $previewPaywall) {
-            MaxPaywall(context: PaywallContext(reason: "preview", resource: EntryPreview.resource))
-        }
+        .journeyPaywall(Binding(
+            get: {
+                previewPaywall
+                    ? PaywallContext(reason: EntryPreview.resource == nil ? "preview" : "plan_limit",
+                                     resource: EntryPreview.resource)
+                    : nil
+            },
+            set: { previewPaywall = $0 != nil }))
         #endif
         // Queep uses a deliberately light, paper-like canvas on every platform.
         // Never inherit the system appearance: dark mode changes contrast, icons and surfaces.
@@ -86,10 +94,11 @@ struct RootView: View {
                 guard activity.active else { continue }
                 await session.handleUnauthorized(uid)
                 await ProductAnalytics.deliverSharedCaptures(session)
-                if library.hasPendingAnalysis {
+                // Keep an open detail, and any queued or processing card, current.
+                // `force` bypasses the freshness window so photos can arrive while the detail is open.
+                // An idle library waits for a manual refresh.
+                if library.shouldKeepRefreshing {
                     await library.refresh(api, account: uid, force: true)
-                } else {
-                    await library.refresh(api, account: uid)
                 }
             }
         }
@@ -116,4 +125,58 @@ private enum EntryPreview {
 /// Shared with the library task so a focus change does not cancel the fetch and restart the spinner.
 private final class LibraryActivity {
     var active = false
+}
+
+/// Signed in, but GET v1/account failed before any HTTP response or with a server error.
+/// Retry stays on this screen; it does not fall through to the sign-in card.
+private struct AccountLoadFailureView: View {
+    @Environment(Session.self) private var session
+    let message: String
+    @State private var retrying = false
+
+    var body: some View {
+        VStack(spacing: 20) {
+            QueepLogo(size: 72)
+            Text("Não foi possível carregar sua conta")
+                .font(.title2.bold())
+                .foregroundStyle(Theme.homeInk)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("account.load.title")
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(Theme.homePreview)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("account.load.error")
+            Button {
+                Task {
+                    retrying = true
+                    defer { retrying = false }
+                    await session.retryAccountLoad()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    if retrying { ProgressView().controlSize(.small).tint(Theme.queepThingsInk) }
+                    Text("Tentar novamente")
+                }
+            }
+            .buttonStyle(MasterButtonStyle())
+            .disabled(retrying)
+            .accessibilityIdentifier("account.load.retry")
+            Button("Sair da conta") { try? session.signOut() }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.homePreview)
+                .buttonStyle(.plain)
+                .disabled(retrying)
+                .accessibilityIdentifier("account.load.signout")
+        }
+        .padding(32)
+        .frame(maxWidth: 420)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #if os(macOS)
+        .background(Color.white)
+        #else
+        .background(Color.canvas)
+        #endif
+    }
 }
