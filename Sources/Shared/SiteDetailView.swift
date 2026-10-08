@@ -46,7 +46,7 @@ struct SiteDetailView: View {
                         RemoteImage(reference: live, thumbnail: false, fill: false)
                             .overlay {
                                 if live.gallery.first?.motion == true {
-                                    MotionLoop(reference: live, fill: false)
+                                    MotionLoop(reference: live, fill: false, active: true)
                                 }
                             }
                             .frame(maxWidth: .infinity)
@@ -227,7 +227,7 @@ struct SiteDetailView: View {
             if AnalysisPoll.resumes(afterRetry: value.status) {
                 pollEpoch += 1
             }
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = AnalysisRetry.failureCopy(error) }
     }
 
     private func archive() {

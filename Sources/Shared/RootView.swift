@@ -94,8 +94,9 @@ struct RootView: View {
                 guard activity.active else { continue }
                 await session.handleUnauthorized(uid)
                 await ProductAnalytics.deliverSharedCaptures(session)
-                // Keep an open detail, and any queued or processing card, current. Idle libraries wait for a manual refresh.
-                // `force` is required: the design refresh skips the network for a minute unless told otherwise.
+                // Keep an open detail, and any queued or processing card, current.
+                // `force` bypasses the freshness window so photos can arrive while the detail is open.
+                // An idle library waits for a manual refresh.
                 if library.shouldKeepRefreshing {
                     await library.refresh(api, account: uid, force: true)
                 }

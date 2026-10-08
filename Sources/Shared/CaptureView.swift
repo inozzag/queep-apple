@@ -305,87 +305,73 @@ struct LinkCaptureView: View {
     private var capture: Capture { Capture(kind: "link", title: "", text: "", url: url) }
     private var canSave: Bool { !busy && capture.isValid }
 
+    private var heading: String { store.captureIntent == "site" ? "Site" : "Post" }
+
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(spacing: 10) {
-                    Image(systemName: "link").foregroundStyle(Color.muted)
-                    TextField("https://…", text: $url)
-                        .textFieldStyle(.plain)
-                        .textContentType(.URL)
-                        .autocorrectionDisabled()
-                        #if os(iOS)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.URL)
-                        #endif
-                        .focused($focused)
-                        .submitLabel(.done)
-                        .onSubmit { if canSave { Task { await save() } } }
-                        .accessibilityLabel("Endereço do link")
-                        .accessibilityIdentifier("capture.url")
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                if busy {
-                    Label("Salvando…", systemImage: "arrow.up.circle")
-                        .font(.callout).foregroundStyle(Color.muted)
-                }
-                if let error {
-                    Label(error, systemImage: "exclamationmark.circle")
-                        .font(.callout).foregroundStyle(.red)
-                }
-                if attempted {
-                    Text("Envio não confirmado. Tente novamente com o mesmo conteúdo para evitar duplicação.")
-                        .font(.caption).foregroundStyle(Color.muted)
-                }
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Button { dismiss() } label: { GalleryPill(title: "Fechar", leading: "xmark") }
+                    .buttonStyle(.plain)
+                    .disabled(busy)
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Text(heading)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(GalleryStyle.ink)
             }
-            .padding(.horizontal, 28)
-            .padding(.top, 24)
-            .frame(maxWidth: 760, maxHeight: .infinity, alignment: .topLeading)
-            .frame(maxWidth: .infinity)
-            .background(Color.card)
-            .navigationTitle("Cole o link")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Fechar", systemImage: "xmark") { dismiss() }
-                        .disabled(busy)
-                        .keyboardShortcut(.cancelAction)
-                        #if os(iOS)
-                        .labelStyle(.iconOnly)
-                        #endif
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        Task { await save() }
-                    } label: {
-                        if busy { ProgressView().controlSize(.small) }
-                        else {
-                            #if os(iOS)
-                            Label(error == nil ? "Salvar" : "Tentar novamente",
-                                  systemImage: error == nil ? "checkmark" : "arrow.clockwise")
-                                .labelStyle(.iconOnly)
-                            #else
-                            Text(error == nil ? "Salvar" : "Tentar novamente")
-                            #endif
-                        }
-                    }
-                    .disabled(!canSave)
-                    .keyboardShortcut(.return, modifiers: .command)
-                    .accessibilityIdentifier("capture.save")
-                    .accessibilityLabel(busy ? "Salvando referência" : error == nil ? "Salvar" : "Tentar novamente")
-                }
+            TextField("https://…", text: $url)
+                .textFieldStyle(.plain)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(GalleryStyle.ink)
+                .textContentType(.URL)
+                .autocorrectionDisabled()
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.URL)
+                #endif
+                .focused($focused)
+                .submitLabel(.done)
+                .onSubmit { if canSave { Task { await save() } } }
+                .accessibilityLabel("Endereço do link")
+                .accessibilityIdentifier("capture.url")
+                .padding(14)
+                .background(GalleryStyle.fill, in: RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
+            if busy {
+                Text("Salvando…")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(GalleryStyle.secondary)
             }
+            if let error {
+                Text(error)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if attempted {
+                Text("Envio não confirmado. Tente novamente com o mesmo conteúdo para evitar duplicação.")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(GalleryStyle.secondary)
+            }
+            Button { Task { await save() } } label: {
+                Text(busy ? "Salvando…" : error == nil ? "Salvar" : "Tentar novamente")
+            }
+            .buttonStyle(MasterButtonStyle())
+            .disabled(!canSave)
+            .keyboardShortcut(.return, modifiers: .command)
+            .accessibilityIdentifier("capture.save")
+            .accessibilityLabel(busy ? "Salvando referência" : error == nil ? "Salvar" : "Tentar novamente")
+            Spacer(minLength: 0)
         }
+        .padding(24)
+        .frame(maxWidth: 520, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity)
+        .background(Color.white)
+        .environment(\.colorScheme, .light)
         .subscriptionGate()
         .interactiveDismissDisabled(busy)
         .onAppear { focused = true }
         #if os(macOS)
-        .frame(minWidth: 420, idealWidth: 480, minHeight: 240, idealHeight: 320)
+        .frame(minWidth: 420, idealWidth: 480, minHeight: 280, idealHeight: 360)
         #endif
     }
 

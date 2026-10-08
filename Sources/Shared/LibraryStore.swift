@@ -73,6 +73,10 @@ final class LibraryStore {
     var captureIntent = "note"
     /// iPhone Galeria presents the system photo library without the capture card.
     var openPhotoLibrary = false
+    /// Mac Arquivos presents the system file panel for a still, a movie, or audio.
+    var openFileImporter = false
+    /// The library chrome opens Queep things when this flips on, then clears it.
+    var requestAddMenu = false
     var kindFilter: String?
     var presentation: LibraryPresentation?
     var surface: LibrarySurface = .home
@@ -161,6 +165,8 @@ final class LibraryStore {
         hasLoaded = false
         presentation = nil
         openPhotoLibrary = false
+        openFileImporter = false
+        requestAddMenu = false
         query = ""
         kindFilter = nil
         searchChips = []

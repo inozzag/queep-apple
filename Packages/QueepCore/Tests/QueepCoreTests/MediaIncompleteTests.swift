@@ -24,7 +24,7 @@ import Foundation
 }
 
 @Test func completeOrArchivedMediaDoesNotOfferRetry() throws {
-    let complete = #"{"id":"c","kind":"link","title":"Post","text":"","url":"https://x.com/ada/status/2","status":"ready","revision":1,"created_at":"2026-09-20T15:00:00Z","updated_at":"2026-09-20T16:00:00Z","media_incomplete":false}"#
+    let complete = #"{"id":"c","kind":"link","title":"Post","text":"","url":"https://x.com/ada/status/2","status":"ready","revision":1,"created_at":"2026-09-20T15:00:00Z","updated_at":"2026-09-20T16:00:00Z","media_incomplete":false,"analysis":{"summary":"Um post com foto","topics":[],"entities":[],"usefulness":[],"appearance":[],"coverage":"full","limitations":[]},"image":{"sha256":"aa","content_type":"image/jpeg","width":10,"height":10,"byte_count":1}}"#
     let ready = try APIClient.decoder().decode(Reference.self, from: Data(complete.utf8))
     #expect(ready.mediaIncomplete == false)
     #expect(!ready.showsAnalysisRetry)
