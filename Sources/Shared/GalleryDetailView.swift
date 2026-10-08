@@ -741,7 +741,10 @@ private struct PreviewClip: View {
             let temporary = TemporaryMediaFile(extension: "mp4")
             try data.write(to: temporary.url, options: .atomic)
             file = temporary
-            player = AVPlayer(url: temporary.url)
+            let clip = AVPlayer(url: temporary.url)
+            clip.isMuted = true
+            clip.volume = 0
+            player = clip
         } catch is CancellationError {
         } catch {
             clear()
@@ -831,7 +834,7 @@ private struct GallerySlides: View {
                 if reference.media?.loop == true {
                     ZStack {
                         RemoteImage(reference: reference, thumbnail: true, fill: true)
-                        MotionLoop(reference: reference)
+                        MotionLoop(reference: reference, active: true)
                     }
                 } else if let player {
                     VideoPlayer(player: player)
@@ -850,8 +853,8 @@ private struct GallerySlides: View {
                 }
                 if reference.gallery.indices.contains(index),
                    reference.gallery[index].motion == true,
-                   abs(index - current) <= 1 {
-                    MotionLoop(reference: reference, index: index)
+                   index == current {
+                    MotionLoop(reference: reference, index: index, active: true)
                 }
             }
         }

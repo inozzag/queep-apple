@@ -255,6 +255,27 @@ import Foundation
     #expect(ref.gallery[0].motion != true)
 }
 
+@Test func inlineLoopFollowsMotionAndUploadedLoop() throws {
+    let gif = try APIClient.decoder().decode(Reference.self, from: Data(#"{"id":"g","kind":"link","title":"Loop","text":"","url":"https://x.com/a/status/1","status":"ready","revision":1,"created_at":"2026-09-15T15:00:00Z","updated_at":"2026-09-15T15:00:00Z","images":[{"sha256":"aa","content_type":"image/jpeg","width":900,"height":600,"byte_count":12,"preview_kind":"gif","motion":true}]}"#.utf8))
+    #expect(gif.playsInlineLoop)
+
+    let stillGif = try APIClient.decoder().decode(Reference.self, from: Data(#"{"id":"s","kind":"link","title":"Still","text":"","url":"https://x.com/a/status/1","status":"ready","revision":1,"created_at":"2026-09-15T15:00:00Z","updated_at":"2026-09-15T15:00:00Z","images":[{"sha256":"aa","content_type":"image/jpeg","width":900,"height":600,"byte_count":12,"preview_kind":"gif"}]}"#.utf8))
+    #expect(stillGif.gallery.first?.motion != true)
+    #expect(!stillGif.playsInlineLoop)
+
+    let poster = #"{"sha256":"aa","content_type":"image/jpeg","width":100,"height":80,"byte_count":4}"#
+    let looped = try APIClient.decoder().decode(Reference.self, from: Data("""
+    {"id":"v","kind":"video","title":"Clipe","text":"","url":null,"status":"ready","revision":1,"created_at":"2026-09-15T15:00:00Z","updated_at":"2026-09-15T15:00:00Z","image":\(poster),"media":{"sha256":"bb","content_type":"video/mp4","duration_seconds":4,"byte_count":20,"has_audio":false,"width":100,"height":80,"loop":true}}
+    """.utf8))
+    #expect(!looped.gallery.isEmpty)
+    #expect(looped.playsInlineLoop)
+
+    let once = try APIClient.decoder().decode(Reference.self, from: Data("""
+    {"id":"o","kind":"video","title":"Clipe","text":"","url":null,"status":"ready","revision":1,"created_at":"2026-09-15T15:00:00Z","updated_at":"2026-09-15T15:00:00Z","image":\(poster),"media":{"sha256":"bb","content_type":"video/mp4","duration_seconds":4,"byte_count":20,"has_audio":true,"width":100,"height":80,"loop":false}}
+    """.utf8))
+    #expect(!once.playsInlineLoop)
+}
+
 @Test func decodesGifMotionPreview() throws {
     let raw = #"{"id":"post","kind":"link","title":"Loop","text":"","url":"https://x.com/a/status/1","status":"ready","revision":1,"created_at":"2026-09-15T15:00:00Z","updated_at":"2026-09-15T15:00:00Z","image":{"sha256":"aa","content_type":"image/jpeg","width":900,"height":600,"byte_count":12,"preview_kind":"gif","motion":true},"images":[{"sha256":"aa","content_type":"image/jpeg","width":900,"height":600,"byte_count":12,"preview_kind":"gif","motion":true}]}"#
     let ref = try APIClient.decoder().decode(Reference.self, from: Data(raw.utf8))

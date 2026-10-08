@@ -46,7 +46,7 @@ struct SiteDetailView: View {
                         RemoteImage(reference: live, thumbnail: false, fill: false)
                             .overlay {
                                 if live.gallery.first?.motion == true {
-                                    MotionLoop(reference: live, fill: false)
+                                    MotionLoop(reference: live, fill: false, active: true)
                                 }
                             }
                             .frame(maxWidth: .infinity)

@@ -156,6 +156,13 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
         return []
     }
 
+    /// Muted inline loop: an uploaded video marked `loop`, or a gallery image with `motion == true`
+    /// (including a GIF the API has transcoded). A GIF or video preview without `motion` stays a still.
+    public var playsInlineLoop: Bool {
+        if kind == "video", media?.loop == true { return true }
+        return gallery.first?.motion == true
+    }
+
     public var isArchived: Bool { archivedAt != nil }
 }
 

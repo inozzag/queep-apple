@@ -387,7 +387,7 @@ struct LibraryView: View {
                                loading: store.loadingMore,
                                busy: store.loading || store.loadingMore || store.refreshing,
                                failed: store.error != nil,
-                               viewport: libraryViewport,
+                               viewport: galleryLoopViewport,
                                selecting: selecting, selectedIDs: selectedIDs,
                                resetID: "\(store.filterKey)|\(store.kindFilter ?? "")|\(searching)",
                                scrollLive: libraryScroll,
@@ -506,6 +506,12 @@ struct LibraryView: View {
     }
 
     private var galleryItems: [Reference] { filtered }
+
+    /// Grid loops stop while an item is open so the focused slide is the one that plays.
+    private var galleryLoopViewport: CGRect {
+        if case .reference = store.presentation { return .null }
+        return libraryViewport
+    }
 
     /// On the Mac the opened picture covers the library like saved.design; everything else is a sheet.
     private var sheetPresentation: Binding<LibraryPresentation?> {
@@ -785,11 +791,14 @@ struct LibraryGallery<MenuContent: View>: View {
     @ViewBuilder var menu: (Reference) -> MenuContent
 
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(Session.self) private var session
     @State private var shown = GalleryPaging.batch
     @State private var gate = false
     /// Latest tail position. A class so scroll ticks do not invalidate the gallery.
     @State private var tail = GalleryTailPosition()
     @State private var cardFrames: [String: CGRect] = [:]
+    @State private var playingLoopIDs: Set<String> = []
+    @State private var nearbyLoopIDs: Set<String> = []
     @State private var brushRemoves = false
     @State private var brushArmed = false
     @State private var brushPoint: CGPoint?
@@ -800,11 +809,13 @@ struct LibraryGallery<MenuContent: View>: View {
         VStack(spacing: GalleryStyle.gap) {
             MasonryLayout(spacing: GalleryStyle.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : nil) {
                 ForEach(visible) { reference in
-                    LibraryCardCell(reference: reference, open: { open(reference) }) {
+                    LibraryCardCell(reference: reference, playsLoop: playingLoopIDs.contains(reference.id),
+                                    open: { open(reference) }) {
                         menu(reference)
                     }
                     .id(reference.id)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .background { loopProbe(reference) }
                     .overlay(alignment: .topTrailing) {
                         if selecting {
                             Image(systemName: selectedIDs.contains(reference.id) ? "checkmark.circle.fill" : "circle")
@@ -840,6 +851,14 @@ struct LibraryGallery<MenuContent: View>: View {
         .coordinateSpace(name: "galleryBrush")
         .onPreferenceChange(GalleryCardFrames.self) { frames in
             if frames != cardFrames { cardFrames = frames }
+        }
+        .onPreferenceChange(LoopWindowKey.self) { window in
+            let playing = Set(visible.filter { window.playing.contains($0.id) }.prefix(InlineLoop.playerCap).map(\.id))
+            if playing != playingLoopIDs { playingLoopIDs = playing }
+            if window.nearby != nearbyLoopIDs {
+                nearbyLoopIDs = window.nearby
+                prefetchNearbyLoops(window.nearby)
+            }
         }
         .modifier(SelectionBrush(enabled: selecting, gesture: brushGesture))
         .onChange(of: resetID) { _, _ in
@@ -885,6 +904,27 @@ struct LibraryGallery<MenuContent: View>: View {
                 brushArmed = false
                 brushPoint = nil
             }
+    }
+
+    @ViewBuilder private func loopProbe(_ reference: Reference) -> some View {
+        if reference.playsInlineLoop {
+            GeometryReader { proxy in
+                let frame = proxy.frame(in: .global)
+                let near = viewport.isNull ? viewport : viewport.insetBy(dx: -80, dy: -InlineLoop.prefetchMargin)
+                Color.clear.preference(
+                    key: LoopWindowKey.self,
+                    value: LoopWindow(
+                        playing: viewport.intersects(frame) ? [reference.id] : [],
+                        nearby: near.intersects(frame) ? [reference.id] : []
+                    )
+                )
+            }
+        }
+    }
+
+    private func prefetchNearbyLoops(_ ids: Set<String>) {
+        guard let api = session.client(), let account = session.userID, !ids.isEmpty else { return }
+        ImagePrefetch.warmMotion(visible.filter { ids.contains($0.id) }, client: api, account: account)
     }
 
     private func hit(_ point: CGPoint) -> String? {
@@ -1213,6 +1253,20 @@ private struct OnboardingCover<Cover: View>: ViewModifier {
         #else
         content.sheet(isPresented: $isPresented, content: cover)
         #endif
+    }
+}
+
+private struct LoopWindow: Equatable {
+    var playing: Set<String> = []
+    var nearby: Set<String> = []
+}
+
+private struct LoopWindowKey: PreferenceKey {
+    static let defaultValue = LoopWindow()
+    static func reduce(value: inout LoopWindow, nextValue: () -> LoopWindow) {
+        let next = nextValue()
+        value.playing.formUnion(next.playing)
+        value.nearby.formUnion(next.nearby)
     }
 }
 
