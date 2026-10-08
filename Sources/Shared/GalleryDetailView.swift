@@ -106,8 +106,13 @@ struct GalleryDetailView: View {
     private var hasSlides: Bool { slideCount > 0 }
     private var slide: Int { min(max(page ?? 0, 0), max(slideCount - 1, 0)) }
 
+    private var canEdit: Bool {
+        !current.isArchived && !current.isSocialProfile
+            && ["note", "link", "image", "audio", "video"].contains(current.kind)
+    }
+
     private var title: String {
-        if current.isSocialPost {
+        if current.isSocialPost || current.isSocialProfile {
             return [identity.title, identity.author, current.linkSurface?.brandName ?? ""]
                 .first { !$0.isEmpty } ?? current.displayTitle
         }
@@ -121,13 +126,13 @@ struct GalleryDetailView: View {
     }
 
     private var summary: String {
-        if current.isSocialPost, !identity.body.isEmpty { return identity.body }
+        if (current.isSocialPost || current.isSocialProfile), !identity.body.isEmpty { return identity.body }
         if let text = current.analysis?.summary, !text.isEmpty { return text }
         return Markdown.plainText(current.text).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var authorName: String? {
-        if current.isSocialPost {
+        if current.isSocialPost || current.isSocialProfile {
             let name = identity.author.isEmpty ? identity.handle : identity.author
             if name.isEmpty { return nil }
             if name == title { return identity.handle.isEmpty || identity.handle == name ? nil : identity.handle }
@@ -155,7 +160,9 @@ struct GalleryDetailView: View {
         }
         .background(Color.white.ignoresSafeArea())
         .environment(\.colorScheme, .light)
-        .sheet(item: $editing, onDismiss: reconcile) { ReferenceDetail(reference: $0) }
+        .sheet(item: $editing, onDismiss: reconcile) { item in
+            GalleryEditSheet(reference: store.reference(item.id) ?? item)
+        }
         .sheet(isPresented: $pickingSpace) { SpacePicker(references: [current]) }
         .confirmationDialog("Excluir permanentemente esta referência?", isPresented: $confirmDelete,
                             titleVisibility: .visible) {
@@ -207,6 +214,7 @@ struct GalleryDetailView: View {
                 if !summary.isEmpty {
                     summaryText.lineLimit(3).frame(maxWidth: 440, alignment: .leading)
                 }
+                analysisExtras
                 analysisStatus
                 }
                 Spacer(minLength: 16)
@@ -251,6 +259,7 @@ struct GalleryDetailView: View {
                     titleText
                     author
                     if !summary.isEmpty { summaryText }
+                    analysisExtras
                     analysisStatus
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -356,7 +365,22 @@ struct GalleryDetailView: View {
     }
 
     @ViewBuilder private func slides(height: CGFloat, spacing: CGFloat, chevronInset: CGFloat, chevronFill: Color) -> some View {
-        if hasSlides {
+        if current.kind == "audio" {
+            VStack(spacing: 16) {
+                HomeReferenceCard(reference: current)
+                    .frame(maxWidth: 480)
+                if let player {
+                    MediaPlaybackView(player: player, video: false, duration: current.media?.durationSeconds ?? 0)
+                        .padding(16)
+                        .frame(maxWidth: 480)
+                        .background(GalleryStyle.fill, in: RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
+                } else if current.media != nil {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .id(currentID)
+        } else if hasSlides {
             GallerySlides(reference: current, height: height, spacing: spacing, player: player,
                           chevronInset: chevronInset, chevronFill: chevronFill, page: $page)
                 .id(currentID)
@@ -365,6 +389,31 @@ struct GalleryDetailView: View {
                 .frame(maxWidth: 480)
                 .frame(maxWidth: .infinity)
                 .id(currentID)
+        }
+    }
+
+    @ViewBuilder private var analysisExtras: some View {
+        if current.status == "ready", let topics = current.analysis?.topics.filter({ !$0.isEmpty }), !topics.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Array(topics.prefix(8).enumerated()), id: \.offset) { _, topic in
+                        GalleryChip(title: topic)
+                    }
+                }
+            }
+            .accessibilityIdentifier("gallery.topics")
+        }
+        if let transcript = current.transcript?.trimmingCharacters(in: .whitespacesAndNewlines), !transcript.isEmpty {
+            Text("Transcrição")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(GalleryStyle.tertiary)
+            Text(transcript)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(GalleryStyle.secondary)
+                .lineSpacing(4)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("media.transcript")
         }
     }
 
@@ -389,8 +438,10 @@ struct GalleryDetailView: View {
 
     private func moreMenu(height: CGFloat) -> some View {
         Menu {
-            Button("Editar e ver análise", systemImage: "square.and.pencil") { editing = current }
-                .accessibilityIdentifier("reference.edit")
+            if canEdit {
+                Button("Editar", systemImage: "square.and.pencil") { editing = current }
+                    .accessibilityIdentifier("reference.edit")
+            }
             if !current.isArchived {
                 Button("Space", systemImage: "square.stack.3d.up") { pickingSpace = true }
                     .accessibilityIdentifier("reference.space")
@@ -428,16 +479,22 @@ struct GalleryDetailView: View {
         }
     }
 
-    private func originalButton(stretches: Bool) -> some View {
-        Button {
-            if let originalURL { openURL(originalURL) } else { editing = current }
-        } label: {
-            GalleryPill(title: originalURL == nil ? "Ver detalhes" : "Ver original",
-                        trailing: originalURL == nil ? "arrow.right" : "arrow.up.right.square",
-                        dark: true, height: stretches ? 44 : 36, stretches: stretches)
+    @ViewBuilder private func originalButton(stretches: Bool) -> some View {
+        if let originalURL {
+            Button { openURL(originalURL) } label: {
+                GalleryPill(title: "Ver original", trailing: "arrow.up.right.square",
+                            dark: true, height: stretches ? 44 : 36, stretches: stretches)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("post.openOriginal")
+        } else if canEdit {
+            Button { editing = current } label: {
+                GalleryPill(title: "Editar", trailing: "square.and.pencil",
+                            dark: true, height: stretches ? 44 : 36, stretches: stretches)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("gallery.edit.open")
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(originalURL == nil ? "gallery.details" : "post.openOriginal")
     }
 
     private func retryAnalysis() async {
@@ -522,12 +579,13 @@ struct GalleryDetailView: View {
     private func loadVideo() async {
         clearPlayer()
         let target = current
-        guard target.kind == "video", target.media != nil, target.media?.loop != true,
-              let api = session.client(), let owner = session.userID else { return }
+        let audio = target.kind == "audio" && target.media != nil
+        let video = target.kind == "video" && target.media != nil && target.media?.loop != true
+        guard audio || video, let api = session.client(), let owner = session.userID else { return }
         do {
             let data = try await api.mediaData(target)
             guard !Task.isCancelled, owner == session.userID, target.id == currentID else { return }
-            let temporary = TemporaryMediaFile(extension: "mp4")
+            let temporary = TemporaryMediaFile(extension: audio ? "m4a" : "mp4")
             try data.write(to: temporary.url, options: .atomic)
             file = temporary
             player = AVPlayer(url: temporary.url)
@@ -541,6 +599,110 @@ struct GalleryDetailView: View {
         player?.pause()
         player = nil
         file = nil
+    }
+}
+
+/// Title and notes on the gallery surface. Analysis stays on the opened item.
+private struct GalleryEditSheet: View {
+    @Environment(Session.self) private var session
+    @Environment(LibraryStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let reference: Reference
+    @State private var title: String
+    @State private var text: String
+    @State private var busy = false
+    @State private var error: String?
+
+    init(reference: Reference) {
+        self.reference = reference
+        _title = State(initialValue: reference.title)
+        _text = State(initialValue: reference.text)
+    }
+
+    private var trimmedTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var changed: Bool { trimmedTitle != reference.title || text != reference.text }
+    private var canSave: Bool {
+        guard !busy, !reference.isArchived, changed, trimmedTitle.count <= 200, text.count <= 30_000 else { return false }
+        if reference.kind == "note" { return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return true
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Button { dismiss() } label: { GalleryPill(title: "Fechar", leading: "xmark") }
+                    .buttonStyle(.plain)
+                    .disabled(busy)
+                    .accessibilityIdentifier("gallery.edit.close")
+                Spacer()
+                Text("Editar")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(GalleryStyle.ink)
+            }
+            TextField("Título", text: $title, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(GalleryStyle.ink)
+                .lineLimit(1...3)
+                .accessibilityLabel("Título")
+                .accessibilityIdentifier("gallery.edit.title")
+            Text("Notas")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(GalleryStyle.tertiary)
+            TextEditor(text: $text)
+                .font(.system(size: 15))
+                .foregroundStyle(GalleryStyle.ink)
+                .scrollContentBackground(.hidden)
+                .frame(minHeight: 180)
+                .padding(12)
+                .background(GalleryStyle.fill, in: RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
+                .accessibilityLabel("Notas")
+                .accessibilityIdentifier("gallery.edit.text")
+            if trimmedTitle.count > 200 {
+                Text("O título tem no máximo 200 caracteres.")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(GalleryStyle.secondary)
+            }
+            if let error {
+                Text(error)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Button { Task { await save() } } label: {
+                Text(busy ? "Salvando…" : "Salvar")
+            }
+            .buttonStyle(MasterButtonStyle())
+            .disabled(!canSave)
+            .accessibilityIdentifier("gallery.edit.save")
+        }
+        .padding(24)
+        .frame(maxWidth: 520, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity)
+        .background(Color.white)
+        .environment(\.colorScheme, .light)
+        .accessibilityIdentifier("gallery.edit")
+    }
+
+    private func save() async {
+        guard let api = session.client(), let uid = session.userID, canSave else { return }
+        busy = true
+        error = nil
+        defer { busy = false }
+        do {
+            let value: Reference
+            if reference.kind == "note" {
+                value = try await api.edit(reference, capture: Capture(kind: "note", title: trimmedTitle, text: text),
+                                            mutationID: UUID())
+            } else {
+                value = try await api.editMetadata(reference, title: trimmedTitle, text: text, mutationID: UUID())
+            }
+            guard session.userID == uid else { return }
+            store.adopt(value)
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 }
 
