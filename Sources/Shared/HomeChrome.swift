@@ -481,6 +481,11 @@ struct iPhoneLibrary<Content: View, Dock: View>: View {
         .onChange(of: store.presentation != nil) { _, open in
             if open { mode = .standard }
         }
+        .onChange(of: store.requestAddMenu) { _, open in
+            guard open else { return }
+            store.requestAddMenu = false
+            mode = .add
+        }
         .overlayPreferenceValue(AddMenuFrameKey.self) { globalFrame in
             if mode == .add {
                 AddMenuDismissOverlay(dismiss: { mode = .standard }, globalFrame: globalFrame)

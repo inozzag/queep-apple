@@ -251,6 +251,11 @@ struct LibraryView: View {
             .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
         }
         .queepThingsMenu(isPresented: $macAddOpen)
+        .onChange(of: store.requestAddMenu) { _, open in
+            guard open else { return }
+            store.requestAddMenu = false
+            macAddOpen = true
+        }
         .overlay(alignment: .bottom) {
             if selecting {
                 selectionDock
@@ -386,7 +391,11 @@ struct LibraryView: View {
                          ? "Guarde uma imagem, um link ou uma nota. Eles aparecem nos seus dispositivos."
                          : "Esse tipo ainda não está na biblioteca. Queep things guarda o próximo.")
                 } actions: {
-                    if !searching { Button("Adicionar referência") { store.startCapture() }.buttonStyle(.borderedProminent) }
+                    if !searching {
+                        Button("Adicionar referência") { store.requestAddMenu = true }
+                            .buttonStyle(MasterButtonStyle())
+                            .accessibilityIdentifier("library.add.reference")
+                    }
                 }
             } else {
                 LibraryGallery(items: filtered, more: !searching && store.nextCursor != nil,
