@@ -7,7 +7,6 @@ import AppKit
 #endif
 
 struct LibraryView: View {
-    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
     @State private var logoutError: String?
@@ -322,38 +321,38 @@ struct LibraryView: View {
             }
             if sendingPhoto {
                 Label(sendingMessage, systemImage: "arrow.up.circle")
-                    .font(.callout)
-                    .foregroundStyle(Color.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .card(padding: 14, elevated: false)
+                    .galleryBanner()
                     .accessibilityIdentifier("library.sendingPhoto")
             }
             if let error = store.error {
                 HStack(spacing: 12) {
-                    Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
-                    Text(error).font(.callout).fixedSize(horizontal: false, vertical: true)
+                    Image(systemName: "wifi.exclamationmark").foregroundStyle(GalleryStyle.secondary)
+                    Text(error).fixedSize(horizontal: false, vertical: true)
                     Spacer()
                     Button("Tentar novamente") { Task { await refresh(force: true) } }
-                }.card(padding: 14, elevated: false)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(GalleryStyle.ink)
+                }
+                .galleryBanner()
             }
             if store.surface == .home && store.items.count == 1 && !searching && !searchHintDismissed && conversionOffer == nil {
                 HStack(alignment: .top, spacing: 12) {
-                    Sparkle()
                     Text("Referência salva. Use a busca da biblioteca para encontrá-la pelo nome ou, depois da análise, pelo assunto e pela aparência.")
-                        .font(.callout).fixedSize(horizontal: false, vertical: true)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("onboarding.searchHint")
                     Spacer()
                     Button { searchHintDismissed = true } label: {
                         Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityLabel("Dispensar dica de busca")
                         .accessibilityIdentifier("onboarding.dismissHint")
-                }.card(padding: 14, elevated: false)
+                }
+                .galleryBanner()
             }
             if store.searching {
                 #if os(macOS)
                 MacSearchSkeleton()
                 #else
-                SearchSkeleton(columns: columns)
+                SearchSkeleton()
                 #endif
             } else if store.searchError != nil {
                 ContentUnavailableView("Não foi possível buscar", systemImage: "magnifyingglass",
@@ -603,10 +602,6 @@ struct LibraryView: View {
         if let failure { actionError = failure }
     }
 
-    private var columns: [GridItem] {
-        typeSize.isAccessibilitySize ? [.init(.flexible())] : [.init(.adaptive(minimum: 240, maximum: 360), spacing: 18)]
-    }
-
     private func refresh(force: Bool) async {
         guard let api = session.client(), let uid = session.userID else { return }
         await store.refresh(api, account: uid, force: force)
@@ -688,73 +683,30 @@ struct LibraryView: View {
     #endif
 }
 
-/// The search reads as a conversation with the library: what it is doing, what it found.
-private struct SearchHeader: View {
-    @Environment(LibraryStore.self) private var store
-    let query: String
-    let search: () -> Void
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            ZStack {
-                Circle().fill(Theme.aiGradient.opacity(0.14)).frame(width: 40, height: 40)
-                Sparkle(size: 17)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                if store.searching {
-                    Text("Interpretando “\(query)”").font(.headline)
-                    Text("Comparando o significado com o que a IA entendeu das suas referências.")
-                        .font(.callout).foregroundStyle(Color.muted)
-                } else if let items = store.searchItems {
-                    Text(items.isEmpty ? "Nada parecido com “\(query)”" : "\(items.count) \(items.count == 1 ? "referência conferida" : "referências conferidas") por IA")
-                        .font(.headline)
-                    Text("Referências mais relevantes do seu acervo · até 10 por busca")
-                        .font(.callout).foregroundStyle(Color.muted)
-                    if store.hasPending {
-                        Label("Algumas referências ainda aguardam análise ou precisam de uma nova tentativa.", systemImage: "clock")
-                            .font(.caption).foregroundStyle(Color.muted)
-                    }
-                } else {
-                    Text("Pergunte à sua biblioteca").font(.headline)
-                    Text("Descreva o assunto, a aparência ou o que você lembra e pressione Enter.")
-                        .font(.callout).foregroundStyle(Color.muted)
-                }
-            }.fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 8)
-            HStack(spacing: 8) {
-                Button(store.searchItems == nil ? "Buscar" : "Buscar novamente", action: search)
-                    .buttonStyle(.borderedProminent).disabled(store.searching)
-                Button("Limpar") { store.query = "" }.buttonStyle(.bordered)
-            }.controlSize(.small)
-        }
-        .card(padding: 16)
-        .overlay(alignment: .bottom) {
-            if store.searching {
-                Rectangle().fill(Theme.aiGradient).frame(height: 2)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
-                    .padding(.horizontal, 1).shimmer()
-            }
-        }
-        .accessibilityElement(children: .contain)
-    }
-}
-
 private struct SearchSkeleton: View {
-    let columns: [GridItem]
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
-            ForEach(0..<3, id: \.self) { _ in
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Título da referência").font(.headline)
-                    Text("Resumo do que a inteligência artificial entendeu sobre esta referência salva.")
-                        .font(.callout)
-                    Text("assunto · utilidade").font(.caption)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading).card(padding: 18)
-                .shimmer()
+        MasonryLayout(spacing: GalleryStyle.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : 2) {
+            ForEach(0..<6, id: \.self) { index in
+                GalleryStyle.fill
+                    .frame(height: index.isMultiple(of: 3) ? 220 : 150)
+                    .galleryTile()
+                    .shimmer()
             }
         }
         .accessibilityLabel("Buscando nas suas referências")
+    }
+}
+
+private extension View {
+    func galleryBanner() -> some View {
+        font(.system(size: 13, weight: .medium))
+            .foregroundStyle(GalleryStyle.ink)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(GalleryStyle.fill)
+            .galleryTile()
     }
 }
 
