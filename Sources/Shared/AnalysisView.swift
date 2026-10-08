@@ -187,7 +187,7 @@ struct AnalysisView: View {
                 pollEpoch += 1
             }
         } catch {
-            self.error = error.localizedDescription
+            self.error = AnalysisRetry.failureCopy(error)
         }
     }
 

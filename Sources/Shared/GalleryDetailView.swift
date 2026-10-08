@@ -79,6 +79,7 @@ struct GalleryDetailView: View {
     @State private var confirmDelete = false
     @State private var busy = false
     @State private var error: String?
+    @State private var pollEpoch = 0
     @State private var player: AVPlayer?
     @State private var file: TemporaryMediaFile?
 
@@ -87,12 +88,6 @@ struct GalleryDetailView: View {
         self.items = items.contains { $0.id == reference.id } ? items : [reference]
         self.close = close
         _currentID = State(initialValue: reference.id)
-    }
-
-    static func supports(_ reference: Reference) -> Bool {
-        if reference.isSocialProfile || reference.kind == "note" || reference.kind == "audio" { return false }
-        if reference.kind == "video" { return reference.media != nil }
-        return !reference.gallery.isEmpty
     }
 
     private var current: Reference {
@@ -104,7 +99,11 @@ struct GalleryDetailView: View {
     private var identity: PostIdentity { PostIdentity(current) }
     private var host: String? { current.url.flatMap { URL(string: $0)?.host?.replacingOccurrences(of: "www.", with: "") } }
     private var originalURL: URL? { current.url.flatMap(URL.init(string:)) }
-    private var slideCount: Int { current.kind == "video" ? 1 : current.gallery.count }
+    private var slideCount: Int {
+        if current.kind == "video", current.media != nil { return 1 }
+        return current.gallery.count
+    }
+    private var hasSlides: Bool { slideCount > 0 }
     private var slide: Int { min(max(page ?? 0, 0), max(slideCount - 1, 0)) }
 
     private var title: String {
@@ -163,6 +162,7 @@ struct GalleryDetailView: View {
             Button("Excluir", role: .destructive) { Task { await remove() } }
         } message: { Text("Arquivar esconde. Excluir apaga da sua conta.") }
         .task(id: "\(session.userID ?? "")/\(currentID)") { await loadVideo() }
+        .task(id: "poll/\(session.userID ?? "")/\(currentID)/\(pollEpoch)") { await pollAnalysis() }
         .onDisappear { clearPlayer() }
         .accessibilityIdentifier("gallery.detail")
     }
@@ -207,7 +207,7 @@ struct GalleryDetailView: View {
                 if !summary.isEmpty {
                     summaryText.lineLimit(3).frame(maxWidth: 440, alignment: .leading)
                 }
-                analysisFailure
+                analysisStatus
                 }
                 Spacer(minLength: 16)
                 author.frame(maxWidth: 220, alignment: .trailing)
@@ -251,7 +251,7 @@ struct GalleryDetailView: View {
                     titleText
                     author
                     if !summary.isEmpty { summaryText }
-                    analysisFailure
+                    analysisStatus
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, GalleryStyle.inset)
@@ -279,32 +279,30 @@ struct GalleryDetailView: View {
             .accessibilityIdentifier("gallery.title")
     }
 
-    @ViewBuilder private var analysisFailure: some View {
-        if let problem = analysisProblem {
+    @ViewBuilder private var analysisStatus: some View {
+        if current.galleryStatusLine != nil || (current.showsAnalysisRetry && !busy) {
             VStack(alignment: .leading, spacing: 8) {
-                Label(problem, systemImage: "exclamationmark.circle")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.red)
-                    .padding(.top, 10)
-                if current.showsAnalysisRetry {
-                    Button("Tentar análise novamente", systemImage: "arrow.clockwise") {
+                if let line = current.galleryStatusLine {
+                    Text(line)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(current.status == "queued" || current.status == "processing"
+                                         ? GalleryStyle.secondary : GalleryStyle.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("gallery.status")
+                }
+                if current.showsAnalysisRetry && !busy {
+                    Button {
                         Task { await retryAnalysis() }
+                    } label: {
+                        GalleryPill(title: "Analisar de novo", leading: "arrow.clockwise")
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(busy)
+                    .buttonStyle(.plain)
                     .accessibilityIdentifier("gallery.retry")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 10)
         }
-    }
-
-    private var analysisProblem: String? {
-        if current.status == "error" { return "Falha na análise" }
-        if current.mediaIncomplete == true {
-            return current.analysis?.limitations.first ?? "A foto ou o clipe não chegou."
-        }
-        return nil
     }
 
     private var summaryText: some View {
@@ -357,10 +355,17 @@ struct GalleryDetailView: View {
         .accessibilityHidden(true)
     }
 
-    private func slides(height: CGFloat, spacing: CGFloat, chevronInset: CGFloat, chevronFill: Color) -> some View {
-        GallerySlides(reference: current, height: height, spacing: spacing, player: player,
-                      chevronInset: chevronInset, chevronFill: chevronFill, page: $page)
-            .id(currentID)
+    @ViewBuilder private func slides(height: CGFloat, spacing: CGFloat, chevronInset: CGFloat, chevronFill: Color) -> some View {
+        if hasSlides {
+            GallerySlides(reference: current, height: height, spacing: spacing, player: player,
+                          chevronInset: chevronInset, chevronFill: chevronFill, page: $page)
+                .id(currentID)
+        } else {
+            HomeReferenceCard(reference: current)
+                .frame(maxWidth: 480)
+                .frame(maxWidth: .infinity)
+                .id(currentID)
+        }
     }
 
     private func navButton(previous isPrevious: Bool) -> some View {
@@ -445,9 +450,34 @@ struct GalleryDetailView: View {
             let value = try await api.retryAnalysis(target)
             guard session.userID == uid else { return }
             store.adopt(value)
+            if AnalysisPoll.resumes(afterRetry: value.status) {
+                pollEpoch += 1
+            }
         } catch {
-            self.error = error.localizedDescription
+            self.error = AnalysisRetry.failureCopy(error)
         }
+    }
+
+    /// Follow a queued or processing item until it is ready, fails, or the picture arrives.
+    private func pollAnalysis() async {
+        guard let uid = session.userID else { return }
+        let id = currentID
+        let starting = store.reference(id) ?? items.first { $0.id == id } ?? initial
+        guard !starting.isArchived else { return }
+        guard starting.status == "queued" || starting.status == "processing" else { return }
+        await AnalysisPolling.run(
+            policy: starting.expectsPicture ? .post : .detail,
+            interval: .seconds(5),
+            fetch: {
+                guard let api = session.client(), session.userID == uid else { throw CancellationError() }
+                return try await api.get(id: id)
+            },
+            apply: { value in
+                store.adopt(value)
+                error = nil
+            },
+            onFailure: { error = $0 }
+        )
     }
 
     private func show(_ target: Reference?) {

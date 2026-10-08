@@ -68,11 +68,86 @@ public struct Reference: Codable, Identifiable, Sendable, Equatable {
         }
     }
 
-    /// Retry is offered for a failed analysis and for a ready post whose photo or clip never arrived.
-    public var showsAnalysisRetry: Bool {
+    /// How long a queued or processing item can sit without an update before it counts as stuck.
+    public static let analysisStuckAfter: TimeInterval = 180
+
+    /// Retry for a failed analysis, a ready item that never finished, or a queued item that stopped moving.
+    /// Archived references and an analysis that is still in flight stay quiet.
+    public var showsAnalysisRetry: Bool { showsAnalysisRetry(at: Date()) }
+
+    public func showsAnalysisRetry(at now: Date) -> Bool {
         guard !isArchived else { return false }
-        if status == "error" { return true }
-        return status == "ready" && mediaIncomplete == true
+        if status == "error" || isIncomplete { return true }
+        return analysisIsStuck(at: now)
+    }
+
+    public func analysisIsStuck(at now: Date, after idle: TimeInterval = analysisStuckAfter) -> Bool {
+        guard !isArchived else { return false }
+        guard status == "queued" || status == "processing" else { return false }
+        return now.timeIntervalSince(updatedAt) >= idle
+    }
+
+    /// A ready item whose picture or reading never arrived.
+    /// `mediaIncomplete` is an extra signal. Older saves omit it and are still incomplete.
+    public var isIncomplete: Bool {
+        guard !isArchived, status == "ready" else { return false }
+        if mediaIncomplete == true { return true }
+        if analysis?.coverage == "partial" { return true }
+        if missingExpectedPicture { return true }
+        if summaryIsOnlyURL { return true }
+        return false
+    }
+
+    /// Image, video, social post, or website. A note or an audio file is complete without a picture.
+    public var expectsPicture: Bool {
+        switch kind {
+        case "image", "video": true
+        case "link": isSocialPost || isWebsite
+        default: false
+        }
+    }
+
+    /// Copy for the gallery detail. A complete ready item has no line.
+    public var galleryStatusLine: String? {
+        guard !isArchived else { return nil }
+        switch status {
+        case "queued": return "Na fila para análise"
+        case "processing": return "Analisando"
+        case "error": return "Falha na análise"
+        case "ready":
+            guard isIncomplete else { return nil }
+            if let limitation = analysis?.limitations.first?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !limitation.isEmpty {
+                return limitation
+            }
+            if analysis?.coverage == "partial", !missingExpectedPicture, mediaIncomplete != true, !summaryIsOnlyURL {
+                return "Análise parcial"
+            }
+            return "A foto ou o clipe não chegou."
+        default: return nil
+        }
+    }
+
+    private var missingExpectedPicture: Bool {
+        expectsPicture && gallery.isEmpty && media == nil
+    }
+
+    /// The reading is only the saved URL, or there is no reading and no picture to stand in for it.
+    private var summaryIsOnlyURL: Bool {
+        let link = Self.linkKey(url)
+        guard !link.isEmpty else { return false }
+        let summary = (analysis?.summary ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !summary.isEmpty { return Self.linkKey(summary) == link }
+        guard gallery.isEmpty else { return false }
+        let note = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return note.isEmpty || Self.linkKey(note) == link
+    }
+
+    /// Trimmed, with one trailing slash removed, so `https://a.com/b` matches `https://a.com/b/`.
+    static func linkKey(_ value: String?) -> String {
+        var text = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.hasSuffix("/") { text.removeLast() }
+        return text
     }
 
     public var gallery: [ImageInfo] {
@@ -177,13 +252,14 @@ public struct Capture: Encodable, Sendable {
 }
 
 public enum QueepError: LocalizedError {
-    case invalidCapture, unauthorized, conflict, unavailable, server(String)
+    case invalidCapture, unauthorized, conflict, unavailable, server(String), rateLimited(retryAfter: Int?)
     case planRequired(PlanRequirement)
     public var errorDescription: String? {
         switch self {
         case .invalidCapture: "Preencha uma nota ou um link HTTP válido."
         case .unauthorized: "Sua sessão expirou. Entre novamente."
         case .conflict: "Essa referência mudou em outro dispositivo. Atualize antes de salvar."
+        case .rateLimited(let retryAfter): AnalysisRetry.limitCopy(retryAfter: retryAfter)
         case .unavailable: "Não foi possível conectar. Tente novamente."
         case .server(let message): message
         case .planRequired(let requirement): requirement.message

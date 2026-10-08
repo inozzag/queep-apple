@@ -61,16 +61,10 @@ struct LibraryView: View {
                         CaptureView(reference: nil, initialKind: store.captureKind)
                     }
                 case .reference(let reference):
-                    if GalleryDetailView.supports(reference) {
-                        GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
-                            #if os(iOS)
-                            .presentationDragIndicator(.hidden)
-                            #endif
-                    } else {
-                        LiveReferenceView(reference: reference) { live in
-                            ReferenceDetail(reference: live)
-                        }
-                    }
+                    GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
+                        #if os(iOS)
+                        .presentationDragIndicator(.hidden)
+                        #endif
                 }
             }
             .alert("Não foi possível sair", isPresented: Binding(get: { logoutError != nil }, set: { if !$0 { logoutError = nil } })) {
@@ -511,13 +505,13 @@ struct LibraryView: View {
         pendingSelectionDelete = filtered.filter { selectedIDs.contains($0.id) }
     }
 
-    private var galleryItems: [Reference] { filtered.filter(GalleryDetailView.supports) }
+    private var galleryItems: [Reference] { filtered }
 
     /// On the Mac the opened picture covers the library like saved.design; everything else is a sheet.
     private var sheetPresentation: Binding<LibraryPresentation?> {
         Binding(get: {
             #if os(macOS)
-            if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) { return nil }
+            if case .reference = store.presentation { return nil }
             #endif
             return store.presentation
         }, set: { store.presentation = $0 })
@@ -525,12 +519,12 @@ struct LibraryView: View {
 
     #if os(macOS)
     private var macGalleryID: String? {
-        if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) { return reference.id }
+        if case .reference(let reference) = store.presentation { return reference.id }
         return nil
     }
 
     @ViewBuilder private var macGallery: some View {
-        if case .reference(let reference) = store.presentation, GalleryDetailView.supports(reference) {
+        if case .reference(let reference) = store.presentation {
             GalleryDetailView(reference: reference, items: galleryItems) { store.presentation = nil }
                 .transition(.opacity)
         }
@@ -1266,18 +1260,6 @@ private struct GalleryPageTail: View {
             .accessibilityHidden(true)
     }
 }
-
-/// Keeps detail sheets on the freshest library copy while polling updates the store.
-private struct LiveReferenceView<Content: View>: View {
-    @Environment(LibraryStore.self) private var store
-    let reference: Reference
-    @ViewBuilder var content: (Reference) -> Content
-
-    var body: some View {
-        content(store.items.first(where: { $0.id == reference.id }) ?? reference)
-    }
-}
-
 
 #if os(macOS)
 private extension View {

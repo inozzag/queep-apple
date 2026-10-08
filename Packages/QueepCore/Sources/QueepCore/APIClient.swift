@@ -134,9 +134,22 @@ public struct APIClient: Sendable {
         return try Self.decoder().decode(SearchResults.self, from: data)
     }
 
-    public func retryAnalysis(_ reference: Reference) async throws -> Reference {
-        try await decoded("v1/references/\(reference.id)/retry", method: "POST",
-                          body: JSONEncoder().encode(["revision": reference.revision]))
+    public func retryAnalysis(_ reference: Reference, scope: String? = "fetch") async throws -> Reference {
+        let body = try JSONEncoder().encode(AnalysisRetryBody(revision: reference.revision, scope: scope))
+        return try await decoded("v1/references/\(reference.id)/retry", method: "POST", body: body)
+    }
+
+    /// `Retry-After` as a delay in seconds, or an HTTP date. Missing and unreadable values stay nil.
+    static func retryAfterSeconds(_ response: HTTPURLResponse, now: Date = Date()) -> Int? {
+        guard let raw = response.value(forHTTPHeaderField: "Retry-After")?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
+        if let seconds = Int(raw) { return max(0, seconds) }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        guard let date = formatter.date(from: raw) else { return nil }
+        return max(0, Int(date.timeIntervalSince(now).rounded(.up)))
     }
 
     public func setArchived(_ archived: Bool, reference: Reference) async throws -> Reference {
@@ -308,6 +321,7 @@ public struct APIClient: Sendable {
             throw QueepError.unauthorized
         case 409: throw QueepError.conflict
         case 422: throw QueepError.invalidCapture
+        case 429: throw QueepError.rateLimited(retryAfter: Self.retryAfterSeconds(http))
         case 404:
             struct Failure: Decodable { let detail: String }
             if let failure = try? JSONDecoder().decode(Failure.self, from: data), !failure.detail.isEmpty {
@@ -326,7 +340,7 @@ public struct APIClient: Sendable {
             struct Failure: Decodable { let detail: String }
             let failure = try? JSONDecoder().decode(Failure.self, from: data)
             throw QueepError.server(failure?.detail ?? "Serviço temporariamente indisponível. Tente novamente.")
-        case 403, 413, 415, 429:
+        case 403, 413, 415:
             struct Failure: Decodable { let detail: String }
             let failure = try? JSONDecoder().decode(Failure.self, from: data)
             throw QueepError.server(failure?.detail ?? "Serviço temporariamente indisponível. Tente novamente.")

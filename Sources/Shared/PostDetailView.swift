@@ -312,7 +312,7 @@ struct PostDetailView: View {
             if AnalysisPoll.resumes(afterRetry: value.status) {
                 pollEpoch += 1
             }
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = AnalysisRetry.failureCopy(error) }
     }
 
     private func remove() async {
