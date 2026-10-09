@@ -32,8 +32,8 @@ extension View {
     }
 }
 
-/// Gallery tile: the picture is the card, with the source on the bottom left and a hint on the
-/// top right. References without a picture become text tiles of the same family.
+/// Gallery tile: the picture is the card, with the source on the bottom left.
+/// References without a picture become text tiles of the same family.
 struct HomeReferenceCard: View {
     let reference: Reference
     /// The gallery turns this on for a visible cell that won one of the four loop slots.
@@ -91,9 +91,6 @@ struct HomeReferenceCard: View {
                 }
             }
             .galleryTile()
-            .overlay(alignment: .topTrailing) {
-                if let glyph { TileGlyph(symbol: glyph).padding(GalleryStyle.inset) }
-            }
             .overlay(alignment: .bottomLeading) {
                 SourceBadge(reference: reference).padding(GalleryStyle.inset)
             }
@@ -115,17 +112,6 @@ struct HomeReferenceCard: View {
         }()
         guard let size else { return 0.8 }
         return min(1.8, max(0.62, CGFloat(size.0) / CGFloat(size.1)))
-    }
-
-    private var glyph: String? {
-        if reference.gallery.count > 1 { return "square.on.square" }
-        let moving = (reference.kind == "video" && reference.media?.loop == true)
-            || reference.gallery.first?.motion == true
-        if reference.kind == "video" || reference.gallery.first?.isVideoPreview == true {
-            return moving ? nil : "play.fill"
-        }
-        if reference.url != nil { return "arrow.up.right" }
-        return nil
     }
 
     private var textTile: some View {
@@ -233,21 +219,6 @@ struct SourceBadge: View {
                 PostBrandMark(surface: surface, size: size, radius: size * 0.3)
             }
         }
-    }
-}
-
-private struct TileGlyph: View {
-    let symbol: String
-
-    var body: some View {
-        Image(systemName: symbol)
-            .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(.white)
-            .frame(width: GalleryStyle.badge, height: GalleryStyle.badge)
-            .background {
-                Circle().fill(.ultraThinMaterial).environment(\.colorScheme, .dark)
-            }
-            .clipShape(Circle())
     }
 }
 
