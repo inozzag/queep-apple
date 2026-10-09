@@ -411,17 +411,18 @@ struct MaxPaywall: View {
 
     private func prepare() async {
         guard !reported else { return }
-        var flag = hookFlag
         if preview == nil {
             async let loaded: Void = store.load(session)
-            flag = await ProductAnalytics.paywallTitleHook() ?? flag
+            let cached = ProductAnalytics.paywallTitleHook { fresh in
+                hookFlag = fresh
+            }
+            if hookFlag == nil { hookFlag = cached }
             await loaded
         }
-        hookFlag = flag
         loading = false
         guard !reported else { return }
         reported = true
-        let resolved = PaywallCopy.hook(flag: flag, reason: context.reason, resource: context.resource)
+        let resolved = PaywallCopy.hook(flag: hookFlag, reason: context.reason, resource: context.resource)
         ProductAnalytics.paywallViewed(
             reason: context.reason,
             hook: resolved.rawValue,

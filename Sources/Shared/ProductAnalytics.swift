@@ -43,12 +43,7 @@ enum ProductAnalytics {
         config.surveys = false
         config.sessionReplay = false
         #endif
-        config.setBeforeSend { event in
-            let blocked: Set<String> = [
-                "$autocapture", "$screen", "$rageclick", "$exception", "$feature_flag_called"
-            ]
-            return blocked.contains(event.event) ? nil : event
-        }
+        config.setBeforeSend(dropBlockedEvents)
         PostHogSDK.shared.setup(config)
         PostHogSDK.shared.register(["environment": environment])
         configuredEnvironment = environment
@@ -150,33 +145,44 @@ enum ProductAnalytics {
         emit("paywall_closed", ["reason": reason])
     }
 
-    /// Multivariate `paywall_title_hook` (`a`...`e`). Nil when analytics is off, the flag
-    /// is missing, or it is not a string variant — the sheet then uses its reason default.
-    /// The flag itself is not created here.
-    static func paywallTitleHook() async -> String? {
+    /// Multivariate `paywall_title_hook` (`a`...`e`). Returns the cached variant immediately.
+    /// Nil when analytics is off, the flag is missing, or it is not a string variant — the
+    /// sheet then uses its reason default. A later reload, if it finds a variant, is applied
+    /// on the main actor through `update`. The flag itself is not created here.
+    static func paywallTitleHook(update: @escaping @MainActor (String) -> Void) -> String? {
         guard enabled else { return nil }
-        let cached = flagString(PostHogSDK.shared.getFeatureFlag(paywallHookFlag, sendFeatureFlagEvent: false))
-        return await withCheckedContinuation { continuation in
-            let gate = ResumeOnce()
-            PostHogSDK.shared.reloadFeatureFlags {
-                Task { @MainActor in
-                    let fresh = Self.flagString(PostHogSDK.shared.getFeatureFlag(Self.paywallHookFlag, sendFeatureFlagEvent: false))
-                    gate.resume(continuation, returning: fresh ?? cached)
-                }
-            }
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(2))
-                gate.resume(continuation, returning: cached)
-            }
-        }
+        return FeatureFlagLoad.current(
+            cached: cachedPaywallHook(),
+            reload: reloadPaywallFlags,
+            read: cachedPaywallHook,
+            update: update
+        )
     }
 
-    private static let paywallHookFlag = "paywall_title_hook"
+    /// PostHog invokes this on `com.posthog.RemoteConfig`, a background queue.
+    /// The completion is built in `FeatureFlagLoad`, which is not main-actor isolated.
+    nonisolated private static func reloadPaywallFlags(_ completion: @escaping @Sendable () -> Void) {
+        PostHogSDK.shared.reloadFeatureFlags(completion)
+    }
 
-    private static func flagString(_ value: Any?) -> String? {
+    nonisolated private static func cachedPaywallHook() -> String? {
+        flagString(PostHogSDK.shared.getFeatureFlag(paywallHookFlag, sendFeatureFlagEvent: false))
+    }
+
+    nonisolated private static let paywallHookFlag = "paywall_title_hook"
+
+    nonisolated private static func flagString(_ value: Any?) -> String? {
         guard let text = value as? String else { return nil }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// PostHog runs `beforeSend` on the thread that captures the event, which is not always main.
+    nonisolated private static func dropBlockedEvents(_ event: PostHogEvent) -> PostHogEvent? {
+        let blocked: Set<String> = [
+            "$autocapture", "$screen", "$rageclick", "$exception", "$feature_flag_called"
+        ]
+        return blocked.contains(event.event) ? nil : event
     }
 
     static func purchaseStarted(plan: String, period: String) {
@@ -271,22 +277,5 @@ enum ProductAnalytics {
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard value.count > 8, !value.contains("$("), !value.contains(" ") else { return nil }
         return value
-    }
-}
-
-/// Resumes a flag read once. The reload callback and the timeout can both finish.
-private final class ResumeOnce: @unchecked Sendable {
-    private let lock = NSLock()
-    private var done = false
-
-    func resume(_ continuation: CheckedContinuation<String?, Never>, returning value: String?) {
-        lock.lock()
-        if done {
-            lock.unlock()
-            return
-        }
-        done = true
-        lock.unlock()
-        continuation.resume(returning: value)
     }
 }
