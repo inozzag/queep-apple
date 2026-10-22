@@ -267,31 +267,33 @@ struct QueepSegment<Value: Hashable>: View {
     @Binding var selection: Value
     var accent: Accent = .neutral
     var stretches = false
+    @Environment(\.chromeMetrics) private var metrics
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: metrics.bare ? 2 : 8) {
             ForEach(items, id: \.identifier) { item in
                 let selected = item.value == selection
                 Button { selection = item.value } label: {
                     HStack(spacing: 8) {
                         Text(item.title)
-                            .font(.system(size: 16))
+                            .font(.system(size: metrics.text))
                             .foregroundStyle(Theme.ink)
                             .lineLimit(1)
                             .fixedSize()
                         if let count = item.count { CountBadge(value: count, selected: selected) }
                         if let tag = item.tag { OfferTag(text: tag) }
                     }
-                    .padding(.horizontal, 20)
-                    .frame(height: Theme.control)
+                    .padding(.horizontal, metrics.padding)
+                    .frame(height: metrics.control)
                     .frame(maxWidth: stretches ? .infinity : nil)
                     .background {
                         if selected {
-                            RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                            RoundedRectangle(cornerRadius: metrics.controlRadius, style: .continuous)
                                 .fill(accent == .lime ? Theme.lime.opacity(0.5) : Theme.fill)
                         }
                     }
-                    .contentShape(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: metrics.controlRadius, style: .continuous))
+                    .barHover(radius: metrics.bare ? metrics.controlRadius : 0)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.tag.map { "\(item.title), \($0)" } ?? item.title)
@@ -301,7 +303,15 @@ struct QueepSegment<Value: Hashable>: View {
             }
         }
         .animation(.spring(duration: 0.25, bounce: 0), value: selection)
-        .chrome(.outline)
+        .modifier(SegmentChrome(bare: metrics.bare))
+    }
+}
+
+private struct SegmentChrome: ViewModifier {
+    let bare: Bool
+
+    func body(content: Content) -> some View {
+        if bare { content } else { content.chrome(.outline) }
     }
 }
 
@@ -538,12 +548,13 @@ extension EmptyState where Actions == EmptyView {
 
 /// The PRO tile that opens a free gallery: the cloud stage, the lockup with its plan, a lime action.
 struct PromoTile: View {
+    static let aspect: CGFloat = 234 / 340
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             PromoStage()
-                .aspectRatio(234 / 340, contentMode: .fit)
+                .aspectRatio(Self.aspect, contentMode: .fit)
                 .overlay {
                     VStack(spacing: -3) {
                         PlanBadge(plan: .pro, size: .medium)

@@ -12,6 +12,16 @@ struct HomeTopBarHeightKey: PreferenceKey {
 }
 
 extension View {
+    /// Floating bar: no background of its own, so the library shows through its glass.
+    /// Reports its height so the content can start below it.
+    func homeFloatingBar() -> some View {
+        background {
+            GeometryReader { geo in
+                Color.clear.preference(key: HomeTopBarHeightKey.self, value: geo.size.height)
+            }
+        }
+    }
+
     /// Opaque bar. Reports its height so the library can scroll underneath without a fade.
     func homeTopBar() -> some View {
         background(Theme.surface.ignoresSafeArea(edges: .top))
@@ -30,16 +40,18 @@ extension View {
 struct HomeSearchField<Accessories: View>: View {
     @Binding var text: String
     var height: CGFloat = Theme.chrome
+    var radius: CGFloat = Theme.radius
     var autofocus = false
     var surfaced = true
     var submit: () -> Void
     @ViewBuilder var accessories: Accessories
     @FocusState private var focused: Bool
     @State private var example = HomeSearchExamples.pick()
+    @Environment(\.chromeMetrics) private var metrics
 
     var body: some View {
-        HStack(spacing: 16) {
-            QueepIcon("ri-search-ai-line", size: 22, color: Theme.ink)
+        HStack(spacing: metrics.bare ? 10 : 16) {
+            QueepIcon("ri-search-ai-line", size: metrics.bare ? metrics.icon : 22, color: Theme.ink)
             ZStack(alignment: .leading) {
                 if text.isEmpty {
                     Text("Tente “\(example)”")
@@ -65,12 +77,12 @@ struct HomeSearchField<Accessories: View>: View {
                     .accessibilityLabel("Busca da biblioteca")
                     .accessibilityIdentifier("library.search")
             }
-            HStack(spacing: 16) { accessories }
+            HStack(spacing: metrics.bare ? 12 : 16) { accessories }
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, metrics.bare ? 12 : 18)
         .frame(maxWidth: .infinity)
         .frame(height: height)
-        .modifier(OptionalSurface(style: .field, radius: Theme.radius, enabled: surfaced))
+        .modifier(OptionalSurface(style: metrics.bare ? .fill : .field, radius: radius, enabled: surfaced))
         .onAppear { if autofocus { focused = true } }
     }
 }
@@ -288,6 +300,7 @@ struct HomeAccountButton: View {
     @Environment(LibraryStore.self) private var store
     @State private var subscriptions = SubscriptionStore.shared
     var size: CGFloat = Theme.chrome
+    @Environment(\.chromeMetrics) private var metrics
 
     var body: some View {
         Button {
@@ -295,12 +308,13 @@ struct HomeAccountButton: View {
         } label: {
             QueepIcon("ri-user-5-fill", size: size * 0.57, color: Theme.ink)
                 .frame(width: size, height: size)
-                .surface(.fill, radius: size >= Theme.chrome ? Theme.radius : Theme.controlRadius)
+                .surface(.fill, radius: size >= Theme.chrome ? Theme.radius : metrics.controlRadius)
+                .barHover(radius: metrics.bare ? metrics.controlRadius : 0)
                 .overlay(alignment: .bottom) {
                     if let plan = subscriptions.access?.plan {
                         PlanBadge(plan: plan)
-                            .scaleEffect(size >= Theme.chrome ? 1 : 0.85)
-                            .offset(y: size >= Theme.chrome ? 5 : 6)
+                            .scaleEffect(size >= Theme.chrome ? 1 : metrics.bare ? 0.7 : 0.85)
+                            .offset(y: size >= Theme.chrome ? 5 : metrics.bare ? 3 : 6)
                     }
                 }
                 .contentShape(Rectangle())
@@ -331,6 +345,7 @@ private struct OptionalSurface: ViewModifier {
 
 enum QueepGlassShape {
     case circle, capsule, card
+    case rounded(CGFloat)
 }
 
 private struct QueepGlass: ViewModifier {
@@ -345,6 +360,8 @@ private struct QueepGlass: ViewModifier {
                 content.glassEffect(.regular, in: Capsule())
             case .card:
                 content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+            case .rounded(let radius):
+                content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
             }
         } else {
             content
@@ -358,6 +375,7 @@ private struct QueepGlass: ViewModifier {
         let radius: CGFloat = switch shape {
         case .circle, .capsule: Theme.nav / 2
         case .card: Theme.radius
+        case .rounded(let radius): radius
         }
         return RoundedRectangle(cornerRadius: radius, style: .continuous)
     }
@@ -852,28 +870,30 @@ private struct AddMenuSurface: ViewModifier {
 /// Mac header control. Opens the Queep things card under it.
 struct QueepThingsControl: View {
     @Binding var isPresented: Bool
+    @Environment(\.chromeMetrics) private var metrics
 
     var body: some View {
         Button {
             isPresented.toggle()
         } label: {
-            HStack(spacing: 8) {
-                QueepIcon("ri-add-line", size: 24, color: Theme.ink)
+            HStack(spacing: metrics.bare ? 6 : 8) {
+                QueepIcon("ri-add-line", size: metrics.icon, color: Theme.ink)
                 Text("Queep things")
-                    .font(.system(size: 16))
+                    .font(.system(size: metrics.bare ? metrics.text : 16))
                     .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                     .fixedSize()
             }
-            .padding(.horizontal, 20)
-            .frame(height: Theme.control)
+            .padding(.horizontal, metrics.padding)
+            .frame(height: metrics.control)
             .background {
                 if isPresented {
-                    RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous).fill(Color.white.opacity(0.7))
+                    RoundedRectangle(cornerRadius: metrics.controlRadius, style: .continuous).fill(Color.white.opacity(0.7))
                 }
             }
-            .chrome(.fill)
-            .contentShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+            .modifier(ThingsChrome(bare: metrics.bare, radius: metrics.controlRadius))
+            .barHover(radius: metrics.bare ? metrics.controlRadius : 0)
+            .contentShape(RoundedRectangle(cornerRadius: metrics.bare ? metrics.controlRadius : Theme.radius, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("library.add")
@@ -891,9 +911,19 @@ struct QueepThingsControl: View {
                     .opacity(0)
                     .accessibilityHidden(true)
                     .allowsHitTesting(false)
-                    .offset(y: Theme.chrome + 8)
+                    .offset(y: (metrics.bare ? metrics.control : Theme.chrome) + 8)
             }
         }
+    }
+}
+
+/// The 60pt fill container on the Figma's bar; inside the floating bar, a plain fill.
+private struct ThingsChrome: ViewModifier {
+    let bare: Bool
+    let radius: CGFloat
+
+    func body(content: Content) -> some View {
+        if bare { content.surface(.fill, radius: radius) } else { content.chrome(.fill) }
     }
 }
 

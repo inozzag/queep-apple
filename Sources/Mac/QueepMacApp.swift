@@ -58,7 +58,8 @@ private enum MenuBarLogo {
     }()
 }
 
-/// Keeps the glass titlebar and traffic lights; hides the redundant window title next to them.
+/// Keeps the traffic lights; hides the window title and lets the content run under a clear
+/// titlebar, so the library's floating bar is the only chrome.
 private struct HideLibraryWindowTitle: ViewModifier {
     func body(content: Content) -> some View {
         titleHidden(content)
@@ -90,6 +91,8 @@ private final class TitleHidingView: NSView {
 
     func hideTitle() {
         window?.titleVisibility = .hidden
+        window?.titlebarAppearsTransparent = true
+        window?.styleMask.insert(.fullSizeContentView)
     }
 }
 

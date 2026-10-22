@@ -17,8 +17,11 @@ struct SpacesOverview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .center, spacing: 12) {
+                // The Mac's bar already names the tab and counts the Spaces.
+                #if os(iOS)
                 PageTitle(text: "Spaces", detail: store.spaces.isEmpty ? nil
                           : "\(store.spaces.count) \(store.spaces.count == 1 ? "Space" : "Spaces")")
+                #endif
                 #if os(macOS)
                 Button { store.presentation = .newSpace } label: {
                     HStack(spacing: 8) {

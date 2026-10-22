@@ -19,6 +19,8 @@ struct LibraryView: View {
     @State private var libraryScrollTick = 0
     #if os(macOS)
     @State private var macAddOpen = false
+    /// The plane, the dated gallery or the list, picked under the bar and remembered.
+    @AppStorage("queep.libraryLayout") private var libraryLayout = LibraryLayout.infinite
     #endif
     /// Anything selected puts the gallery in selection mode; clearing it leaves.
     @State private var selectedIDs: Set<String> = []
@@ -245,25 +247,63 @@ struct LibraryView: View {
         #if os(macOS)
         GeometryReader { geo in
             ZStack(alignment: .top) {
+                if usesInfiniteGallery {
+                    InfiniteBentoGallery(items: filtered, endless: canvasIsEndless,
+                                         topInset: macHeaderHeight + geo.safeAreaInsets.top + (showsCanvasHeading ? 64 : 56),
+                                         more: !searching && store.nextCursor != nil,
+                                         loading: store.loadingMore || store.loading,
+                                         showsPromo: showsPromoTile,
+                                         selecting: selecting, selectedIDs: selectedIDs,
+                                         open: { open($0) }, toggle: galleryToggle,
+                                         promo: { conversionOffer = PaywallContext(reason: "gallery_tile") },
+                                         loadMore: loadMorePage,
+                                         menu: { cardMenu($0) })
+                        .id(canvasID)
+                        .ignoresSafeArea(.container, edges: .top)
+                    canvasHeading
+                        .padding(.horizontal, Theme.pageMargin(for: geo.size.width))
+                        .padding(.top, macHeaderHeight)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else if usesTable {
+                    LibraryTable(items: filtered, more: !searching && store.nextCursor != nil,
+                                 loading: store.loadingMore || store.loading,
+                                 selection: $selectedIDs, open: { open($0) }, loadMore: loadMorePage,
+                                 menu: { cardMenu($0) })
+                        .padding(.horizontal, Theme.pageMargin(for: geo.size.width) - 8)
+                        .padding(.top, macHeaderHeight + (showsCanvasHeading ? 52 : 48))
+                        .padding(.bottom, selecting ? 80 : 0)
+                    canvasHeading
+                        .padding(.horizontal, Theme.pageMargin(for: geo.size.width))
+                        .padding(.top, macHeaderHeight)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
                 ScrollView {
                     libraryContents
                         .padding(.horizontal, Theme.pageMargin(for: geo.size.width))
                         .padding(.bottom, 40 + (selecting ? 92 : 0))
-                        .padding(.top, max(8, macHeaderHeight))
+                        .padding(.top, max(8, macHeaderHeight + geo.safeAreaInsets.top + (showsLayoutSwitch ? 48 : 0)))
                         .frame(maxWidth: .infinity)
                 }
+                .ignoresSafeArea(.container, edges: .top)
                 .modifier(MacScrollGeometryPublisher(live: libraryScroll) {
                     libraryScrollTick += 1
                 })
                 .libraryScrollPosition()
                 .libraryViewport()
+                }
                 MacLibraryHeader(
                     search: { Task { await search() } },
                     refresh: { Task { await refresh(force: true) } },
                     addOpen: $macAddOpen
                 )
-                .homeTopBar()
+                .homeFloatingBar()
                 .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
+                if showsLayoutSwitch {
+                    LibraryLayoutSwitch(layout: $libraryLayout)
+                        .padding(.top, macHeaderHeight)
+                        .padding(.trailing, Theme.pageMargin(for: geo.size.width))
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }
         }
         .queepThingsMenu(isPresented: $macAddOpen)
@@ -404,6 +444,29 @@ struct LibraryView: View {
                     }
                 }
             } else {
+                #if os(macOS)
+                if libraryLayout == .grouped {
+                    DateGroupedGallery(items: filtered, more: !searching && store.nextCursor != nil,
+                                       loading: store.loadingMore || store.loading,
+                                       selecting: selecting, selectedIDs: selectedIDs,
+                                       open: { open($0) }, toggle: galleryToggle, loadMore: loadMorePage,
+                                       menu: { cardMenu($0) }) {
+                        if showsPromoTile {
+                            PromoTile { conversionOffer = PaywallContext(reason: "gallery_tile") }
+                        }
+                    }
+                } else {
+                    scrollingGallery
+                }
+                #else
+                scrollingGallery
+                #endif
+            }
+            }
+        }
+    }
+
+    private var scrollingGallery: some View {
                 LibraryGallery(items: filtered, more: !searching && store.nextCursor != nil,
                                loading: store.loadingMore,
                                busy: store.loading || store.loadingMore || store.refreshing,
@@ -423,22 +486,110 @@ struct LibraryView: View {
                                        selectedIDs.remove(id)
                                    }
                                },
-                               loadMore: {
-                    Task {
-                        guard let api = session.client(), let uid = session.userID else { return }
-                        await store.refresh(api, account: uid, more: true)
-                    }
-                }, menu: { cardMenu($0) }, leading: {
+                               loadMore: loadMorePage, menu: { cardMenu($0) }, leading: {
                     if showsPromoTile {
                         PromoTile { conversionOffer = PaywallContext(reason: "gallery_tile") }
                     }
                 })
-            }
-            }
-        }
     }
 
     /// Nil where the gallery cannot select, so the tiles hide the mark and ignore the long press.
+    #if os(macOS)
+    /// Home only: Spaces and Arquivados keep their headings in the scrolling gallery.
+    /// The plane lays out home, search, a Space and Arquivados when it is the chosen layout.
+    private var usesInfiniteGallery: Bool {
+        libraryLayout == .infinite && showsLayoutSwitch
+    }
+
+    private var usesTable: Bool {
+        libraryLayout == .list && showsLayoutSwitch
+    }
+
+    /// The switch shows wherever there are references to lay out: not on the Spaces overview,
+    /// an empty collection or an error.
+    private var showsLayoutSwitch: Bool {
+        store.error == nil && store.searchError == nil && !filtered.isEmpty
+            && !(store.surface == .spaces && store.selectedSpaceID == nil)
+    }
+
+    /// New results, filter or collection start from the middle of a fresh plane.
+    private var canvasID: String {
+        "\(store.filterKey)|\(store.kindFilter ?? "")|\(store.searchChips.joined(separator: ","))|\(searching)"
+    }
+
+    /// Only a large collection repeats. Search never does: copies of a result read as duplicates.
+    /// The total comes from the account counters or the Space; without one, more pages to load
+    /// means the collection is large.
+    private var canvasIsEndless: Bool {
+        guard !searching else { return false }
+        let total: Int? = switch store.surface {
+        case .home: store.kindFilter == nil ? LibraryTotals.shared.items : nil
+        case .spaces: store.selectedSpace?.referenceCount
+        default: nil
+        }
+        let known = total ?? (store.nextCursor != nil ? Int.max : filtered.count)
+        return known >= InfiniteBentoPlan.endlessMinimum
+    }
+
+    private var showsCanvasHeading: Bool {
+        (store.surface == .spaces && store.selectedSpace != nil) || store.surface == .archived || store.searching
+    }
+
+    /// What the scrolling page shows above its gallery, floating under the bar on the plane.
+    @ViewBuilder private var canvasHeading: some View {
+        let space = store.surface == .spaces ? store.selectedSpace : nil
+        if showsCanvasHeading {
+            HStack(alignment: .center, spacing: 12) {
+                if let space {
+                    Button { store.selectSpace(nil) } label: {
+                        GalleryPill(title: "Spaces", leading: "ri-arrow-left-s-line")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Spaces")
+                    .accessibilityIdentifier("spaces.back")
+                    Text(space.name)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                        .accessibilityAddTraits(.isHeader)
+                    Text(space.countLabel)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.inkSoft)
+                        .padding(.trailing, 8)
+                } else if store.surface == .archived {
+                    Button { store.showHome() } label: {
+                        GalleryPill(title: "Gallery", leading: "ri-arrow-left-s-line")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("library.archived.back")
+                    Text("Arquivados")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .accessibilityAddTraits(.isHeader)
+                        .padding(.trailing, 8)
+                }
+                if store.searching {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("Buscando…").font(.system(size: 13)).foregroundStyle(Theme.inkSoft)
+                    }
+                    .padding(.horizontal, 10)
+                    .accessibilityIdentifier("library.searching")
+                }
+            }
+            .padding(6)
+            .floatingSurface(radius: 22)
+        }
+    }
+    #endif
+
+    private func loadMorePage() {
+        Task {
+            guard let api = session.client(), let uid = session.userID else { return }
+            await store.refresh(api, account: uid, more: true)
+        }
+    }
+
     private var galleryToggle: ((Reference) -> Void)? {
         guard canSelect else { return nil }
         return { toggle($0) }
@@ -486,12 +637,21 @@ struct LibraryView: View {
     }
 
     /// Floating bar while anything is selected: how many, Spaces, archive, delete, and a way out.
+    /// The Mac's floating chrome is compact; the iPhone keeps the Figma's 46pt controls.
+    private var dockMetrics: ChromeMetrics {
+        #if os(macOS)
+        .compact
+        #else
+        .regular
+        #endif
+    }
+
     private var selectionDock: some View {
         HStack(spacing: 8) {
             Button { selectedIDs = [] } label: {
-                QueepIcon("ri-close-line", size: 22, color: Theme.ink)
-                    .frame(width: Theme.control, height: Theme.control)
-                    .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+                QueepIcon("ri-close-line", size: dockMetrics.icon, color: Theme.ink)
+                    .frame(width: dockMetrics.control, height: dockMetrics.control)
+                    .background(Theme.fill, in: RoundedRectangle(cornerRadius: dockMetrics.controlRadius, style: .continuous))
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -500,7 +660,7 @@ struct LibraryView: View {
             .accessibilityLabel("Limpar seleção")
             .accessibilityIdentifier("library.select")
             Text(selectionCountLabel)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: dockMetrics.bare ? 14 : 15, weight: .medium))
                 .foregroundStyle(Theme.ink)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -520,12 +680,16 @@ struct LibraryView: View {
             dockButton("Excluir", icon: "ri-delete-bin-line", identifier: "library.deleteSelection",
                        destructive: true, action: deleteSelection)
         }
-        .padding(Theme.chromeInset)
+        .padding(dockMetrics.inset)
+        #if os(macOS)
+        .floatingSurface(radius: dockMetrics.containerRadius)
+        #else
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.line)
         }
         .shadow(color: .black.opacity(0.10), radius: 24, y: 10)
+        #endif
         .accessibilityElement(children: .contain)
         .accessibilityLabel(selectionCountLabel)
     }
@@ -534,16 +698,17 @@ struct LibraryView: View {
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             #if os(macOS)
-            HStack(spacing: 8) {
-                QueepIcon(icon, size: 20, color: destructive ? Theme.danger : Theme.ink)
-                Text(title)
+            HStack(spacing: 6) {
+                QueepIcon(icon, size: 18, color: destructive ? Theme.danger : Theme.ink)
+                Text(title).font(.system(size: 14))
             }
             #else
             QueepIcon(icon, size: 22, color: destructive ? Theme.danger : Theme.ink)
             #endif
         }
         #if os(macOS)
-        .buttonStyle(.queep(destructive ? .destructive : .neutral, height: Theme.control, stretches: false))
+        .buttonStyle(.queep(destructive ? .destructive : .neutral, height: dockMetrics.control, stretches: false,
+                            radius: dockMetrics.controlRadius))
         #else
         .buttonStyle(.queep(destructive ? .destructive : .neutral, height: Theme.control, stretches: false))
         .frame(width: Theme.control + 8)

@@ -4,16 +4,62 @@ import AVFoundation
 import CryptoKit
 import QueepCore
 import UniformTypeIdentifiers
+import ImageIO
 
 struct ImagePixels: View {
     let data: Data
     var fill = false
     var body: some View {
         #if os(macOS)
-        if let image = NSImage(data: data) { Image(nsImage: image).resizable().aspectRatio(contentMode: fill ? .fill : .fit) }
+        if let image = DecodedImages.image(data) { Image(nsImage: image).resizable().aspectRatio(contentMode: fill ? .fill : .fit) }
         #else
-        if let image = UIImage(data: data) { Image(uiImage: image).resizable().aspectRatio(contentMode: fill ? .fill : .fit) }
+        if let image = DecodedImages.image(data) { Image(uiImage: image).resizable().aspectRatio(contentMode: fill ? .fill : .fit) }
         #endif
+    }
+}
+
+/// Images decoded once per byte buffer. `ImagePixels` can be rebuilt many times a second, as on
+/// the gallery plane, and decoding in `body` would repeat the work each time.
+enum DecodedImages {
+    #if os(macOS)
+    typealias PlatformImage = NSImage
+    #else
+    typealias PlatformImage = UIImage
+    #endif
+
+    nonisolated(unsafe) private static let cache: NSCache<NSData, PlatformImage> = {
+        let cache = NSCache<NSData, PlatformImage>()
+        cache.countLimit = 400
+        return cache
+    }()
+
+    static func image(_ data: Data) -> PlatformImage? {
+        let key = data as NSData
+        if let hit = cache.object(forKey: key) { return hit }
+        guard let image = PlatformImage(data: data) else { return nil }
+        cache.setObject(image, forKey: key)
+        return image
+    }
+
+    /// Decodes a thumbnail's pixels now, off the main thread, so drawing it later costs nothing.
+    /// `maxPixels` bounds the long side; gallery tiles never show more.
+    nonisolated static func prepare(_ data: Data, maxPixels: Int = 640) {
+        let key = data as NSData
+        guard cache.object(forKey: key) == nil,
+              let source = CGImageSourceCreateWithData(data as CFData, nil) else { return }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+        ]
+        guard let pixels = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return }
+        #if os(macOS)
+        let image = NSImage(cgImage: pixels, size: NSSize(width: pixels.width, height: pixels.height))
+        #else
+        let image = UIImage(cgImage: pixels)
+        #endif
+        cache.setObject(image, forKey: key)
     }
 }
 
@@ -103,6 +149,12 @@ enum ImageByteCache {
             sha = reference.media?.sha256 ?? ""
         }
         return "\(account)/\(reference.id)/\(index)/\(author)/\(thumbnail)/\(motion)/\(sha)"
+    }
+
+    /// Memory only, cheap enough for `body`: lets a view that is rebuilt draw its image in the
+    /// first frame instead of an empty placeholder.
+    static func memoryData(for key: String) -> Data? {
+        memory.object(forKey: key as NSString) as Data?
     }
 
     static func data(for key: String) -> Data? {
@@ -231,7 +283,7 @@ struct RemoteImage: View {
 
     var body: some View {
         Group {
-            if let data {
+            if let data = data ?? ImageByteCache.memoryData(for: cacheKey) {
                 ImagePixels(data: data, fill: fill).accessibilityLabel(reference.displayTitle)
             } else if quiet {
                 Color.clear
@@ -246,7 +298,17 @@ struct RemoteImage: View {
             }
         }
         .task(id: "\(cacheKey)/\(attempt)") {
-            if let cached = ImageByteCache.data(for: cacheKey) {
+            // Disk reads and decoding stay off the main thread: on the gallery plane many tiles
+            // appear at once while the hand is moving.
+            let key = cacheKey
+            let small = thumbnail || author
+            let cached = await Task.detached(priority: .userInitiated) { () -> Data? in
+                guard let bytes = ImageByteCache.data(for: key) else { return nil }
+                if small { DecodedImages.prepare(bytes) }
+                return bytes
+            }.value
+            guard !Task.isCancelled else { return }
+            if let cached {
                 data = cached
                 error = nil
                 return
@@ -260,7 +322,11 @@ struct RemoteImage: View {
                                                        role: author ? "author" : "gallery")
                                        : api.mediaData(reference, thumbnail: thumbnail))
                 guard !Task.isCancelled, uid == session.userID else { return }
-                ImageByteCache.store(bytes, for: cacheKey)
+                await Task.detached(priority: .userInitiated) {
+                    ImageByteCache.store(bytes, for: key)
+                    if small { DecodedImages.prepare(bytes) }
+                }.value
+                guard !Task.isCancelled else { return }
                 data = bytes
             } catch is CancellationError { }
             catch { if !Task.isCancelled { self.error = error.localizedDescription } }
@@ -615,6 +681,9 @@ struct MotionLoop: View {
     var index = 0
     var fill = true
     var active = false
+    /// The tile's corner radius. The video is a platform layer that SwiftUI's clip shape does not
+    /// reach, so the layer rounds itself.
+    var cornerRadius: CGFloat = 0
     @State private var data: Data?
 
     /// Uploaded videos keep their loop even when a poster image is stored beside the file.
@@ -631,9 +700,12 @@ struct MotionLoop: View {
     }
 
     var body: some View {
-        Group {
+        // A ZStack, not a Group: an empty Group is no view at all, so its task never ran and
+        // the loop was never fetched.
+        ZStack {
+            Color.clear
             if active, let data {
-                LoopFilm(data: data, fill: fill)
+                LoopFilm(data: data, fill: fill, cornerRadius: cornerRadius)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -657,17 +729,21 @@ struct MotionLoop: View {
     }
 }
 
+
 private struct LoopFilm: View {
     let data: Data
     var fill = false
+    var cornerRadius: CGFloat = 0
     @State private var player: AVQueuePlayer?
     @State private var looper: AVPlayerLooper?
     @State private var file: TemporaryMediaFile?
 
     var body: some View {
-        Group {
+        // Not a Group: an empty Group never appears, and the player is made on appear.
+        ZStack {
+            Color.clear
             if let player {
-                PlayerLayerBox(player: player, fill: fill)
+                PlayerLayerBox(player: player, fill: fill, cornerRadius: cornerRadius)
             }
         }
         .onAppear { start() }
@@ -708,17 +784,20 @@ import UIKit
 private struct PlayerLayerBox: UIViewRepresentable {
     let player: AVPlayer
     var fill: Bool
+    var cornerRadius: CGFloat = 0
 
     func makeUIView(context: Context) -> PlayerHost {
         let view = PlayerHost()
-        view.playerLayer.player = player
-        view.playerLayer.videoGravity = fill ? .resizeAspectFill : .resizeAspect
+        updateUIView(view, context: context)
         return view
     }
 
     func updateUIView(_ view: PlayerHost, context: Context) {
         view.playerLayer.player = player
         view.playerLayer.videoGravity = fill ? .resizeAspectFill : .resizeAspect
+        view.playerLayer.cornerRadius = cornerRadius
+        view.playerLayer.cornerCurve = .continuous
+        view.playerLayer.masksToBounds = cornerRadius > 0
     }
 }
 
@@ -732,17 +811,20 @@ import AppKit
 private struct PlayerLayerBox: NSViewRepresentable {
     let player: AVPlayer
     var fill: Bool
+    var cornerRadius: CGFloat = 0
 
     func makeNSView(context: Context) -> PlayerHost {
         let view = PlayerHost()
-        view.playerLayer.player = player
-        view.playerLayer.videoGravity = fill ? .resizeAspectFill : .resizeAspect
+        updateNSView(view, context: context)
         return view
     }
 
     func updateNSView(_ view: PlayerHost, context: Context) {
         view.playerLayer.player = player
         view.playerLayer.videoGravity = fill ? .resizeAspectFill : .resizeAspect
+        view.playerLayer.cornerRadius = cornerRadius
+        view.playerLayer.cornerCurve = .continuous
+        view.playerLayer.masksToBounds = cornerRadius > 0
     }
 }
 

@@ -128,14 +128,29 @@ struct GalleryDetailView: View {
     }
 
     #if os(macOS)
-    /// Figma "Item Opened": Esc on the left, Anterior and Próximo on the right, a 750pt column with
-    /// the title, the text and the actions, then the media on a pale 22pt stage.
+    /// A short header over the media, so the media gets the window: title and text, the topics,
+    /// then the source and the actions on one line. Esc and Anterior/Próximo sit in the corners.
     private func desktop(_ size: CGSize) -> some View {
-        let margin = Theme.pageMargin(for: size.width)
-        let column = min(750, max(360, size.width - margin * 2))
-        return VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 14) {
-                Button(action: close) { GalleryPill(title: "Esc", leading: "ri-close-line") }
+        let column = min(760, max(380, size.width - 440))
+        return ZStack(alignment: .top) {
+            VStack(spacing: 0) {
+                header
+                    .frame(width: column)
+                    .padding(.top, 22)
+                GeometryReader { box in
+                    VStack(spacing: 14) {
+                        slides(height: max(240, box.size.height - 20), spacing: 48, chevronInset: 28,
+                               chevronFill: Theme.surface)
+                        dots
+                    }
+                    .frame(width: box.size.width, height: box.size.height)
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 22)
+                .padding(.bottom, 20)
+            }
+            HStack(alignment: .center, spacing: 8) {
+                Button(action: close) { GalleryPill(title: "Esc", leading: "ri-close-line", height: 36) }
                     .buttonStyle(.plain)
                     .keyboardShortcut(.cancelAction)
                     .accessibilityLabel("Fechar")
@@ -144,48 +159,37 @@ struct GalleryDetailView: View {
                 navButton(previous: true)
                 navButton(previous: false)
             }
-            .padding(.horizontal, margin)
-            .padding(.top, 20)
-            info
-                .frame(width: column)
-                .padding(.top, 4)
-            GeometryReader { box in
-                VStack(spacing: 14) {
-                    slides(height: max(200, box.size.height - 72), spacing: 48, chevronInset: 24,
-                           chevronFill: Theme.surface)
-                    dots
-                }
-                .padding(.vertical, 24)
-                .frame(width: box.size.width, height: box.size.height)
-                .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
-            }
-            .padding(.horizontal, margin)
-            .padding(.top, 32)
-            .padding(.bottom, 28)
+            .padding(.horizontal, 28)
+            .padding(.top, 22)
         }
     }
 
-    private var info: some View {
+    private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
-                titleText
-                if !summary.isEmpty {
-                    summaryText.lineLimit(4)
-                }
-                analysisExtras
-                analysisStatus
+            titleText
+            if !summary.isEmpty {
+                Text(summary)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.inkSoft)
+                    .lineSpacing(2)
+                    .lineLimit(3)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 6)
             }
-            .frame(maxWidth: 480, alignment: .leading)
-            Rectangle().fill(Theme.line).frame(height: 1).padding(.top, 29)
-            HStack(spacing: 24) {
+            topicsRow.padding(.top, 12)
+            transcriptText
+            analysisStatus.padding(.top, 10)
+            Rectangle().fill(Theme.line).frame(height: 1).padding(.top, 14)
+            HStack(spacing: 8) {
                 source
                 Spacer(minLength: 16)
-                moreMenu(height: Theme.chrome)
+                moreMenu(height: actionHeight)
                 shareButton(stretches: false)
                 originalButton(stretches: false)
             }
-            .padding(.top, 29)
-            if error != nil { errorText.padding(.top, 12) }
+            .padding(.top, 12)
+            if error != nil { errorText.padding(.top, 10) }
         }
     }
     #else
@@ -246,7 +250,7 @@ struct GalleryDetailView: View {
 
     private var titleText: some View {
         Text(title)
-            .font(.system(size: 20, weight: .semibold))
+            .font(.system(size: titleSize, weight: .semibold))
             .foregroundStyle(Theme.ink)
             .lineLimit(3)
             .fixedSize(horizontal: false, vertical: true)
@@ -254,7 +258,39 @@ struct GalleryDetailView: View {
             .accessibilityIdentifier("gallery.title")
     }
 
+    private var titleSize: CGFloat {
+        #if os(macOS)
+        return 18
+        #else
+        return 20
+        #endif
+    }
+
     @ViewBuilder private var analysisStatus: some View {
+        #if os(macOS)
+        if current.galleryStatusLine != nil || (current.showsAnalysisRetry && !busy) {
+            HStack(alignment: .center, spacing: 12) {
+                if let line = current.galleryStatusLine {
+                    Text(line)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.inkSoft)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("gallery.status")
+                }
+                Spacer(minLength: 0)
+                if current.showsAnalysisRetry && !busy {
+                    Button {
+                        Task { await retryAnalysis() }
+                    } label: {
+                        GalleryPill(title: "Analisar de novo", leading: "ri-refresh-line", height: 30)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("gallery.retry")
+                }
+            }
+        }
+        #else
         if current.galleryStatusLine != nil || (current.showsAnalysisRetry && !busy) {
             VStack(alignment: .leading, spacing: 8) {
                 if let line = current.galleryStatusLine {
@@ -276,8 +312,9 @@ struct GalleryDetailView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-        }
+        }        #endif
     }
+
 
     private var summaryText: some View {
         Text(summary)
@@ -290,9 +327,12 @@ struct GalleryDetailView: View {
 
     /// Where it came from: the network or kind in a 60pt tile, then the author.
     private var source: some View {
-        HStack(spacing: 14) {
-            ChromeIcon(asset: sourceIcon, size: sourceTile, icon: 24)
-                .accessibilityHidden(true)
+        HStack(spacing: sourceTile < 48 ? 10 : 14) {
+            // The badge already carries the network's mark beside the avatar.
+            if !(authorName != nil && current.authorImage != nil) {
+                ChromeIcon(asset: sourceIcon, size: sourceTile, icon: sourceTile < 48 ? 18 : 24)
+                    .accessibilityHidden(true)
+            }
             if let authorName {
                 HStack(spacing: 8) {
                     if current.authorImage != nil {
@@ -314,7 +354,7 @@ struct GalleryDetailView: View {
 
     private var sourceTile: CGFloat {
         #if os(macOS)
-        return Theme.chrome
+        return actionHeight
         #else
         return 48
         #endif
@@ -391,6 +431,11 @@ struct GalleryDetailView: View {
     }
 
     @ViewBuilder private var analysisExtras: some View {
+        topicsRow
+        transcriptText
+    }
+
+    @ViewBuilder private var topicsRow: some View {
         if current.status == "ready", let topics = current.analysis?.topics.filter({ !$0.isEmpty }), !topics.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
@@ -401,6 +446,9 @@ struct GalleryDetailView: View {
             }
             .accessibilityIdentifier("gallery.topics")
         }
+    }
+
+    @ViewBuilder private var transcriptText: some View {
         if let transcript = current.transcript?.trimmingCharacters(in: .whitespacesAndNewlines), !transcript.isEmpty {
             Text("Transcrição")
                 .font(.system(size: 13, weight: .medium))
@@ -409,6 +457,9 @@ struct GalleryDetailView: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Theme.inkSoft)
                 .lineSpacing(4)
+                #if os(macOS)
+                .lineLimit(3)
+                #endif
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("media.transcript")
@@ -421,7 +472,7 @@ struct GalleryDetailView: View {
             #if os(macOS)
             GalleryPill(title: isPrevious ? "Anterior" : "Próximo",
                         leading: isPrevious ? "ri-arrow-left-s-line" : nil,
-                        trailing: isPrevious ? nil : "ri-arrow-right-s-line")
+                        trailing: isPrevious ? nil : "ri-arrow-right-s-line", height: 36)
             #else
             GalleryPill(leading: isPrevious ? "ri-arrow-left-s-line" : "ri-arrow-right-s-line", height: 44)
             #endif
@@ -456,7 +507,7 @@ struct GalleryDetailView: View {
                 .accessibilityIdentifier("reference.delete")
         } label: {
             #if os(macOS)
-            ChromeIcon(asset: "ri-more-line", size: height)
+            ChromeIcon(asset: "ri-more-line", size: height, icon: 18)
             #else
             GalleryPill(leading: "ri-more-line", height: height)
             #endif
@@ -475,7 +526,7 @@ struct GalleryDetailView: View {
             ShareLink(item: originalURL) {
                 HStack(spacing: 8) {
                     Text("Compartilhar")
-                    QueepIcon("ri-share-2-line", size: 24, color: Theme.ink)
+                    QueepIcon("ri-share-2-line", size: actionIcon, color: Theme.ink)
                 }
             }
             .buttonStyle(.queep(.neutral, height: actionHeight, stretches: stretches, radius: actionRadius))
@@ -488,7 +539,7 @@ struct GalleryDetailView: View {
             Button { openURL(originalURL) } label: {
                 HStack(spacing: 8) {
                     Text("Ver original")
-                    QueepIcon("ri-arrow-right-up-box-line", size: 24, color: Theme.onAction)
+                    QueepIcon("ri-arrow-right-up-box-line", size: actionIcon, color: Theme.onAction)
                 }
             }
             .buttonStyle(.queep(.dark, height: actionHeight, stretches: stretches, radius: actionRadius))
@@ -505,18 +556,26 @@ struct GalleryDetailView: View {
         }
     }
 
-    /// The Figma actions are 60pt chrome on the Mac; the iPhone keeps 48pt full-width buttons.
+    /// Compact on the Mac, like the library's bar; the iPhone keeps 48pt full-width buttons.
     private var actionHeight: CGFloat {
         #if os(macOS)
-        return Theme.chrome
+        return ChromeMetrics.compact.control
         #else
         return 48
         #endif
     }
 
+    private var actionIcon: CGFloat {
+        #if os(macOS)
+        return 18
+        #else
+        return 24
+        #endif
+    }
+
     private var actionRadius: CGFloat {
         #if os(macOS)
-        return Theme.radius
+        return ChromeMetrics.compact.controlRadius
         #else
         return Theme.controlRadius
         #endif
@@ -613,7 +672,9 @@ struct GalleryDetailView: View {
             let temporary = TemporaryMediaFile(extension: audio ? "m4a" : "mp4")
             try data.write(to: temporary.url, options: .atomic)
             file = temporary
-            player = AVPlayer(url: temporary.url)
+            let opened = AVPlayer(url: temporary.url)
+            player = opened
+            if video { opened.play() }
         } catch is CancellationError {
         } catch {
             if !Task.isCancelled { self.error = error.localizedDescription }
@@ -731,34 +792,39 @@ private struct GalleryEditSheet: View {
     }
 }
 
-/// Poster first, then the stored mp4 when the save actually has one.
-private struct PreviewClip: View {
+/// A post's full video with its sound, stored on Pro and Max. The poster shows while it loads;
+/// it plays while it is the slide on screen. If the video cannot be read, the muted loop stands in.
+private struct PostVideo: View {
     @Environment(Session.self) private var session
     let reference: Reference
     let index: Int
+    var active = true
     @State private var player: AVPlayer?
     @State private var file: TemporaryMediaFile?
+    @State private var failed = false
 
     var body: some View {
         ZStack {
             RemoteImage(reference: reference, thumbnail: true, fill: true, index: index)
             if let player {
                 VideoPlayer(player: player)
-            } else {
-                Image(systemName: "play.fill")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 48, height: 48)
-                    .background { Circle().fill(.ultraThinMaterial).environment(\.colorScheme, .dark) }
-                    .clipShape(Circle())
-                    .allowsHitTesting(false)
+            } else if failed {
+                MotionLoop(reference: reference, index: index, active: active, cornerRadius: 12)
+            } else if active {
+                ProgressView().controlSize(.small)
             }
         }
-        .task(id: "\(reference.id)/\(index)") { await load() }
+        .task(id: "\(reference.id)/\(index)/\(active)") {
+            if active { await load() } else { player?.pause() }
+        }
         .onDisappear { clear() }
     }
 
     private func load() async {
+        if let player {
+            player.play()
+            return
+        }
         guard let api = session.client(), let owner = session.userID else { return }
         do {
             let data = try await api.imageData(reference, index: index, role: "clip")
@@ -766,12 +832,12 @@ private struct PreviewClip: View {
             let temporary = TemporaryMediaFile(extension: "mp4")
             try data.write(to: temporary.url, options: .atomic)
             file = temporary
-            let clip = AVPlayer(url: temporary.url)
-            clip.isMuted = true
-            clip.volume = 0
-            player = clip
+            let opened = AVPlayer(url: temporary.url)
+            player = opened
+            opened.play()
         } catch is CancellationError {
         } catch {
+            failed = true
             clear()
         }
     }
@@ -859,7 +925,7 @@ private struct GallerySlides: View {
                 if reference.media?.loop == true {
                     ZStack {
                         RemoteImage(reference: reference, thumbnail: true, fill: true)
-                        MotionLoop(reference: reference, active: true)
+                        MotionLoop(reference: reference, active: true, cornerRadius: 12)
                     }
                 } else if let player {
                     VideoPlayer(player: player)
@@ -867,10 +933,8 @@ private struct GallerySlides: View {
                     RemoteImage(reference: reference, thumbnail: true, fill: true)
                     ProgressView().controlSize(.small)
                 }
-            } else if reference.gallery.indices.contains(index),
-                      reference.gallery[index].isVideoPreview,
-                      reference.gallery[index].motion != true {
-                PreviewClip(reference: reference, index: index)
+            } else if reference.gallery.indices.contains(index), reference.gallery[index].clip == true {
+                PostVideo(reference: reference, index: index, active: index == current)
             } else {
                 RemoteImage(reference: reference, thumbnail: true, fill: true, index: index)
                 if abs(index - current) <= 1 {
@@ -879,7 +943,7 @@ private struct GallerySlides: View {
                 if reference.gallery.indices.contains(index),
                    reference.gallery[index].motion == true,
                    index == current {
-                    MotionLoop(reference: reference, index: index, active: true)
+                    MotionLoop(reference: reference, index: index, active: true, cornerRadius: 12)
                 }
             }
         }

@@ -150,6 +150,33 @@ extension Color {
     static var muted: Color { Theme.inkSoft }
 }
 
+// MARK: - Chrome density
+
+/// Sizes of the controls in a top bar. Regular is the Figma's 46pt control in a 60pt container;
+/// the Mac's floating bar is compact.
+struct ChromeMetrics {
+    var control: CGFloat
+    var controlRadius: CGFloat
+    var inset: CGFloat
+    var icon: CGFloat
+    var text: CGFloat
+    var padding: CGFloat
+    /// Controls sit straight on the bar instead of in containers of their own.
+    var bare: Bool
+
+    var container: CGFloat { control + inset * 2 }
+    var containerRadius: CGFloat { controlRadius + inset }
+
+    static let regular = ChromeMetrics(control: Theme.control, controlRadius: Theme.controlRadius,
+                                       inset: Theme.chromeInset, icon: 24, text: 16, padding: 20, bare: false)
+    static let compact = ChromeMetrics(control: 40, controlRadius: 13, inset: 6,
+                                       icon: 20, text: 14, padding: 16, bare: true)
+}
+
+extension EnvironmentValues {
+    @Entry var chromeMetrics = ChromeMetrics.regular
+}
+
 // MARK: - Surfaces
 
 /// How a container or control is painted.
@@ -196,6 +223,20 @@ extension View {
         modifier(Surface(style: style, radius: radius))
     }
 
+    /// Solid chrome that floats over the library on the Mac: white, a 1pt edge and a soft shadow,
+    /// no blur. The top bar, the zoom control, the selection bar and the floating headings.
+    func floatingSurface(radius: CGFloat) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return background(Theme.surface, in: shape)
+            .overlay { shape.strokeBorder(Theme.lineStrong.opacity(0.8), lineWidth: 1) }
+            .shadow(color: .black.opacity(0.07), radius: 16, y: 6)
+    }
+
+    /// Pointer feedback for a control on the floating bar: a light shade over its fill.
+    func barHover(radius: CGFloat) -> some View {
+        modifier(BarHover(radius: radius))
+    }
+
     /// A 60pt chrome container: the 6pt inset around 46pt controls, as in the gallery header.
     func chrome(_ style: SurfaceStyle = .fill) -> some View {
         padding(Theme.chromeInset)
@@ -218,6 +259,22 @@ extension View {
     /// A quiet label above a group: 13pt, soft ink.
     func sectionLabel() -> some View {
         font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.inkSoft)
+    }
+}
+
+private struct BarHover: ViewModifier {
+    let radius: CGFloat
+    @State private var hovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color.black.opacity(hovered && radius > 0 ? 0.035 : 0))
+                    .allowsHitTesting(false)
+            }
+            .onHover { hovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: hovered)
     }
 }
 

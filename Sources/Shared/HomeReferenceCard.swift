@@ -55,7 +55,7 @@ struct HomeReferenceCard: View {
                 ZStack {
                     RemoteImage(reference: reference, thumbnail: true, fill: true)
                     if playsLoop, reference.playsInlineLoop {
-                        MotionLoop(reference: reference, active: true)
+                        MotionLoop(reference: reference, active: true, cornerRadius: Theme.radius)
                     }
                 }
             }
@@ -69,7 +69,19 @@ struct HomeReferenceCard: View {
             .accessibilityHidden(true)
     }
 
-    private var tileAspect: CGFloat {
+    private var tileAspect: CGFloat { Self.visualAspect(reference) }
+
+    /// Height the tile takes at `width`, so layouts that place cards by hand match the masonry.
+    static func height(for reference: Reference, width: CGFloat) -> CGFloat {
+        let analyzing = reference.status == "queued" || reference.status == "processing"
+        let visual = reference.kind == "video" || !reference.gallery.isEmpty
+        if analyzing && !visual { return 64 }
+        if visual { return width / visualAspect(reference) }
+        let social = reference.isSocialPost || reference.isSocialProfile
+        return width / (reference.kind == "link" && !social ? 1.25 : 0.95)
+    }
+
+    private static func visualAspect(_ reference: Reference) -> CGFloat {
         let size: (Int, Int)? = {
             if let image = reference.gallery.first, image.width > 0, image.height > 0 {
                 return (image.width, image.height)

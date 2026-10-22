@@ -203,6 +203,8 @@ public struct ImageInfo: Codable, Sendable, Equatable {
     public let byteCount: Int
     public let previewKind: String?
     public let motion: Bool?
+    /// The post's full video with its sound is stored too (Pro and Max). Older responses omit it.
+    public let clip: Bool?
     public var isVideoPreview: Bool { previewKind == "video" }
 }
 

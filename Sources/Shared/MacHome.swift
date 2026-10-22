@@ -3,7 +3,8 @@ import QueepCore
 
 #if os(macOS)
 /// Gallery header from the Figma: lockup, Gallery and Spaces, search with screen capture and
-/// filters, Queep things, and the account with its plan.
+/// filters, Queep things, and the account with its plan. All of it floats in one glass bar,
+/// like the iPhone's nav, with the library visible behind it.
 struct MacLibraryHeader: View {
     @Environment(LibraryStore.self) private var store
     let search: () -> Void
@@ -11,30 +12,37 @@ struct MacLibraryHeader: View {
     @Binding var addOpen: Bool
     @State private var width: CGFloat = 1315
 
-    /// 24pt between groups on a roomy window, 16 when the window is near its minimum.
-    private var gap: CGFloat { width < 1200 ? 16 : 24 }
+    private let metrics = ChromeMetrics.compact
+    /// 12pt between groups on a roomy window, 6 when the window is near its minimum.
+    private var gap: CGFloat { width < 1200 ? 6 : 12 }
 
     var body: some View {
         @Bindable var store = store
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: gap) {
-                HomeBrand()
+                QueepLockup(scale: 0.68)
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.horizontal, 8)
                 LibraryTabs()
-                HomeSearchField(text: $store.query, submit: search) {
+                HomeSearchField(text: $store.query, height: metrics.control, radius: metrics.controlRadius,
+                                submit: search) {
                     Button { MacCapture.shared.captureScreen() } label: {
-                        QueepIcon("ri-focus-mode", size: 24, color: Theme.ink)
+                        QueepIcon("ri-focus-mode", size: metrics.icon, color: Theme.ink)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .help("Capturar uma área da tela · ⌘⇧7")
                     .accessibilityLabel("Capturar tela")
                     .accessibilityIdentifier("library.captureScreen")
-                    HomeFilterMenu(refresh: refresh)
+                    HomeFilterMenu(refresh: refresh, icon: metrics.icon)
                 }
-                .frame(minWidth: 200)
+                .frame(minWidth: 180)
                 QueepThingsControl(isPresented: $addOpen)
-                HomeAccountButton()
+                HomeAccountButton(size: metrics.control)
             }
+            .padding(metrics.inset)
+            .floatingSurface(radius: metrics.containerRadius)
+            .environment(\.chromeMetrics, metrics)
             if kindTitle != nil || !store.searchChips.isEmpty {
                 HStack(alignment: .top, spacing: 8) {
                     if let kindTitle {
@@ -52,8 +60,8 @@ struct MacLibraryHeader: View {
             }
         }
         .padding(.horizontal, Theme.pageMargin(for: width))
-        .padding(.top, 16)
-        .padding(.bottom, 28)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
         .background {
             GeometryReader { geo in
                 Color.clear
