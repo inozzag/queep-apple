@@ -78,6 +78,7 @@ targets:
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
         GIDClientID: $(QUEEP_GOOGLE_CLIENT_ID)
+        NSSpeechRecognitionUsageDescription: O Queep transcreve no próprio aparelho a fala dos áudios e vídeos que você salva, para encontrá-los na busca.
         QueepPostHogKey: $(QUEEP_POSTHOG_KEY)
         QueepPostHogHost: $(QUEEP_POSTHOG_HOST)
         QueepSentryDSN: $(QUEEP_SENTRY_DSN)
@@ -150,6 +151,7 @@ targets:
         QueepAPIURL: $(QUEEP_API_URL)
         QueepFirebaseProjectID: $(QUEEP_FIREBASE_PROJECT_ID)
         GIDClientID: $(QUEEP_GOOGLE_CLIENT_ID)
+        NSSpeechRecognitionUsageDescription: O Queep transcreve no próprio aparelho a fala dos áudios e vídeos que você salva, para encontrá-los na busca.
         QueepPostHogKey: $(QUEEP_POSTHOG_KEY)
         QueepPostHogHost: $(QUEEP_POSTHOG_HOST)
         QueepSentryDSN: $(QUEEP_SENTRY_DSN)

@@ -488,9 +488,14 @@ final class Session {
             await self?.handleUnauthorized(owner)
         }, onPlanRequired: { [weak self] requirement in
             await self?.showPlanRequirement(requirement, owner: owner)
-        }) { [weak self] in
+        }, deviceReader: Self.deviceReader) { [weak self] in
             guard let self else { throw QueepError.unauthorized }
             return try await self.token(for: owner)
         }
+    }
+
+    /// The share extension has too little memory for on-device models; the cloud reads its uploads.
+    private static var deviceReader: (any DeviceReader)? {
+        Bundle.main.bundleURL.pathExtension == "appex" ? nil : AppleDeviceReader()
     }
 }
