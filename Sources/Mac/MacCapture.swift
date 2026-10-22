@@ -230,7 +230,7 @@ private struct QuickCaptureView: View {
             }.disabled(capture.busy || capture.pending != nil || session.userID == nil)
             if capture.busy { ProgressView("Salvando…").controlSize(.small) }
             if let message = capture.message { Text(message).font(.callout).foregroundStyle(.secondary) }
-            if let error = capture.error { Text(error).font(.callout).foregroundStyle(.red) }
+            if let error = capture.error { Text(error).font(.callout).foregroundStyle(Theme.danger) }
             if capture.pending != nil && !capture.busy {
                 HStack {
                     Button("Tentar novamente") { capture.retry() }

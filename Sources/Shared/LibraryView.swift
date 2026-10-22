@@ -20,10 +20,11 @@ struct LibraryView: View {
     #if os(macOS)
     @State private var macAddOpen = false
     #endif
-    @State private var selecting = false
+    /// Anything selected puts the gallery in selection mode; clearing it leaves.
     @State private var selectedIDs: Set<String> = []
     @State private var spaceSelection: [Reference] = []
     @State private var pickingSpaces = false
+    @State private var subscriptions = SubscriptionStore.shared
     @AppStorage("queep.firstSearchHint.dismissed") private var searchHintDismissed = false
     @State private var onboardingPresented = false
     @State private var onboardingDismissed = false
@@ -41,6 +42,16 @@ struct LibraryView: View {
         return items.filter { $0.kind == kind }
     }
     private var searching: Bool { store.searchItems != nil }
+    private var selecting: Bool { !selectedIDs.isEmpty }
+    /// Selection works on the gallery itself, not on the Spaces overview.
+    private var canSelect: Bool {
+        !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil)
+    }
+    /// Free accounts see the PRO tile first in the gallery. Not in search, Spaces or Arquivados.
+    private var showsPromoTile: Bool {
+        subscriptions.access?.plan == .free && subscriptions.access?.isDevelopment == false
+            && store.surface == .home && !searching && store.kindFilter == nil
+    }
 
     var body: some View {
         @Bindable var store = store
@@ -104,7 +115,6 @@ struct LibraryView: View {
                        ? "Excluir \(references[0].kindLabel.lowercased())"
                        : "Excluir \(references.count)", role: .destructive) {
                     pendingSelectionDelete = []
-                    selecting = false
                     selectedIDs = []
                     Task { await remove(references) }
                 }
@@ -124,7 +134,6 @@ struct LibraryView: View {
             }
         }
         .onChange(of: store.selectedSpaceID) { _, _ in
-            selecting = false
             selectedIDs = []
             Task {
                 await refresh(force: false)
@@ -132,9 +141,11 @@ struct LibraryView: View {
             }
         }
         .onChange(of: store.surface) { _, _ in
-            selecting = false
             selectedIDs = []
             Task { await refresh(force: false) }
+        }
+        .onChange(of: searching) { _, now in
+            if now { selectedIDs = [] }
         }
         .onAppear {
             noteEmptyLibrary()
@@ -155,8 +166,20 @@ struct LibraryView: View {
         .onChange(of: store.items.count) { _, _ in
             noteEmptyLibrary()
             considerFirstPaywall()
+            // Drop what left the library (archived, deleted or moved by another device).
+            let present = Set(filtered.map(\.id))
+            if !selectedIDs.isSubset(of: present) { selectedIDs.formIntersection(present) }
         }
         .onChange(of: onboardingPresented) { _, _ in considerFirstPaywall() }
+        .onChange(of: store.paywallReason) { _, reason in
+            guard let reason else { return }
+            store.paywallReason = nil
+            // Let the Ajustes sheet finish closing before the card appears.
+            Task {
+                try? await Task.sleep(for: .milliseconds(350))
+                conversionOffer = PaywallContext(reason: reason)
+            }
+        }
         .modifier(OnboardingCover(isPresented: $onboardingPresented) {
             OnboardingFlow {
                 onboardingDismissed = true
@@ -219,34 +242,29 @@ struct LibraryView: View {
     }
 
     @ViewBuilder private var libraryStack: some View {
-        @Bindable var store = store
         #if os(macOS)
-        ZStack(alignment: .top) {
-            ScrollView {
-                libraryContents
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 36 + (selecting ? 76 : 0))
-                    .padding(.top, max(8, macHeaderHeight))
-                    .frame(maxWidth: .infinity)
+        GeometryReader { geo in
+            ZStack(alignment: .top) {
+                ScrollView {
+                    libraryContents
+                        .padding(.horizontal, Theme.pageMargin(for: geo.size.width))
+                        .padding(.bottom, 40 + (selecting ? 92 : 0))
+                        .padding(.top, max(8, macHeaderHeight))
+                        .frame(maxWidth: .infinity)
+                }
+                .modifier(MacScrollGeometryPublisher(live: libraryScroll) {
+                    libraryScrollTick += 1
+                })
+                .libraryScrollPosition()
+                .libraryViewport()
+                MacLibraryHeader(
+                    search: { Task { await search() } },
+                    refresh: { Task { await refresh(force: true) } },
+                    addOpen: $macAddOpen
+                )
+                .homeTopBar()
+                .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
             }
-            .modifier(MacScrollGeometryPublisher(live: libraryScroll) {
-                libraryScrollTick += 1
-            })
-            .libraryScrollPosition()
-            .libraryViewport()
-            MacLibraryHeader(
-                search: { Task { await search() } },
-                refresh: { Task { await refresh(force: true) } },
-                selecting: selecting,
-                canSelect: !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil),
-                toggleSelect: {
-                    selecting.toggle()
-                    if !selecting { selectedIDs = [] }
-                },
-                addOpen: $macAddOpen
-            )
-            .homeTopBar()
-            .onPreferenceChange(HomeTopBarHeightKey.self) { macHeaderHeight = $0 }
         }
         .queepThingsMenu(isPresented: $macAddOpen)
         .onChange(of: store.requestAddMenu) { _, open in
@@ -258,14 +276,14 @@ struct LibraryView: View {
             if selecting {
                 selectionDock
                     .fixedSize(horizontal: true, vertical: true)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, 24)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .overlay { macGallery }
         .animation(.spring(duration: 0.28), value: selecting)
         .animation(.easeOut(duration: 0.15), value: macGalleryID)
-        .background(Color.white)
+        .background(Theme.surface)
         .preferredColorScheme(.light)
         .hideMacWindowTitle()
         #else
@@ -273,25 +291,21 @@ struct LibraryView: View {
             search: { Task { await search() } },
             refresh: { await refresh(force: true) },
             selecting: selecting,
-            canSelect: !store.items.isEmpty && !searching && !(store.surface == .spaces && store.selectedSpaceID == nil),
-            toggleSelect: {
-                selecting.toggle()
-                if !selecting { selectedIDs = [] }
-            },
             content: { libraryContents },
             dock: { if selecting { selectionDock } }
         )
-        .background(Color.white)
+        .background(Theme.surface)
         .preferredColorScheme(.light)
+        .sensoryFeedback(.selection, trigger: selectedIDs)
         #endif
     }
 
     private var libraryContents: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             #if os(macOS)
             if session.isLocal {
                 Label("Versão de desenvolvimento local", systemImage: "hammer")
-                    .font(.caption).foregroundStyle(Color.muted).padding(.horizontal, 4)
+                    .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.inkSoft).padding(.horizontal, 4)
             }
             #endif
             if store.surface == .spaces, store.selectedSpaceID == nil {
@@ -300,9 +314,7 @@ struct LibraryView: View {
             #if os(macOS)
             if store.surface == .spaces, store.selectedSpaceID != nil {
                 Button { store.selectSpace(nil) } label: {
-                    Label("Spaces", systemImage: "chevron.left")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Theme.homeInk)
+                    GalleryPill(title: "Spaces", leading: "ri-arrow-left-s-line")
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Spaces")
@@ -310,95 +322,84 @@ struct LibraryView: View {
             }
             #endif
             if store.surface == .spaces, let space = store.selectedSpace {
-                Text(space.name)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(Theme.homeInk)
-                    .lineLimit(2)
-                    .accessibilityAddTraits(.isHeader)
+                PageTitle(text: space.name, detail: space.countLabel)
             }
             if store.surface == .archived {
-                Text("Arquivados")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(Theme.homeInk)
-                    .accessibilityAddTraits(.isHeader)
+                HStack(alignment: .center, spacing: 12) {
+                    PageTitle(text: "Arquivados")
+                    Spacer(minLength: 12)
+                    Button { store.showHome() } label: {
+                        GalleryPill(title: "Gallery", leading: "ri-arrow-left-s-line")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("library.archived.back")
+                }
             }
             if sendingPhoto {
-                Label(sendingMessage, systemImage: "arrow.up.circle")
-                    .galleryBanner()
+                LibraryBanner(icon: "ri-loader-4-line", text: sendingMessage)
                     .accessibilityIdentifier("library.sendingPhoto")
             }
             if let error = store.error {
-                HStack(spacing: 12) {
-                    Image(systemName: "wifi.exclamationmark").foregroundStyle(GalleryStyle.secondary)
-                    Text(error).fixedSize(horizontal: false, vertical: true)
-                    Spacer()
+                LibraryBanner(icon: "ri-wifi-off-line", text: error) {
                     Button("Tentar novamente") { Task { await refresh(force: true) } }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(GalleryStyle.ink)
+                        .buttonStyle(.queep(.neutral, height: 36, stretches: false))
                 }
-                .galleryBanner()
             }
             if store.surface == .home && store.items.count == 1 && !searching && !searchHintDismissed && conversionOffer == nil {
-                HStack(alignment: .top, spacing: 12) {
-                    Text("Referência salva. Use a busca da biblioteca para encontrá-la pelo nome ou, depois da análise, pelo assunto e pela aparência.")
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("onboarding.searchHint")
-                    Spacer()
+                LibraryBanner(icon: "ri-search-ai-line",
+                              text: "Referência salva. Busque pelo nome ou, depois da análise, pelo assunto e pela aparência.") {
                     Button { searchHintDismissed = true } label: {
-                        Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityLabel("Dispensar dica de busca")
-                        .accessibilityIdentifier("onboarding.dismissHint")
+                        QueepIcon("ri-close-line", size: 20, color: Theme.inkSoft)
+                            .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Dispensar dica de busca")
+                    .accessibilityIdentifier("onboarding.dismissHint")
                 }
-                .galleryBanner()
+                .accessibilityIdentifier("onboarding.searchHint")
             }
             if SearchPresentation.showsPending(hasPending: store.hasPending, showingSearch: searching) {
-                Label(SearchPresentation.pending, systemImage: "clock")
-                    .font(.caption)
-                    .foregroundStyle(Color.muted)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("search.pending")
+                HStack(spacing: 8) {
+                    QueepIcon("ri-time-line", size: 16, color: Theme.inkSoft)
+                    Text(SearchPresentation.pending)
+                }
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.inkSoft)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("search.pending")
             }
             if store.searching {
-                #if os(macOS)
-                MacSearchSkeleton()
-                #else
-                SearchSkeleton()
-                #endif
+                GallerySkeleton()
+                    .accessibilityLabel("Buscando nas suas referências")
             } else if let searchError = store.searchError {
-                ContentUnavailableView(SearchPresentation.failureMessage(searchError), systemImage: "magnifyingglass",
-                                       description: Text("Suas referências continuam salvas."))
+                EmptyState(icon: "ri-search-line", title: SearchPresentation.failureMessage(searchError),
+                           message: "Suas referências continuam salvas.")
             } else if store.items.isEmpty && store.loading && !store.hasLoaded {
-                ProgressView("Carregando suas referências…").frame(maxWidth: .infinity).padding(.top, 80)
+                GallerySkeleton()
+                    .accessibilityLabel("Carregando suas referências")
             } else if store.items.isEmpty && store.error != nil && !searching {
-                ContentUnavailableView("Não foi possível carregar a biblioteca", systemImage: "wifi.exclamationmark",
-                    description: Text("Toque em Tentar novamente para recuperar suas referências."))
+                EmptyState(icon: "ri-wifi-off-line", title: "Não foi possível carregar a biblioteca",
+                           message: "Toque em Tentar novamente para recuperar suas referências.")
             } else if store.items.isEmpty && !searching && store.error == nil {
                 if store.surface == .archived {
-                    ContentUnavailableView("Nenhum item arquivado", systemImage: "archivebox",
-                        description: Text("Itens arquivados saem da biblioteca ativa e continuam guardados aqui."))
+                    EmptyState(icon: "ri-archive-line", title: "Nenhum item arquivado",
+                               message: "Itens arquivados saem da Gallery e continuam guardados aqui.")
                 } else if store.surface == .spaces && store.selectedSpaceID != nil {
                     EmptySpaceView()
                 } else if store.surface == .home && store.hasArchivedItems {
-                    ContentUnavailableView("Tudo arquivado", systemImage: "archivebox.fill",
-                        description: Text("Sua biblioteca ativa está vazia. Em Ajustes, abra Arquivados para restaurar itens."))
+                    EmptyState(icon: "ri-archive-line", title: "Tudo arquivado",
+                               message: "Sua Gallery está vazia. Em Ajustes, abra Arquivados para restaurar itens.")
                 } else {
                     FirstUseView(scrolls: false)
                 }
             } else if filtered.isEmpty {
-                ContentUnavailableView {
-                    Label(searching ? "Nada parecido por aqui" : store.kindFilter == nil ? "Seu espaço para lembrar" : "Nada neste filtro",
-                          systemImage: searching ? "sparkle.magnifyingglass" : "bookmark")
-                } description: {
-                    Text(searching ? SearchPresentation.emptyDescription(
-                        archived: store.surface == .archived,
-                        localFilterHidMatches: store.kindFilter != nil && store.searchItems?.isEmpty == false)
-                         : store.kindFilter == nil
-                         ? "Guarde uma imagem, um link ou uma nota. Eles aparecem nos seus dispositivos."
-                         : "Esse tipo ainda não está na biblioteca. Queep things guarda o próximo.")
-                } actions: {
+                EmptyState(icon: searching ? "ri-search-eye-line" : "ri-bookmark-line",
+                           title: emptyFilterTitle, message: emptyFilterMessage) {
                     if !searching {
                         Button("Adicionar referência") { store.requestAddMenu = true }
-                            .buttonStyle(MasterButtonStyle())
+                            .buttonStyle(.queep(.primary, stretches: false))
                             .accessibilityIdentifier("library.add.reference")
                     }
                 }
@@ -414,6 +415,7 @@ struct LibraryView: View {
                                scrollTick: libraryScrollTick,
                                onScrollPage: { libraryScrollTick += 1 },
                                open: { open($0) },
+                               toggle: galleryToggle,
                                brush: { id, include in
                                    if include {
                                        if selectedIDs.count < 50 { selectedIDs.insert(id) }
@@ -426,15 +428,45 @@ struct LibraryView: View {
                         guard let api = session.client(), let uid = session.userID else { return }
                         await store.refresh(api, account: uid, more: true)
                     }
-                }, menu: { cardMenu($0) })
+                }, menu: { cardMenu($0) }, leading: {
+                    if showsPromoTile {
+                        PromoTile { conversionOffer = PaywallContext(reason: "gallery_tile") }
+                    }
+                })
             }
             }
         }
     }
 
-    /// Right-click on the Mac, long-press on iPhone: the basics without opening the item.
+    /// Nil where the gallery cannot select, so the tiles hide the mark and ignore the long press.
+    private var galleryToggle: ((Reference) -> Void)? {
+        guard canSelect else { return nil }
+        return { toggle($0) }
+    }
+
+    private var emptyFilterTitle: String {
+        if searching { return "Nada parecido por aqui" }
+        return store.kindFilter == nil ? "Seu espaço para lembrar" : "Nada neste filtro"
+    }
+
+    private var emptyFilterMessage: String {
+        if searching {
+            return SearchPresentation.emptyDescription(
+                archived: store.surface == .archived,
+                localFilterHidMatches: store.kindFilter != nil && store.searchItems?.isEmpty == false)
+        }
+        return store.kindFilter == nil
+            ? "Guarde uma imagem, um link ou uma nota. Eles aparecem nos seus dispositivos."
+            : "Esse tipo ainda não está na biblioteca. Queep things guarda o próximo."
+    }
+
+    /// Right-click on the Mac: the basics without opening the item.
     @ViewBuilder private func cardMenu(_ reference: Reference) -> some View {
         Button("Abrir", systemImage: "arrow.up.right.square") { store.presentation = .reference(reference) }
+        if canSelect {
+            Button(selectedIDs.contains(reference.id) ? "Desmarcar" : "Selecionar",
+                   systemImage: "checkmark.circle") { toggle(reference) }
+        }
         Button("Space", systemImage: "square.stack.3d.up") {
             spaceSelection = [reference]
             pickingSpaces = true
@@ -453,60 +485,80 @@ struct LibraryView: View {
         "\(selectedIDs.count) selecionado\(selectedIDs.count == 1 ? "" : "s")"
     }
 
-    /// iPhone floating bar. Spaces is the wide primary action; archive and delete stay compact.
+    /// Floating bar while anything is selected: how many, Spaces, archive, delete, and a way out.
     private var selectionDock: some View {
-        HStack(spacing: 6) {
-            Text(selectionCountLabel)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: 96, alignment: .leading)
-            Button(action: assignSelectionToSpaces) {
-                Text("Spaces")
-                    .font(.system(size: 17, weight: .bold))
-                    .lineLimit(1)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    #if os(iOS)
-                    .frame(maxWidth: .infinity)
-                    #endif
+        HStack(spacing: 8) {
+            Button { selectedIDs = [] } label: {
+                QueepIcon("ri-close-line", size: 22, color: Theme.ink)
+                    .frame(width: Theme.control, height: Theme.control)
+                    .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.white)
-            .disabled(selectedIDs.isEmpty)
-            .opacity(selectedIDs.isEmpty ? 0.4 : 1)
-            .accessibilityIdentifier("library.spaceSelection")
-            HStack(spacing: 0) {
-                Button(action: archiveSelection) {
-                    Text(store.surface == .archived ? "Desarquivar" : "Arquivar")
-                        .font(.system(size: 12, weight: .medium))
-                        .lineLimit(1)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 6)
-                }
-                .accessibilityIdentifier("library.archiveSelection")
-                Button(action: deleteSelection) {
-                    Text("Excluir")
-                        .font(.system(size: 12, weight: .medium))
-                        .lineLimit(1)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 6)
-                }
-                .accessibilityIdentifier("library.deleteSelection")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white)
-            .fixedSize(horizontal: true, vertical: false)
-            .disabled(selectedIDs.isEmpty)
-            .opacity(selectedIDs.isEmpty ? 0.4 : 1)
+            .keyboardShortcut(.cancelAction)
+            .help("Limpar seleção · Esc")
+            .accessibilityLabel("Limpar seleção")
+            .accessibilityIdentifier("library.select")
+            Text(selectionCountLabel)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Theme.ink)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 6)
+                #if os(iOS)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                #endif
+            #if os(macOS)
+            Spacer(minLength: 24)
+            #endif
+            dockButton("Spaces", icon: "ri-folder-add-line", identifier: "library.spaceSelection",
+                       action: assignSelectionToSpaces)
+            dockButton(store.surface == .archived ? "Desarquivar" : "Arquivar",
+                       icon: store.surface == .archived ? "ri-inbox-unarchive-line" : "ri-archive-line",
+                       identifier: "library.archiveSelection", action: archiveSelection)
+            dockButton("Excluir", icon: "ri-delete-bin-line", identifier: "library.deleteSelection",
+                       destructive: true, action: deleteSelection)
         }
-        .padding(.leading, 14)
-        .padding(.trailing, 8)
-        .padding(.vertical, 6)
-        .background(Color.black, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: .black.opacity(0.22), radius: 16, y: 6)
+        .padding(Theme.chromeInset)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.line)
+        }
+        .shadow(color: .black.opacity(0.10), radius: 24, y: 10)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(selectionCountLabel)
+    }
+
+    private func dockButton(_ title: String, icon: String, identifier: String, destructive: Bool = false,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            #if os(macOS)
+            HStack(spacing: 8) {
+                QueepIcon(icon, size: 20, color: destructive ? Theme.danger : Theme.ink)
+                Text(title)
+            }
+            #else
+            QueepIcon(icon, size: 22, color: destructive ? Theme.danger : Theme.ink)
+            #endif
+        }
+        #if os(macOS)
+        .buttonStyle(.queep(destructive ? .destructive : .neutral, height: Theme.control, stretches: false))
+        #else
+        .buttonStyle(.queep(destructive ? .destructive : .neutral, height: Theme.control, stretches: false))
+        .frame(width: Theme.control + 8)
+        #endif
+        .disabled(selectedIDs.isEmpty)
+        .accessibilityLabel(title)
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func toggle(_ reference: Reference) {
+        if selectedIDs.contains(reference.id) {
+            selectedIDs.remove(reference.id)
+        } else if selectedIDs.count < 50 {
+            selectedIDs.insert(reference.id)
+        }
     }
 
     private func assignSelectionToSpaces() {
@@ -517,7 +569,6 @@ struct LibraryView: View {
     private func archiveSelection() {
         let chosen = filtered.filter { selectedIDs.contains($0.id) }
         archive(chosen, archived: store.surface != .archived)
-        selecting = false
         selectedIDs = []
     }
 
@@ -559,19 +610,24 @@ struct LibraryView: View {
 
     @ViewBuilder private var archiveToast: some View {
         if let undo = store.archiveUndo {
-            HStack(spacing: 16) {
-                Label(undo.references.count == 1 ? "Arquivado" : "\(undo.references.count) arquivados",
-                      systemImage: "archivebox")
+            HStack(spacing: 14) {
+                QueepIcon("ri-archive-line", size: 20, color: Theme.onAction)
+                Text(undo.references.count == 1 ? "Arquivado" : "\(undo.references.count) arquivados")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Theme.onAction)
                 Button("Desfazer") {
                     guard let api = session.client(), let uid = session.userID else { return }
                     store.undoArchive(undo, client: api, account: uid)
                 }
-                .fontWeight(.semibold)
+                .buttonStyle(.plain)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.lime)
             }
-            .padding(.horizontal, 18).padding(.vertical, 12)
-            .background(.regularMaterial, in: Capsule())
-            .shadow(radius: 12, y: 4)
-            .padding(.bottom, 24)
+            .padding(.horizontal, 20)
+            .frame(height: Theme.control)
+            .background(Theme.action, in: Capsule())
+            .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
+            .padding(.bottom, selecting ? 110 : 28)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Arquivado")
             .task(id: undo.id) {
@@ -583,8 +639,7 @@ struct LibraryView: View {
 
     private func open(_ reference: Reference) {
         if selecting {
-            if selectedIDs.contains(reference.id) { selectedIDs.remove(reference.id) }
-            else if selectedIDs.count < 50 { selectedIDs.insert(reference.id) }
+            toggle(reference)
         } else {
             store.presentation = .reference(reference)
         }
@@ -697,30 +752,59 @@ struct LibraryView: View {
     #endif
 }
 
-private struct SearchSkeleton: View {
+/// Loading gallery from the Figma: pale tiles in the masonry, breathing while the page arrives.
+struct GallerySkeleton: View {
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let heights: [CGFloat] = [340, 290, 147, 340, 232, 340, 340, 230, 415, 340, 147, 340]
 
     var body: some View {
-        MasonryLayout(spacing: GalleryStyle.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : 2) {
-            ForEach(0..<6, id: \.self) { index in
-                GalleryStyle.fill
-                    .frame(height: index.isMultiple(of: 3) ? 220 : 150)
-                    .galleryTile()
-                    .shimmer()
+        MasonryLayout(spacing: Theme.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : nil) {
+            ForEach(Array(heights.enumerated()), id: \.offset) { index, height in
+                RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
+                    .fill(Theme.fill)
+                    .frame(height: height * scale)
+                    .phaseAnimator(reduceMotion ? [1.0] : [1.0, 0.55]) { view, phase in
+                        view.opacity(phase)
+                    } animation: { _ in .easeInOut(duration: 1.1).delay(Double(index % 5) * 0.08) }
             }
         }
-        .accessibilityLabel("Buscando nas suas referências")
+        .accessibilityElement(children: .ignore)
+    }
+
+    private var scale: CGFloat {
+        #if os(iOS)
+        return 0.62
+        #else
+        return 1
+        #endif
     }
 }
 
-private extension View {
-    func galleryBanner() -> some View {
-        font(.system(size: 13, weight: .medium))
-            .foregroundStyle(GalleryStyle.ink)
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(GalleryStyle.fill)
-            .galleryTile()
+/// A notice above the gallery: icon, text, and an optional action on the right.
+struct LibraryBanner<Accessory: View>: View {
+    let icon: String
+    let text: String
+    @ViewBuilder var accessory: Accessory
+
+    var body: some View {
+        HStack(spacing: 12) {
+            IconTile(asset: icon, size: 36, icon: 18, fill: Theme.surface)
+            Text(text)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            accessory
+        }
+        .padding(Theme.chromeInset + 4)
+        .surface(.fill, radius: Theme.radius)
+    }
+}
+
+extension LibraryBanner where Accessory == EmptyView {
+    init(icon: String, text: String) {
+        self.init(icon: icon, text: text, accessory: { EmptyView() })
     }
 }
 
@@ -734,13 +818,13 @@ struct CardButtonStyle: ButtonStyle {
             .animation(.easeOut(duration: 0.18), value: hovered)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
             .onHover { hovered = $0 }
-            .contentShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
     }
 }
 
 /// Masonry with saved.design's breakpoints: two columns on the phone, up to five on a wide window.
 struct MasonryLayout: Layout {
-    var spacing: CGFloat = GalleryStyle.gap
+    var spacing: CGFloat = Theme.gap
     var forceColumns: Int?
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
@@ -791,7 +875,7 @@ struct MasonryLayout: Layout {
 }
 
 /// Shows 18 references at a time. Reaching the end reveals the next batch, then asks for another page.
-struct LibraryGallery<MenuContent: View>: View {
+struct LibraryGallery<MenuContent: View, Leading: View>: View {
     let items: [Reference]
     let more: Bool
     let loading: Bool
@@ -806,9 +890,13 @@ struct LibraryGallery<MenuContent: View>: View {
     var scrollTick = 0
     var onScrollPage: () -> Void = {}
     let open: (Reference) -> Void
+    /// Nil where the gallery cannot select, such as search results.
+    var toggle: ((Reference) -> Void)? = nil
     var brush: ((String, Bool) -> Void)? = nil
     let loadMore: () -> Void
     @ViewBuilder var menu: (Reference) -> MenuContent
+    /// First tile of the masonry, such as the PRO tile on a free account.
+    @ViewBuilder var leading: () -> Leading
 
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(Session.self) private var session
@@ -826,24 +914,20 @@ struct LibraryGallery<MenuContent: View>: View {
     private var visible: [Reference] { Array(items.prefix(shown)) }
 
     var body: some View {
-        VStack(spacing: GalleryStyle.gap) {
-            MasonryLayout(spacing: GalleryStyle.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : nil) {
+        VStack(spacing: Theme.gap) {
+            MasonryLayout(spacing: Theme.gap, forceColumns: typeSize.isAccessibilitySize ? 1 : nil) {
+                leading()
                 ForEach(visible) { reference in
                     LibraryCardCell(reference: reference, playsLoop: playingLoopIDs.contains(reference.id),
-                                    open: { open(reference) }) {
+                                    selectable: toggle != nil,
+                                    selecting: selecting, selected: selectedIDs.contains(reference.id),
+                                    open: { open(reference) },
+                                    toggleSelection: { toggle?(reference) }) {
                         menu(reference)
                     }
                     .id(reference.id)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .background { loopProbe(reference) }
-                    .overlay(alignment: .topTrailing) {
-                        if selecting {
-                            Image(systemName: selectedIDs.contains(reference.id) ? "checkmark.circle.fill" : "circle")
-                                .font(.title2)
-                                .foregroundStyle(selectedIDs.contains(reference.id) ? Color.accentColor : .secondary)
-                                .padding(10).accessibilityHidden(true)
-                        }
-                    }
                     .background {
                         if selecting {
                             GeometryReader { proxy in

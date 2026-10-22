@@ -77,6 +77,9 @@ final class LibraryStore {
     var openFileImporter = false
     /// The library chrome opens Queep things when this flips on, then clears it.
     var requestAddMenu = false
+    /// A screen outside the library (Ajustes on the Mac) asks the library to open the journey
+    /// paywall with this reason. The library clears it.
+    var paywallReason: String?
     var kindFilter: String?
     var presentation: LibraryPresentation?
     var surface: LibrarySurface = .home
@@ -167,6 +170,7 @@ final class LibraryStore {
         openPhotoLibrary = false
         openFileImporter = false
         requestAddMenu = false
+        paywallReason = nil
         query = ""
         kindFilter = nil
         searchChips = []

@@ -123,10 +123,11 @@ enum SocialAuth {
     }
 }
 
+/// Sign in with Apple in the V2 outline style: white, a hairline edge, the Apple mark in ink.
 struct AppleIDAuthButton: View {
-    var title = "Entrar com a Apple"
+    var title = "Entrar com Apple"
     var identifier = "auth.apple"
-    var height: CGFloat = 44
+    var height: CGFloat = Theme.button
     var onSuccess: (AuthCredential, String?) -> Void
     var onError: (Error) -> Void = { _ in }
     @State private var coordinator = AppleSignInCoordinator()
@@ -140,19 +141,12 @@ struct AppleIDAuthButton: View {
                 } catch { onError(error) }
             }
         } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "apple.logo")
-                    .font(.system(size: 16, weight: .semibold))
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
+            HStack(spacing: 8) {
+                QueepIcon("ri-apple-fill", size: 20, color: .black)
+                Text(title).font(.system(size: 13)).lineLimit(1).minimumScaleFactor(0.85)
             }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: height)
-            .background(Color.black, in: RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.queep(.outline, height: height))
         .accessibilityIdentifier(identifier)
         .accessibilityLabel(title)
     }

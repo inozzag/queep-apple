@@ -352,12 +352,7 @@ private struct PinMark: View {
     let notice: Notice?
 
     var body: some View {
-        Image("HomeLogo")
-            .resizable()
-            .renderingMode(.original)
-            .aspectRatio(690 / 670, contentMode: .fit)
-            .frame(width: 18.53, height: 18)
-            .accessibilityHidden(true)
+        QueepMark(size: 18.53, color: Theme.lime)
             .frame(width: PinLayout.pin.width, height: PinLayout.pin.height)
             .overlay(alignment: .bottom) {
                 status
@@ -427,12 +422,7 @@ private struct PinCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
-                Image("HomeLogo")
-                    .resizable()
-                    .renderingMode(.original)
-                    .aspectRatio(690 / 670, contentMode: .fit)
-                    .frame(width: 33.99, height: 33.02)
-                    .accessibilityHidden(true)
+                QueepMark(size: 33.99, color: Theme.lime)
                 VStack(alignment: .leading, spacing: 4.5) {
                     Text(title)
                         .font(.system(size: 9.756, weight: .bold))

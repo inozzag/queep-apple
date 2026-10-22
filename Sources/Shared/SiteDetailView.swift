@@ -56,7 +56,7 @@ struct SiteDetailView: View {
                     if !functionalTitle.isEmpty {
                         Text(functionalTitle)
                             .font(.title3.weight(.semibold))
-                            .foregroundStyle(Theme.homeInk)
+                            .foregroundStyle(Theme.ink)
                             .textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("site.title")
@@ -64,7 +64,7 @@ struct SiteDetailView: View {
                     actions
                     tags
                     if let error {
-                        Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red)
+                        Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(Theme.danger)
                     }
                     if let pollError {
                         AnalysisPollFailure(
@@ -119,12 +119,12 @@ struct SiteDetailView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(productName)
                     .font(.headline)
-                    .foregroundStyle(Theme.homeInk)
+                    .foregroundStyle(Theme.ink)
                     .lineLimit(2)
                 if let source = live.url {
                     Text(source)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.homePreview)
+                        .foregroundStyle(Theme.inkSoft)
                         .lineLimit(2)
                         .textSelection(.enabled)
                 }
@@ -160,7 +160,7 @@ struct SiteDetailView: View {
         if live.status == "queued" || live.status == "processing" {
             Label("A interpretação acontece em segundo plano. Você já pode fechar este site.",
                   systemImage: "sparkles")
-                .font(.callout).foregroundStyle(Color.muted)
+                .font(.callout).foregroundStyle(Theme.inkSoft)
         } else if !items.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {

@@ -1,37 +1,6 @@
 import SwiftUI
 import QueepCore
 
-/// Palette and metrics taken from saved.design, shared by the gallery and the opened item.
-enum GalleryStyle {
-    static let ink = Color(red: 10 / 255, green: 10 / 255, blue: 10 / 255)
-    static let onInk = Color(red: 250 / 255, green: 250 / 255, blue: 250 / 255)
-    static let secondary = Color(red: 105 / 255, green: 105 / 255, blue: 105 / 255)
-    static let tertiary = Color(red: 161 / 255, green: 161 / 255, blue: 161 / 255)
-    static let fill = Color(red: 245 / 255, green: 245 / 255, blue: 245 / 255)
-    static let ring = Color(red: 237 / 255, green: 237 / 255, blue: 237 / 255)
-    static let dot = Color(red: 212 / 255, green: 212 / 255, blue: 212 / 255)
-    static let radius: CGFloat = 16
-    static let gap: CGFloat = 14
-    static let inset: CGFloat = 12
-    #if os(iOS)
-    static let badge: CGFloat = 26
-    static let tileTitle: CGFloat = 15
-    #else
-    static let badge: CGFloat = 28
-    static let tileTitle: CGFloat = 17
-    #endif
-}
-
-extension View {
-    func galleryTile() -> some View {
-        clipShape(RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous)
-                    .strokeBorder(GalleryStyle.ring, lineWidth: 1)
-            }
-    }
-}
-
 /// Gallery tile: the picture is the card, with the source on the bottom left.
 /// References without a picture become text tiles of the same family.
 struct HomeReferenceCard: View {
@@ -67,20 +36,20 @@ struct HomeReferenceCard: View {
             Text(LibrarySync.analyzingTile(reference.status) ?? "Analisando…")
                 .font(.system(size: 13, weight: .medium))
                 .tracking(-0.2)
-                .foregroundStyle(GalleryStyle.secondary)
+                .foregroundStyle(Theme.inkSoft)
                 .lineLimit(1)
             Spacer(minLength: 8)
             HomeSpinningLoader()
         }
         .padding(.horizontal, 16)
-        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-        .background(GalleryStyle.fill)
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .background(Theme.fill)
         .galleryTile()
         .accessibilityIdentifier("library.analyzing")
     }
 
     private var visualTile: some View {
-        GalleryStyle.fill
+        Theme.fill
             .aspectRatio(tileAspect, contentMode: .fit)
             .overlay(alignment: .top) {
                 ZStack {
@@ -92,10 +61,10 @@ struct HomeReferenceCard: View {
             }
             .galleryTile()
             .overlay(alignment: .bottomLeading) {
-                SourceBadge(reference: reference).padding(GalleryStyle.inset)
+                SourceBadge(reference: reference).padding(Theme.tileInset)
             }
             .overlay(alignment: .topLeading) {
-                if isAnalyzing { HomeSpinningLoader().padding(GalleryStyle.inset) }
+                if isAnalyzing { HomeSpinningLoader().padding(Theme.tileInset) }
             }
             .accessibilityHidden(true)
     }
@@ -115,20 +84,20 @@ struct HomeReferenceCard: View {
     }
 
     private var textTile: some View {
-        GalleryStyle.fill
+        Theme.fill
             .aspectRatio(reference.kind == "link" && !isSocial ? 1.25 : 0.95, contentMode: .fit)
             .overlay(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(textTitle)
-                        .font(.system(size: GalleryStyle.tileTitle, weight: .medium))
+                        .font(.system(size: Theme.tileTitle, weight: .medium))
                         .tracking(-0.4)
-                        .foregroundStyle(GalleryStyle.ink)
+                        .foregroundStyle(Theme.ink)
                         .lineLimit(4)
                         .layoutPriority(1)
                     if !textBody.isEmpty {
                         Text(textBody)
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(GalleryStyle.secondary)
+                            .foregroundStyle(Theme.inkSoft)
                             .lineSpacing(3)
                     }
                     Spacer(minLength: 10)
@@ -137,13 +106,13 @@ struct HomeReferenceCard: View {
                         if let footnote {
                             Text(footnote)
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(GalleryStyle.secondary)
+                                .foregroundStyle(Theme.inkSoft)
                                 .lineLimit(1)
                         }
                     }
                     .layoutPriority(1)
                 }
-                .padding(14)
+                .padding(16)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             .galleryTile()
@@ -201,7 +170,7 @@ struct HomeReferenceCard: View {
 /// Where the reference came from: the network mark with the author's avatar, or the site's icon.
 struct SourceBadge: View {
     let reference: Reference
-    var size: CGFloat = GalleryStyle.badge
+    var size: CGFloat = Theme.badge
 
     var body: some View {
         if reference.isSocialPost || reference.isSocialProfile {
@@ -320,13 +289,13 @@ struct PostAvatar: View {
             if reference.authorImage != nil {
                 RemoteImage(reference: reference, thumbnail: true, fill: true, author: true)
             } else if initials.isEmpty {
-                Theme.homeAccent
+                Theme.forest
             } else {
                 Text(initials)
                     .font(.system(size: max(8, size * 0.33), weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Theme.homeAccent)
+                    .background(Theme.forest)
             }
         }
         .frame(width: size, height: size)
@@ -373,11 +342,9 @@ struct PostBrandMark: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color(red: 0.09, green: 0.41, blue: 1))
             case .website, .none:
-                Image(systemName: kind == "audio" ? "waveform" : "globe")
-                    .font(.system(size: size * 0.38, weight: .semibold))
-                    .foregroundStyle(Theme.homePreview)
+                QueepIcon(kind == "audio" ? "ri-voiceprint-line" : "ri-global-line", size: size * 0.5, color: Theme.ink)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(red: 0.929, green: 0.929, blue: 0.929))
+                    .background(Theme.surface)
             }
         }
         .aspectRatio(1, contentMode: .fill)
@@ -387,44 +354,97 @@ struct PostBrandMark: View {
     }
 }
 
-/// A plain button opens the item and leaves the library pan with the scroll view.
+/// One gallery tile and its selection.
+/// Mac: the pointer reveals a round mark in the corner; clicking it starts a selection.
+/// iPhone: a long press selects. While anything is selected, a click or tap toggles the tile.
 struct LibraryCardCell<MenuContent: View>: View {
     let reference: Reference
     var playsLoop = false
+    var selectable = true
+    var selecting = false
+    var selected = false
     let open: () -> Void
+    var toggleSelection: () -> Void = {}
     @ViewBuilder var menu: () -> MenuContent
     @State private var hovered = false
 
     var body: some View {
-        Button(action: open) {
-            HomeReferenceCard(reference: reference, playsLoop: playsLoop)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-                .opacity(hovered ? 0.92 : 1)
-                .animation(.easeOut(duration: 0.15), value: hovered)
-                .contentShape(RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .onHover { hovered = $0 }
-        .contextMenu { menu() }
-        .accessibilityElement(children: .ignore)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityLabel(LibrarySync.analyzingTile(reference.status) ?? reference.displayTitle)
-        .accessibilityIdentifier("reference.\(reference.id)")
-        .accessibilityValue("\(reference.kindLabel), \(reference.statusLabel)")
-        .accessibilityHint("Abrir \(reference.kindLabel.lowercased())")
-        .accessibilityAction(named: "Abrir", open)
+        tile
+            .overlay(alignment: .topTrailing) {
+                if showsMark {
+                    Button(action: toggleSelection) {
+                        SelectionMark(selected: selected)
+                            .padding(Theme.tileInset)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(selected ? "Desmarcar" : "Selecionar")
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                    .accessibilityHidden(true)
+                }
+            }
+            .animation(.easeOut(duration: 0.15), value: showsMark)
+            .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+            .accessibilityLabel(LibrarySync.analyzingTile(reference.status) ?? reference.displayTitle)
+            .accessibilityIdentifier("reference.\(reference.id)")
+            .accessibilityValue("\(reference.kindLabel), \(reference.statusLabel)")
+            .accessibilityHint(selecting ? (selected ? "Desmarcar" : "Selecionar") : "Abrir \(reference.kindLabel.lowercased())")
+            .accessibilityAction { selecting ? toggleSelection() : open() }
+            .accessibilityAction(named: "Abrir", open)
+            .accessibilityAction(named: selected ? "Desmarcar" : "Selecionar", toggleSelection)
     }
+
+    private var showsMark: Bool {
+        guard selectable else { return false }
+        #if os(macOS)
+        return selecting || hovered
+        #else
+        return selecting
+        #endif
+    }
+
+    private var card: some View {
+        HomeReferenceCard(reference: reference, playsLoop: playsLoop)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .overlay {
+                if selected {
+                    RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
+                        .strokeBorder(Theme.ink, lineWidth: 2.5)
+                }
+            }
+            .scaleEffect(selected ? 0.97 : 1)
+            .opacity(hovered && !selecting ? 0.94 : 1)
+            .animation(.spring(duration: 0.22, bounce: 0.2), value: selected)
+            .animation(.easeOut(duration: 0.15), value: hovered)
+            .contentShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+    }
+
+    #if os(macOS)
+    private var tile: some View {
+        Button(action: selecting ? toggleSelection : open) { card }
+            .buttonStyle(.plain)
+            .onHover { hovered = $0 }
+            .contextMenu { menu() }
+    }
+    #else
+    /// A tap opens or toggles; holding the tile starts a selection. No context menu: the long
+    /// press belongs to selection, and the actions live in the selection bar and the opened item.
+    private var tile: some View {
+        card
+            .onTapGesture { selecting ? toggleSelection() : open() }
+            .onLongPressGesture(minimumDuration: 0.35, maximumDistance: 12) {
+                if selectable && !selected { toggleSelection() }
+            }
+    }
+    #endif
 }
 
 struct HomeSpinningLoader: View {
     @State private var spinning = false
 
     var body: some View {
-        Image("HomeLoader")
-            .resizable()
-            .renderingMode(.template)
-            .foregroundStyle(Color(red: 86 / 255, green: 150 / 255, blue: 218 / 255))
-            .frame(width: 20, height: 20)
+        QueepIcon("ri-loader-4-line", size: 20, color: Theme.ink)
             .rotationEffect(.degrees(spinning ? 360 : 0))
             .animation(.linear(duration: 1).repeatForever(autoreverses: false), value: spinning)
             .onAppear { spinning = true }

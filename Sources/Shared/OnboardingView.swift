@@ -103,7 +103,7 @@ struct OnboardingFlow: View {
             OnboardingWelcome()
             VStack(spacing: 16) {
                 HStack(spacing: 7) {
-                    Circle().fill(Theme.homeInk).frame(width: 7, height: 7)
+                    Circle().fill(Theme.ink).frame(width: 7, height: 7)
                     Circle().fill(Color(red: 0.82, green: 0.82, blue: 0.84)).frame(width: 7, height: 7)
                 }
                 footer
@@ -120,7 +120,7 @@ struct OnboardingFlow: View {
                     header
                     stepBody
                     if let error {
-                        Text(error).font(.callout).foregroundStyle(.red)
+                        Text(error).font(.callout).foregroundStyle(Theme.danger)
                             .multilineTextAlignment(.center)
                             .accessibilityIdentifier("onboarding.error")
                     }
@@ -140,7 +140,7 @@ struct OnboardingFlow: View {
             HStack(spacing: 6) {
                 ForEach(Step.questions, id: \.self) { item in
                     Capsule()
-                        .fill(item.rawValue <= step.rawValue ? Theme.homeInk : Color(red: 0.90, green: 0.90, blue: 0.91))
+                        .fill(item.rawValue <= step.rawValue ? Theme.ink : Theme.fill)
                         .frame(height: 5)
                 }
             }
@@ -148,8 +148,7 @@ struct OnboardingFlow: View {
             .padding(.top, 8)
             HStack {
                 Button { back() } label: {
-                    Image(systemName: "chevron.left").font(.body.weight(.semibold))
-                        .foregroundStyle(Theme.homeInk)
+                    QueepIcon("ri-arrow-left-s-line", size: 24, color: Theme.ink)
                         .frame(width: 44, height: 36)
                 }
                 .buttonStyle(.plain)
@@ -160,7 +159,7 @@ struct OnboardingFlow: View {
                 if step.isDemo {
                     Button("Pular") { step = .action }
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Theme.homePreview)
+                        .foregroundStyle(Theme.inkSoft)
                         .accessibilityIdentifier("onboarding.skip")
                         .disabled(busy)
                 } else {
@@ -175,20 +174,20 @@ struct OnboardingFlow: View {
         VStack(spacing: 10) {
             Text(step.kicker)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Theme.homeInk)
+                .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .overlay(Capsule().strokeBorder(Color(red: 0.86, green: 0.86, blue: 0.88)))
             Text(step.title)
                 .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(Theme.homeInk)
+                .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier(step == .promise ? "onboarding.promise" : "onboarding.step")
             if let detail = step.detail {
                 Text(detail)
                     .font(.system(size: 15))
-                    .foregroundStyle(Theme.homePreview)
+                    .foregroundStyle(Theme.inkSoft)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -216,15 +215,15 @@ struct OnboardingFlow: View {
                         .focused($workFocused)
                         .submitLabel(.done)
                         .padding(16)
-                        .background(Theme.homeFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.homeLine))
+                        .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous).strokeBorder(Theme.line))
                         .accessibilityIdentifier("onboarding.work.other")
                         .onChange(of: workDetail) { _, value in
                             if value.count > 40 { workDetail = String(value.prefix(40)) }
                         }
                     Text("Se a sua não está na lista, escreva aqui.")
                         .font(.system(size: 13))
-                        .foregroundStyle(Theme.homePreview)
+                        .foregroundStyle(Theme.inkSoft)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 4)
                 }
@@ -239,12 +238,12 @@ struct OnboardingFlow: View {
         case .search:
             Text("“interfaces claras de CRM”")
                 .font(.title3.weight(.medium))
-                .foregroundStyle(Theme.homeInk)
+                .foregroundStyle(Theme.ink)
                 .padding(18)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.homeFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
         case .spaces:
-            explain("square.stack.3d.up", "Um grupo para cada contexto", "Trabalho, referências e ideias ficam juntos. Você acha o conjunto, não um arquivo perdido.")
+            explain("ri-folder-6-line", "Um grupo para cada contexto", "Trabalho, referências e ideias ficam juntos. Você acha o conjunto, não um arquivo perdido.")
         case .action:
             actionBody
         }
@@ -262,7 +261,7 @@ struct OnboardingFlow: View {
             } else {
                 galleryButton
                 Button { showLink.toggle() } label: {
-                    actionLabel("link", "Colar um link", showLink ? "O campo está aberto abaixo" : "De uma rede social")
+                    actionLabel("ri-link", "Colar um link", showLink ? "O campo está aberto abaixo" : "De uma rede social")
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("onboarding.social")
@@ -276,7 +275,7 @@ struct OnboardingFlow: View {
                         .keyboardType(.URL)
                         #endif
                         .padding(16)
-                        .background(Theme.homeFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
                         .accessibilityIdentifier("onboarding.link")
                     Button { Task { await saveLink() } } label: {
                         Text(busy ? "Salvando…" : "Salvar link")
@@ -288,7 +287,7 @@ struct OnboardingFlow: View {
                 }
                 Button("Agora não") { Task { await finish() } }
                     .font(.body.weight(.medium))
-                    .foregroundStyle(Theme.homePreview)
+                    .foregroundStyle(Theme.inkSoft)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
                     .disabled(busy)
@@ -300,7 +299,7 @@ struct OnboardingFlow: View {
     @ViewBuilder private var galleryButton: some View {
         #if os(iOS)
         Button { showPhotos = true } label: {
-            actionLabel("photo.on.rectangle", "Abrir a galeria", "Escolha uma imagem")
+            actionLabel("ri-image-line", "Abrir a galeria", "Escolha uma imagem")
         }
         .buttonStyle(.plain)
         .disabled(busy)
@@ -308,7 +307,7 @@ struct OnboardingFlow: View {
         .accessibilityIdentifier("onboarding.gallery")
         #else
         Button { filePicker = true } label: {
-            actionLabel("photo.on.rectangle", "Abrir a galeria", "Escolha uma imagem")
+            actionLabel("ri-image-line", "Abrir a galeria", "Escolha uma imagem")
         }
         .buttonStyle(.plain)
         .disabled(busy)
@@ -347,10 +346,10 @@ struct OnboardingFlow: View {
                         Text(phoneCountry.flag).font(.system(size: 22))
                         Text(phoneCountry.dialLabel)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Theme.homeInk)
+                            .foregroundStyle(Theme.ink)
                         Image(systemName: "chevron.down")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(Theme.homePreview)
+                            .foregroundStyle(Theme.inkSoft)
                     }
                     .padding(.leading, 14)
                     .padding(.trailing, 12)
@@ -359,7 +358,7 @@ struct OnboardingFlow: View {
                 .accessibilityLabel("País, \(phoneCountry.name), \(phoneCountry.dialLabel)")
                 .accessibilityIdentifier("onboarding.phone.country")
                 Rectangle()
-                    .fill(Theme.homeLine)
+                    .fill(Theme.line)
                     .frame(width: 1, height: 22)
                 TextField(phoneCountry.iso == "BR" ? "(11) 98888-7777" : "Número", text: Binding(
                     get: { PhoneNumber.format(national: phoneDigits, country: phoneCountry) },
@@ -375,12 +374,12 @@ struct OnboardingFlow: View {
                 .accessibilityIdentifier("onboarding.phone")
             }
             .frame(height: 56)
-            .background(Theme.homeFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.homeLine))
+            .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous).strokeBorder(Theme.line))
             .onAppear { phoneFocused = true }
             Text(phoneHint)
                 .font(.system(size: 13))
-                .foregroundStyle(phoneHintIsError ? Color(red: 0.70, green: 0.16, blue: 0.14) : Theme.homePreview)
+                .foregroundStyle(phoneHintIsError ? Color(red: 0.70, green: 0.16, blue: 0.14) : Theme.inkSoft)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 4)
         }
@@ -427,14 +426,14 @@ struct OnboardingFlow: View {
                 } label: {
                     HStack(spacing: 12) {
                         Text(country.flag).font(.title3)
-                        Text(country.name).foregroundStyle(Theme.homeInk)
+                        Text(country.name).foregroundStyle(Theme.ink)
                         Spacer()
                         Text(country.dialLabel)
-                            .foregroundStyle(Theme.homePreview)
+                            .foregroundStyle(Theme.inkSoft)
                         if country.iso == phoneCountry.iso {
                             Image(systemName: "checkmark")
                                 .font(.body.weight(.semibold))
-                                .foregroundStyle(Theme.homeInk)
+                                .foregroundStyle(Theme.ink)
                         }
                     }
                 }
@@ -474,11 +473,13 @@ struct OnboardingFlow: View {
                         Button { choose(option.0) } label: {
                             Text(selected ? option.1 : "+  \(option.1)")
                                 .font(.system(size: 15, weight: .medium))
-                                .foregroundStyle(selected ? Color.white : Theme.homeInk)
+                                .foregroundStyle(Theme.ink)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 12)
-                                .background(selected ? Theme.homeInk : Color.white, in: Capsule())
-                                .overlay(Capsule().strokeBorder(selected ? Theme.homeInk : Color(red: 0.86, green: 0.86, blue: 0.88)))
+                                .background(selected ? Theme.lime.opacity(0.5) : Theme.surface,
+                                            in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                                    .strokeBorder(selected ? Theme.sage : Theme.lineStrong))
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("onboarding.choice.\(option.0)")
@@ -489,38 +490,35 @@ struct OnboardingFlow: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func explain(_ symbol: String, _ title: String, _ text: String) -> some View {
+    private func explain(_ icon: String, _ title: String, _ text: String) -> some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: symbol)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(Theme.homeInk)
-                .frame(width: 28)
-                .accessibilityHidden(true)
+            IconTile(asset: icon, fill: Theme.surface)
             VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.headline).foregroundStyle(Theme.homeInk)
-                Text(text).font(.callout).foregroundStyle(Theme.homePreview)
+                Text(title).font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.ink)
+                Text(text).font(.system(size: 14)).foregroundStyle(Theme.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(.top, 2)
         }
-        .padding(16)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.homeFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
     }
 
-    private func actionLabel(_ symbol: String, _ title: String, _ detail: String) -> some View {
+    private func actionLabel(_ icon: String, _ title: String, _ detail: String) -> some View {
         HStack(spacing: 14) {
-            Image(systemName: symbol).font(.body.weight(.semibold)).frame(width: 28)
+            IconTile(asset: icon)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
-                Text(detail).font(.caption).foregroundStyle(Theme.homePreview)
+                Text(title).font(.system(size: 16, weight: .medium))
+                Text(detail).font(.system(size: 13)).foregroundStyle(Theme.inkSoft)
             }
             Spacer()
-            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Theme.homePreview)
+            QueepIcon("ri-arrow-right-s-line", size: 20, color: Theme.inkFaint)
         }
-        .foregroundStyle(Theme.homeInk)
-        .padding(16)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.homeInk, lineWidth: 1.5))
+        .foregroundStyle(Theme.ink)
+        .padding(Theme.chromeInset + 2)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.lineStrong, lineWidth: 1))
     }
 
     private func advance() {
@@ -688,13 +686,15 @@ struct OnboardingFlow: View {
     }
 }
 
+/// The V2 primary action: lime, ink label, 16.4pt corners.
 struct OnboardingPrimaryButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.body.weight(.semibold))
-            .foregroundStyle(.white)
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(Theme.ink)
             .padding(.vertical, 16)
-            .background(Theme.homeInk.opacity(configuration.isPressed ? 0.82 : 1), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(Theme.lime.opacity(configuration.isPressed ? 0.8 : 1),
+                        in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
     }
 }
 
@@ -735,7 +735,7 @@ private struct OnboardingInboundAnimation: View {
         let origin = point(for: index)
         return ZStack {
             Circle()
-                .stroke(Theme.homeLine, lineWidth: 1)
+                .stroke(Theme.line, lineWidth: 1)
                 .frame(width: 236, height: 236)
             ForEach(items.indices, id: \.self) { slot in
                 let spot = point(for: slot)
@@ -745,7 +745,7 @@ private struct OnboardingInboundAnimation: View {
                     .frame(width: 28, height: 28)
                     .padding(10)
                     .background(Color.white, in: Circle())
-                    .overlay(Circle().strokeBorder(slot == index ? Theme.homeInk : Theme.homeLine, lineWidth: slot == index ? 1.5 : 1))
+                    .overlay(Circle().strokeBorder(slot == index ? Theme.ink : Theme.line, lineWidth: slot == index ? 1.5 : 1))
                     .scaleEffect(slot == index ? 1.06 : 1)
                     .offset(spot)
             }
@@ -772,12 +772,12 @@ private struct OnboardingInboundAnimation: View {
                 .frame(width: 18, height: 18)
             Text(item.title)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Theme.homeInk)
+                .foregroundStyle(Theme.ink)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.white, in: Capsule())
-        .overlay(Capsule().strokeBorder(Theme.homeLine))
+        .overlay(Capsule().strokeBorder(Theme.line))
         .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
     }
 
@@ -818,7 +818,7 @@ private struct OnboardingSavePaths: View {
                         PostBrandMark(surface: surface, size: 40, radius: 12)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .strokeBorder(GalleryStyle.fill, lineWidth: 2)
+                                    .strokeBorder(Theme.fill, lineWidth: 2)
                             }
                     }
                 }
@@ -834,19 +834,19 @@ private struct OnboardingSavePaths: View {
             mark()
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: GalleryStyle.tileTitle, weight: .medium))
+                    .font(.system(size: Theme.tileTitle, weight: .medium))
                     .tracking(-0.3)
-                    .foregroundStyle(GalleryStyle.ink)
+                    .foregroundStyle(Theme.ink)
                 Text(text)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(GalleryStyle.secondary)
+                    .foregroundStyle(Theme.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(GalleryStyle.fill)
+        .background(Theme.fill)
         .galleryTile()
     }
 }
@@ -879,13 +879,13 @@ private struct OnboardingWelcome: View {
                         .shadow(color: .black.opacity(0.08), radius: 18, y: 8)
                     Text("Salve horas do seu dia")
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(Theme.homeInk)
+                        .foregroundStyle(Theme.ink)
                         .multilineTextAlignment(.center)
                         .padding(.top, 18)
                         .accessibilityIdentifier("onboarding.welcome")
                     Text("Encontre fácil tudo que você guarda. Da galeria, da rede social ou do navegador.")
                         .font(.system(size: 15))
-                        .foregroundStyle(Theme.homePreview)
+                        .foregroundStyle(Theme.inkSoft)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 8)

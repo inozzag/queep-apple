@@ -136,7 +136,7 @@ struct ReferenceTicker: View {
     var gap: CGFloat = 10
     /// How far the outer columns run past the edges, so the grid reads as cropped, not fitted.
     var bleed: CGFloat = 14
-    var radius: CGFloat = GalleryStyle.radius
+    var radius: CGFloat = Theme.radius
     /// Points per second of the reference lane.
     var speed: CGFloat = 14
 
@@ -278,7 +278,7 @@ private struct TickerTile: View {
     var body: some View {
         let image = TickerImages.shared.images[item.name]
         ZStack {
-            GalleryStyle.fill
+            Theme.fill
             if let image {
                 Image(decorative: image, scale: 1)
                     .resizable()

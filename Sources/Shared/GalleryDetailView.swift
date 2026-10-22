@@ -2,53 +2,6 @@ import AVKit
 import SwiftUI
 import QueepCore
 
-/// Chip from saved.design's filter row: black when selected, light gray otherwise.
-struct GalleryChip: View {
-    let title: String
-    var symbol: String?
-    var selected = false
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if let symbol { Image(systemName: symbol).font(.system(size: 11, weight: .semibold)) }
-            Text(title).font(.system(size: 13, weight: .medium)).tracking(-0.2).lineLimit(1)
-        }
-        .foregroundStyle(selected ? GalleryStyle.onInk : GalleryStyle.secondary)
-        .padding(.horizontal, 18)
-        .frame(height: 36)
-        .background(selected ? GalleryStyle.ink : GalleryStyle.fill, in: Capsule())
-        #if os(iOS)
-        .padding(.vertical, 4)
-        #endif
-        .contentShape(Rectangle())
-        .fixedSize()
-    }
-}
-
-/// Rounded action from saved.design's opened item: gray, or black for the main action.
-struct GalleryPill: View {
-    var title: String?
-    var leading: String?
-    var trailing: String?
-    var dark = false
-    var height: CGFloat = 36
-    var stretches = false
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if let leading { Image(systemName: leading).font(.system(size: 11, weight: .semibold)) }
-            if let title { Text(title).font(.system(size: 13, weight: .medium)).tracking(-0.2).lineLimit(1) }
-            if let trailing { Image(systemName: trailing).font(.system(size: 11, weight: .semibold)) }
-        }
-        .foregroundStyle(dark ? Color.white : GalleryStyle.secondary)
-        .padding(.horizontal, title == nil ? 0 : 16)
-        .frame(width: title == nil ? height : nil, height: height)
-        .frame(maxWidth: stretches ? .infinity : nil)
-        .background(dark ? GalleryStyle.ink : GalleryStyle.fill, in: Capsule())
-        .contentShape(Capsule())
-    }
-}
-
 /// Full detail with editing, notes and the AI reading.
 struct ReferenceDetail: View {
     let reference: Reference
@@ -175,73 +128,81 @@ struct GalleryDetailView: View {
     }
 
     #if os(macOS)
+    /// Figma "Item Opened": Esc on the left, Anterior and Próximo on the right, a 750pt column with
+    /// the title, the text and the actions, then the media on a pale 22pt stage.
     private func desktop(_ size: CGSize) -> some View {
-        let column = min(600, max(360, size.width - 416))
-        return ZStack(alignment: .top) {
-            VStack(spacing: 0) {
-                header.frame(width: column).padding(.top, 32)
-                GeometryReader { box in
-                    VStack(spacing: 20) {
-                        slides(height: max(220, box.size.height - 96), spacing: 64, chevronInset: 96,
-                               chevronFill: GalleryStyle.fill)
-                        dots
-                    }
-                    .padding(.top, 32)
-                }
-            }
-            HStack(alignment: .top) {
-                Button(action: close) { GalleryPill(title: "Esc", leading: "xmark") }
+        let margin = Theme.pageMargin(for: size.width)
+        let column = min(750, max(360, size.width - margin * 2))
+        return VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 14) {
+                Button(action: close) { GalleryPill(title: "Esc", leading: "ri-close-line") }
                     .buttonStyle(.plain)
                     .keyboardShortcut(.cancelAction)
                     .accessibilityLabel("Fechar")
                     .accessibilityIdentifier("gallery.close")
                 Spacer()
-                HStack(spacing: 8) {
-                    navButton(previous: true)
-                    navButton(previous: false)
-                }
+                navButton(previous: true)
+                navButton(previous: false)
             }
-            .padding(.horizontal, 32)
+            .padding(.horizontal, margin)
+            .padding(.top, 20)
+            info
+                .frame(width: column)
+                .padding(.top, 4)
+            GeometryReader { box in
+                VStack(spacing: 14) {
+                    slides(height: max(200, box.size.height - 72), spacing: 48, chevronInset: 24,
+                           chevronFill: Theme.surface)
+                    dots
+                }
+                .padding(.vertical, 24)
+                .frame(width: box.size.width, height: box.size.height)
+                .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+            }
+            .padding(.horizontal, margin)
             .padding(.top, 32)
+            .padding(.bottom, 28)
         }
     }
 
-    private var header: some View {
+    private var info: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    titleText
+            VStack(alignment: .leading, spacing: 16) {
+                titleText
                 if !summary.isEmpty {
-                    summaryText.lineLimit(3).frame(maxWidth: 440, alignment: .leading)
+                    summaryText.lineLimit(4)
                 }
                 analysisExtras
                 analysisStatus
-                }
-                Spacer(minLength: 16)
-                author.frame(maxWidth: 220, alignment: .trailing)
             }
-            Rectangle().fill(GalleryStyle.ring).frame(height: 1).padding(.top, 14)
-            HStack(spacing: 6) {
-                tagPill
-                Spacer(minLength: 12)
-                moreMenu(height: 36)
+            .frame(maxWidth: 480, alignment: .leading)
+            Rectangle().fill(Theme.line).frame(height: 1).padding(.top, 29)
+            HStack(spacing: 24) {
+                source
+                Spacer(minLength: 16)
+                moreMenu(height: Theme.chrome)
                 shareButton(stretches: false)
                 originalButton(stretches: false)
             }
-            .padding(.top, 16)
-            if error != nil { errorText.padding(.top, 10) }
+            .padding(.top, 29)
+            if error != nil { errorText.padding(.top, 12) }
         }
     }
     #else
     private func phone(_ size: CGSize) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                slides(height: min(480, max(260, size.height * 0.42)), spacing: 12, chevronInset: 28,
-                       chevronFill: .white.opacity(0.85))
-                    .padding(.top, 24)
-                dots.frame(maxWidth: .infinity).padding(.top, 16)
+                VStack(spacing: 12) {
+                    slides(height: min(460, max(240, size.height * 0.42)), spacing: 12, chevronInset: 14,
+                           chevronFill: Theme.surface.opacity(0.9))
+                    dots
+                }
+                .padding(.vertical, 16)
+                .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
                 HStack(spacing: 8) {
-                    Button(action: close) { GalleryPill(leading: "xmark", height: 44) }
+                    Button(action: close) { GalleryPill(leading: "ri-close-line", height: 44) }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Fechar")
                         .accessibilityIdentifier("gallery.close")
@@ -250,28 +211,33 @@ struct GalleryDetailView: View {
                     navButton(previous: true)
                     navButton(previous: false)
                 }
-                .padding(.horizontal, GalleryStyle.inset)
-                .padding(.top, 24)
-                VStack(alignment: .leading, spacing: 10) {
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                VStack(alignment: .leading, spacing: 12) {
                     Text(tag)
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(GalleryStyle.tertiary)
+                        .foregroundStyle(Theme.inkFaint)
                     titleText
-                    author
                     if !summary.isEmpty { summaryText }
                     analysisExtras
                     analysisStatus
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, GalleryStyle.inset)
-                .padding(.top, 24)
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
+                Rectangle().fill(Theme.line).frame(height: 1)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 20)
+                source
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
                 VStack(spacing: 8) {
                     shareButton(stretches: true)
                     originalButton(stretches: true)
                 }
-                .padding(.horizontal, GalleryStyle.inset)
-                .padding(.top, 24)
-                if error != nil { errorText.padding(.horizontal, GalleryStyle.inset).padding(.top, 12) }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                if error != nil { errorText.padding(.horizontal, 16).padding(.top, 12) }
             }
             .padding(.bottom, 32)
         }
@@ -280,10 +246,10 @@ struct GalleryDetailView: View {
 
     private var titleText: some View {
         Text(title)
-            .font(.system(size: 17, weight: .medium))
-            .tracking(-0.4)
-            .foregroundStyle(GalleryStyle.ink)
-            .lineLimit(2)
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(Theme.ink)
+            .lineLimit(3)
+            .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
             .accessibilityIdentifier("gallery.title")
     }
@@ -293,9 +259,9 @@ struct GalleryDetailView: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let line = current.galleryStatusLine {
                     Text(line)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(current.status == "queued" || current.status == "processing"
-                                         ? GalleryStyle.secondary : GalleryStyle.ink)
+                                         ? Theme.inkSoft : Theme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("gallery.status")
                 }
@@ -303,59 +269,91 @@ struct GalleryDetailView: View {
                     Button {
                         Task { await retryAnalysis() }
                     } label: {
-                        GalleryPill(title: "Analisar de novo", leading: "arrow.clockwise")
+                        GalleryPill(title: "Analisar de novo", leading: "ri-refresh-line")
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("gallery.retry")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 10)
         }
     }
 
     private var summaryText: some View {
         Text(summary)
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(GalleryStyle.secondary)
-            .lineSpacing(4)
+            .font(.system(size: 16))
+            .foregroundStyle(Theme.ink)
+            .lineSpacing(3)
             .textSelection(.enabled)
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    private var author: some View {
-        HStack(spacing: 8) {
-            SourceBadge(reference: current, size: 28)
+    /// Where it came from: the network or kind in a 60pt tile, then the author.
+    private var source: some View {
+        HStack(spacing: 14) {
+            ChromeIcon(asset: sourceIcon, size: sourceTile, icon: 24)
+                .accessibilityHidden(true)
             if let authorName {
-                Text(authorName)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(GalleryStyle.ink)
-                    .lineLimit(1)
+                HStack(spacing: 8) {
+                    if current.authorImage != nil {
+                        SourceBadge(reference: current, size: 26)
+                    }
+                    Text(authorName)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                }
+            } else {
+                Text(tag)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Theme.inkSoft)
             }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var sourceTile: CGFloat {
+        #if os(macOS)
+        return Theme.chrome
+        #else
+        return 48
+        #endif
+    }
+
+    private var sourceIcon: String {
+        switch current.linkSurface {
+        case .twitter: return "ri-twitter-x-fill"
+        case .instagram: return "ri-instagram-fill"
+        case .dribbble: return "ri-dribbble-line"
+        case .behance: return "ri-behance-fill"
+        case .pinterest: return "ri-pinterest-fill"
+        case .medium: return "ri-medium-fill"
+        case .website: return "ri-global-line"
+        case .none: break
+        }
+        switch current.kind {
+        case "image": return "ri-image-line"
+        case "note": return "ri-sticky-note-line"
+        case "audio": return "ri-voiceprint-line"
+        case "video": return "ri-video-line"
+        default: return "ri-link"
         }
     }
 
-    private var tagPill: some View {
-        Text(tag)
-            .font(.system(size: 13, weight: .medium))
-            .tracking(-0.2)
-            .foregroundStyle(GalleryStyle.tertiary)
-            .padding(.horizontal, 14)
-            .frame(height: 32)
-            .overlay { Capsule().strokeBorder(GalleryStyle.ring) }
-    }
-
     private var errorText: some View {
-        Label(error ?? "", systemImage: "exclamationmark.circle")
-            .font(.callout)
-            .foregroundStyle(.red)
+        HStack(spacing: 8) {
+            QueepIcon("ri-error-warning-line", size: 18, color: Theme.danger)
+            Text(error ?? "")
+        }
+        .font(.system(size: 14, weight: .medium))
+        .foregroundStyle(Theme.danger)
     }
 
     private var dots: some View {
         HStack(spacing: 6) {
             ForEach(0..<max(slideCount, 1), id: \.self) { index in
                 Circle()
-                    .fill(index == slide ? GalleryStyle.ink : GalleryStyle.dot)
+                    .fill(index == slide ? Theme.ink : Theme.lineStrong)
                     .frame(width: 6, height: 6)
             }
         }
@@ -373,7 +371,7 @@ struct GalleryDetailView: View {
                     MediaPlaybackView(player: player, video: false, duration: current.media?.durationSeconds ?? 0)
                         .padding(16)
                         .frame(maxWidth: 480)
-                        .background(GalleryStyle.fill, in: RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
                 } else if current.media != nil {
                     ProgressView().controlSize(.small)
                 }
@@ -406,10 +404,10 @@ struct GalleryDetailView: View {
         if let transcript = current.transcript?.trimmingCharacters(in: .whitespacesAndNewlines), !transcript.isEmpty {
             Text("Transcrição")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(GalleryStyle.tertiary)
+                .foregroundStyle(Theme.inkFaint)
             Text(transcript)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(GalleryStyle.secondary)
+                .foregroundStyle(Theme.inkSoft)
                 .lineSpacing(4)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
@@ -422,10 +420,10 @@ struct GalleryDetailView: View {
         return Button { show(target) } label: {
             #if os(macOS)
             GalleryPill(title: isPrevious ? "Anterior" : "Próximo",
-                        leading: isPrevious ? "chevron.left" : nil,
-                        trailing: isPrevious ? nil : "chevron.right")
+                        leading: isPrevious ? "ri-arrow-left-s-line" : nil,
+                        trailing: isPrevious ? nil : "ri-arrow-right-s-line")
             #else
-            GalleryPill(leading: isPrevious ? "chevron.left" : "chevron.right", height: 44)
+            GalleryPill(leading: isPrevious ? "ri-arrow-left-s-line" : "ri-arrow-right-s-line", height: 44)
             #endif
         }
         .buttonStyle(.plain)
@@ -457,7 +455,11 @@ struct GalleryDetailView: View {
                 .disabled(busy)
                 .accessibilityIdentifier("reference.delete")
         } label: {
-            GalleryPill(leading: "ellipsis", height: height)
+            #if os(macOS)
+            ChromeIcon(asset: "ri-more-line", size: height)
+            #else
+            GalleryPill(leading: "ri-more-line", height: height)
+            #endif
         }
         .buttonStyle(.plain)
         #if os(macOS)
@@ -471,10 +473,12 @@ struct GalleryDetailView: View {
     @ViewBuilder private func shareButton(stretches: Bool) -> some View {
         if let originalURL {
             ShareLink(item: originalURL) {
-                GalleryPill(title: "Compartilhar", trailing: "square.and.arrow.up",
-                            height: stretches ? 44 : 36, stretches: stretches)
+                HStack(spacing: 8) {
+                    Text("Compartilhar")
+                    QueepIcon("ri-share-2-line", size: 24, color: Theme.ink)
+                }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.queep(.neutral, height: actionHeight, stretches: stretches, radius: actionRadius))
             .accessibilityIdentifier("gallery.share")
         }
     }
@@ -482,19 +486,40 @@ struct GalleryDetailView: View {
     @ViewBuilder private func originalButton(stretches: Bool) -> some View {
         if let originalURL {
             Button { openURL(originalURL) } label: {
-                GalleryPill(title: "Ver original", trailing: "arrow.up.right.square",
-                            dark: true, height: stretches ? 44 : 36, stretches: stretches)
+                HStack(spacing: 8) {
+                    Text("Ver original")
+                    QueepIcon("ri-arrow-right-up-box-line", size: 24, color: Theme.onAction)
+                }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.queep(.dark, height: actionHeight, stretches: stretches, radius: actionRadius))
             .accessibilityIdentifier("post.openOriginal")
         } else if canEdit {
             Button { editing = current } label: {
-                GalleryPill(title: "Editar", trailing: "square.and.pencil",
-                            dark: true, height: stretches ? 44 : 36, stretches: stretches)
+                HStack(spacing: 8) {
+                    Text("Editar")
+                    QueepIcon("ri-edit-line", size: 22, color: Theme.onAction)
+                }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.queep(.dark, height: actionHeight, stretches: stretches, radius: actionRadius))
             .accessibilityIdentifier("gallery.edit.open")
         }
+    }
+
+    /// The Figma actions are 60pt chrome on the Mac; the iPhone keeps 48pt full-width buttons.
+    private var actionHeight: CGFloat {
+        #if os(macOS)
+        return Theme.chrome
+        #else
+        return 48
+        #endif
+    }
+
+    private var actionRadius: CGFloat {
+        #if os(macOS)
+        return Theme.radius
+        #else
+        return Theme.controlRadius
+        #endif
     }
 
     private func retryAnalysis() async {
@@ -630,43 +655,43 @@ private struct GalleryEditSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Button { dismiss() } label: { GalleryPill(title: "Fechar", leading: "xmark") }
+                Button { dismiss() } label: { GalleryPill(title: "Fechar", leading: "ri-close-line") }
                     .buttonStyle(.plain)
                     .disabled(busy)
                     .accessibilityIdentifier("gallery.edit.close")
                 Spacer()
                 Text("Editar")
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(GalleryStyle.ink)
+                    .foregroundStyle(Theme.ink)
             }
             TextField("Título", text: $title, axis: .vertical)
                 .textFieldStyle(.plain)
                 .font(.system(size: 22, weight: .medium))
-                .foregroundStyle(GalleryStyle.ink)
+                .foregroundStyle(Theme.ink)
                 .lineLimit(1...3)
                 .accessibilityLabel("Título")
                 .accessibilityIdentifier("gallery.edit.title")
             Text("Notas")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(GalleryStyle.tertiary)
+                .foregroundStyle(Theme.inkFaint)
             TextEditor(text: $text)
                 .font(.system(size: 15))
-                .foregroundStyle(GalleryStyle.ink)
+                .foregroundStyle(Theme.ink)
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 180)
                 .padding(12)
-                .background(GalleryStyle.fill, in: RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
+                .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
                 .accessibilityLabel("Notas")
                 .accessibilityIdentifier("gallery.edit.text")
             if trimmedTitle.count > 200 {
                 Text("O título tem no máximo 200 caracteres.")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(GalleryStyle.secondary)
+                    .foregroundStyle(Theme.inkSoft)
             }
             if let error {
                 Text(error)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Button { Task { await save() } } label: {
@@ -794,13 +819,13 @@ private struct GallerySlides: View {
             .scrollDisabled(count < 2)
             .overlay(alignment: .trailing) {
                 if current + 1 < count {
-                    chevron("chevron.right", label: "Próxima imagem") { move(1) }
+                    chevron("ri-arrow-right-s-line", label: "Próxima imagem") { move(1) }
                         .padding(.trailing, chevronInset)
                 }
             }
             .overlay(alignment: .leading) {
                 if current > 0 {
-                    chevron("chevron.left", label: "Imagem anterior") { move(-1) }
+                    chevron("ri-arrow-left-s-line", label: "Imagem anterior") { move(-1) }
                         .padding(.leading, chevronInset)
                 }
             }
@@ -829,7 +854,7 @@ private struct GallerySlides: View {
 
     @ViewBuilder private func slide(_ index: Int) -> some View {
         ZStack {
-            GalleryStyle.fill
+            Theme.fill
             if isVideo {
                 if reference.media?.loop == true {
                     ZStack {
@@ -862,11 +887,10 @@ private struct GallerySlides: View {
 
     private func chevron(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(GalleryStyle.ink)
+            QueepIcon(symbol, size: 22, color: Theme.ink)
                 .frame(width: 40, height: 40)
                 .background(chevronFill, in: Circle())
+                .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

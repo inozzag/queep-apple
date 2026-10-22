@@ -62,7 +62,7 @@ struct AnalysisPollFailure: View {
         VStack(alignment: .leading, spacing: 8) {
             Label(message, systemImage: "exclamationmark.circle")
                 .font(.callout)
-                .foregroundStyle(.red)
+                .foregroundStyle(Theme.danger)
                 .fixedSize(horizontal: false, vertical: true)
             if canPollAgain {
                 Button("Tentar novamente", systemImage: "arrow.clockwise", action: retry)
@@ -99,12 +99,12 @@ struct AnalysisView: View {
                 let tags = Array((analysis.topics + analysis.usefulness + analysis.entities).prefix(8))
                 if !tags.isEmpty { FlowChips(items: tags) }
                 ForEach(Array(analysis.limitations.enumerated()), id: \.offset) { _, limitation in
-                    Label(limitation, systemImage: "info.circle").font(.caption).foregroundStyle(Color.muted)
+                    Label(limitation, systemImage: "info.circle").font(.caption).foregroundStyle(Theme.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } else if current.status == "queued" || current.status == "processing" {
                 Text("A interpretação acontece em segundo plano. Você já pode fechar esta referência.")
-                    .font(.callout).foregroundStyle(Color.muted).fixedSize(horizontal: false, vertical: true)
+                    .font(.callout).foregroundStyle(Theme.inkSoft).fixedSize(horizontal: false, vertical: true)
             }
             if let source = current.source {
                 Divider()
@@ -123,7 +123,7 @@ struct AnalysisView: View {
                 }
                 HStack(spacing: 12) {
                     Text(source.fetchedAt, format: .dateTime.day().month().year().hour().minute())
-                        .font(.caption).foregroundStyle(Color.muted)
+                        .font(.caption).foregroundStyle(Theme.inkSoft)
                     if source.url != current.url, let url = URL(string: source.url),
                        ["https", "http"].contains(url.scheme ?? "") {
                         Link("Abrir página de destino", destination: url).font(.caption)

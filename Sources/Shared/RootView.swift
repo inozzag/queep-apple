@@ -135,48 +135,45 @@ private struct AccountLoadFailureView: View {
     @State private var retrying = false
 
     var body: some View {
-        VStack(spacing: 20) {
-            QueepLogo(size: 72)
+        VStack(spacing: 18) {
+            QueepMark(size: 56)
             Text("Não foi possível carregar sua conta")
-                .font(.title2.bold())
-                .foregroundStyle(Theme.homeInk)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)
                 .accessibilityIdentifier("account.load.title")
             Text(message)
-                .font(.callout)
-                .foregroundStyle(Theme.homePreview)
+                .font(.system(size: 15))
+                .foregroundStyle(Theme.inkSoft)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("account.load.error")
-            Button {
-                Task {
-                    retrying = true
-                    defer { retrying = false }
-                    await session.retryAccountLoad()
+            VStack(spacing: 10) {
+                Button {
+                    Task {
+                        retrying = true
+                        defer { retrying = false }
+                        await session.retryAccountLoad()
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if retrying { ProgressView().controlSize(.small).tint(Theme.ink) }
+                        Text("Tentar novamente")
+                    }
                 }
-            } label: {
-                HStack(spacing: 8) {
-                    if retrying { ProgressView().controlSize(.small).tint(Theme.queepThingsInk) }
-                    Text("Tentar novamente")
-                }
-            }
-            .buttonStyle(MasterButtonStyle())
-            .disabled(retrying)
-            .accessibilityIdentifier("account.load.retry")
-            Button("Sair da conta") { try? session.signOut() }
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Theme.homePreview)
-                .buttonStyle(.plain)
+                .buttonStyle(.queepPrimary)
                 .disabled(retrying)
-                .accessibilityIdentifier("account.load.signout")
+                .accessibilityIdentifier("account.load.retry")
+                Button("Sair da conta") { try? session.signOut() }
+                    .buttonStyle(.queep(.quiet))
+                    .disabled(retrying)
+                    .accessibilityIdentifier("account.load.signout")
+            }
+            .padding(.top, 8)
         }
         .padding(32)
         .frame(maxWidth: 420)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        #if os(macOS)
-        .background(Color.white)
-        #else
-        .background(Color.canvas)
-        #endif
+        .background(Theme.surface)
     }
 }

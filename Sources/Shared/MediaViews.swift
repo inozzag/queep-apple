@@ -29,7 +29,7 @@ struct MediaPickerSection: View {
             Button { filePicker = true } label: { Label("Escolher arquivo", systemImage: "folder") }
                 .disabled(disabled || preparing).accessibilityIdentifier("capture.mediaFile")
             if preparing { ProgressView("Preparando mídia…") }
-            if let error { Text(error).foregroundStyle(.red) }
+            if let error { Text(error).foregroundStyle(Theme.danger) }
             Text("Até 5 minutos · original de até 150 MB, com até 25 MB após preparar. Vídeos são otimizados para 720p.")
                 .font(.caption).foregroundStyle(.secondary)
         }
@@ -108,7 +108,7 @@ struct MediaDetailView: View {
                             VStack(spacing: 8) {
                                 Label(loadError, systemImage: "exclamationmark.circle")
                                 Button("Tentar novamente") { attempt += 1 }.disabled(busy)
-                            }.font(.callout).foregroundStyle(Color.muted).frame(maxWidth: .infinity)
+                            }.font(.callout).foregroundStyle(Theme.inkSoft).frame(maxWidth: .infinity)
                         } else { ProgressView("Carregando mídia…").controlSize(.small).frame(maxWidth: .infinity) }
                     }
                     .padding(16).frame(maxWidth: .infinity).card(elevated: false)
@@ -122,7 +122,7 @@ struct MediaDetailView: View {
                                         disabled: busy || reference.isArchived, minHeight: 120,
                                         identifier: "media.text")
                     AnalysisView(reference: reference)
-                    if let error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red) }
+                    if let error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(Theme.danger) }
                 }
                 .padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 40)
                 .frame(maxWidth: 760).frame(maxWidth: .infinity)
@@ -255,7 +255,7 @@ struct MediaPlaybackView: View {
             if video { VideoPlayer(player: player).frame(height: 260) }
             if failed {
                 Text("Não foi possível reproduzir este arquivo. Feche e abra a mídia novamente.")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.danger)
             }
             HStack(spacing: 16) {
                 Button {
@@ -269,7 +269,7 @@ struct MediaPlaybackView: View {
                           systemImage: playing ? "pause.fill" : "play.fill")
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(GalleryStyle.ink)
+                .foregroundStyle(Theme.ink)
                 .disabled(failed).accessibilityIdentifier("media.playPause")
                 Spacer()
                 Text(timestamp(elapsed)).monospacedDigit().font(.caption)
@@ -281,7 +281,7 @@ struct MediaPlaybackView: View {
                     elapsed = value
                     player.seek(to: CMTime(seconds: value, preferredTimescale: 600))
                 }), in: 0...max(duration, 0.1))
-                .tint(GalleryStyle.ink)
+                .tint(Theme.ink)
                 .accessibilityLabel("Posição do áudio")
                 .accessibilityValue("\(timestamp(elapsed)) de \(timestamp(duration))")
                 .disabled(failed)

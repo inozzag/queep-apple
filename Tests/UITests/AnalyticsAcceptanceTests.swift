@@ -58,7 +58,7 @@ final class AnalyticsAcceptanceTests: XCTestCase {
         }
         XCTAssertTrue(signOut.waitForExistence(timeout: 3), app.debugDescription)
         signOut.tap()
-        XCTAssertTrue(app.buttons["auth.emailStart"].waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(app.textFields["auth.email"].waitForExistence(timeout: 15), app.debugDescription)
 
         let again = launch(create: false)
         XCTAssertTrue(again.buttons.matching(NSPredicate(format: "label == %@", title)).firstMatch.waitForExistence(timeout: 40), again.debugDescription)

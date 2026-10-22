@@ -1,108 +1,90 @@
 import FirebaseAuth
 import SwiftUI
 
-/// The way in: Apple, Google or e-mail, on one surface for signing in and creating an account.
-/// `EntryView` decides whether it is a sheet rising from the bottom or a card over the ticker.
+/// The sign-in form from the Figma "Login": a greeting, Google and Apple side by side, e-mail and
+/// password, then Entrar and Criar conta. Both actions use the same two fields.
 struct SignInView: View {
     @Environment(Session.self) private var session
-    @State private var step: Step = .options
     @State private var email = ""
     @State private var password = ""
-    @State private var create = false
-    @State private var busy = false
+    @State private var revealsPassword = false
+    @State private var busy: Action?
     @State private var error: String?
     @FocusState private var focus: Field?
 
-    private enum Step { case options, email }
     private enum Field: Hashable { case email, password }
+    private enum Action: Equatable { case google, apple, signIn, create, reset }
 
     var body: some View {
-        VStack(spacing: 0) {
-            switch step {
-            case .options: options.transition(.opacity)
-            case .email: emailForm.transition(.opacity)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.spring(duration: 0.4, bounce: 0.1), value: step)
-        .animation(.easeOut(duration: 0.2), value: error)
-        .animation(.easeOut(duration: 0.2), value: create)
-        .task(id: step) {
-            // The field only accepts focus once the form has replaced the buttons.
-            guard step == .email else { return }
-            try? await Task.sleep(for: .milliseconds(350))
-            if !Task.isCancelled { focus = .email }
-        }
-    }
-
-    private var options: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-            Text("Salve agora.\nEncontre depois.")
-                .font(.system(size: 30, weight: .bold))
-                .tracking(-0.89)
-                .foregroundStyle(Theme.homeInk)
+        VStack(spacing: 32) {
+            Text("Bem-vindo de volta!")
+                .font(.system(size: 32))
+                .tracking(-0.32)
+                .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             status
-            Spacer(minLength: 28)
-            VStack(spacing: 10) {
-                AppleIDAuthButton(title: "Continuar com a Apple", height: Theme.masterHeight) { credential, _ in
-                    Task { await run { try await session.signIn(with: credential) } }
-                } onError: { fail($0) }
-                googleButton
-                Button {
-                    error = nil
-                    step = .email
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "envelope")
-                            .font(.system(size: 15, weight: .semibold))
-                            .accessibilityHidden(true)
-                        Text("Continuar com e-mail")
+            providers
+            fields
+            VStack(spacing: 14) {
+                failure
+                Button(action: { submit(create: false) }) {
+                    HStack(spacing: 8) {
+                        if busy == .signIn { ProgressView().controlSize(.small).tint(Theme.ink) }
+                        Text("Entrar")
                     }
                 }
-                .buttonStyle(MasterButtonStyle())
-                .accessibilityIdentifier("auth.emailStart")
+                .buttonStyle(.queepPrimary)
+                .disabled(!canSubmit)
+                .accessibilityIdentifier("auth.submit")
+                Button(action: { submit(create: true) }) {
+                    HStack(spacing: 8) {
+                        if busy == .create { ProgressView().controlSize(.small).tint(Theme.ink) }
+                        Text("Criar conta")
+                    }
+                }
+                .buttonStyle(.queep(.outline))
+                .disabled(!canSubmit)
+                .accessibilityHint("Cria uma conta com este e-mail e esta senha.")
+                .accessibilityIdentifier("auth.create")
+                legal
             }
-            .disabled(busy)
-            failure
-            legal
         }
+        .animation(.easeOut(duration: 0.2), value: error)
+        .animation(.easeOut(duration: 0.2), value: session.accountNotice)
     }
 
-    private var emailForm: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                Text(create ? "Criar sua conta" : "Entrar com e-mail")
-                    .font(.system(size: 22, weight: .bold))
-                    .tracking(-0.5)
-                    .foregroundStyle(Theme.homeInk)
-                    .accessibilityAddTraits(.isHeader)
-                HStack {
-                    Button {
-                        focus = nil
-                        error = nil
-                        step = .options
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Theme.homeInk)
-                            .frame(width: 36, height: 36)
-                            .background(GalleryStyle.fill, in: Circle())
-                            .contentShape(Circle())
+    private var providers: some View {
+        HStack(spacing: 16) {
+            Button {
+                Task { await run(.google) { try await session.signIn(with: try await SocialAuth.googleCredential()) } }
+            } label: {
+                HStack(spacing: 8) {
+                    if busy == .google {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image("BrandGoogle").resizable().frame(width: 18, height: 18).accessibilityHidden(true)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(busy)
-                    .accessibilityLabel("Voltar")
-                    .accessibilityIdentifier("auth.back")
-                    Spacer(minLength: 0)
+                    Text("Entrar com Google").font(.system(size: 13)).lineLimit(1).minimumScaleFactor(0.85)
                 }
             }
-            status
-            VStack(spacing: 10) {
-                field("E-mail", text: $email, .email, identifier: "auth.email")
+            .buttonStyle(.queep(.outline))
+            .accessibilityIdentifier("auth.google")
+            AppleIDAuthButton(title: "Entrar com Apple") { credential, _ in
+                Task { await run(.apple) { try await session.signIn(with: credential) } }
+            } onError: { fail($0) }
+        }
+        .disabled(busy != nil)
+    }
+
+    private var fields: some View {
+        VStack(spacing: 20) {
+            VStack(spacing: 7) {
+                FieldLabel(text: "E-mail")
+                TextField("", text: $email, prompt: Text("seu@email.com").foregroundStyle(Theme.inkFaint))
+                    .accessibilityLabel("E-mail")
+                    .accessibilityIdentifier("auth.email")
                     .textContentType(.username)
                     .autocorrectionDisabled()
                     #if os(iOS)
@@ -110,76 +92,89 @@ struct SignInView: View {
                     .keyboardType(.emailAddress)
                     #endif
                     .submitLabel(.next)
+                    .focused($focus, equals: .email)
                     .onSubmit { focus = .password }
-                field(create ? "Crie uma senha, 6 caracteres ou mais" : "Senha", text: $password, .password,
-                      identifier: "auth.password")
-                    .textContentType(create ? .newPassword : .password)
+                    .queepField(focused: focus == .email)
+            }
+            VStack(spacing: 7) {
+                FieldLabel(text: "Senha")
+                passwordField
+                    .accessibilityLabel("Senha")
+                    .accessibilityIdentifier("auth.password")
+                    .textContentType(.password)
                     .submitLabel(.go)
-                    .onSubmit(submit)
+                    .focused($focus, equals: .password)
+                    .onSubmit { submit(create: false) }
+                    .padding(.trailing, 30)
+                    .queepField(focused: focus == .password)
+                    .overlay(alignment: .trailing) {
+                        Button { revealsPassword.toggle() } label: {
+                            QueepIcon(revealsPassword ? "ri-eye-line" : "ri-eye-off-line", size: 18, color: Theme.inkFaint)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 2)
+                        .accessibilityLabel(revealsPassword ? "Ocultar senha" : "Mostrar senha")
+                    }
             }
-            .padding(.top, 20)
-            failure
-            Button(action: submit) {
-                HStack(spacing: 8) {
-                    if busy { ProgressView().controlSize(.small).tint(Theme.queepThingsInk) }
-                    Text(create ? "Criar conta" : "Entrar")
-                }
-            }
-            .buttonStyle(MasterButtonStyle())
-            .disabled(!canSubmit)
-            .padding(.top, 14)
-            .accessibilityIdentifier("auth.submit")
-            HStack(spacing: 0) {
-                if !create {
-                    Button("Esqueci a senha") {
-                        Task {
-                            await run {
-                                try await session.sendPasswordReset(to: email)
-                                error = nil
-                                session.accountNotice = "Enviamos um e-mail para redefinir a senha."
-                            }
+            HStack(spacing: 12) {
+                Text("Mínimo de 6 caracteres")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkFaint)
+                Spacer(minLength: 0)
+                Button("Esqueci a senha") {
+                    Task {
+                        await run(.reset) {
+                            try await session.sendPasswordReset(to: email)
+                            session.accountNotice = "Enviamos um e-mail para redefinir a senha."
                         }
                     }
-                    .disabled(busy || email.isEmpty)
-                    .accessibilityIdentifier("auth.reset")
-                    Spacer(minLength: 12)
                 }
-                Button(create ? "Já tenho uma conta" : "Criar uma conta") {
-                    create.toggle()
-                    error = nil
-                }
-                .disabled(busy)
-                .accessibilityIdentifier("auth.toggle")
+                .buttonStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.inkFaint)
+                .disabled(busy != nil || email.trimmingCharacters(in: .whitespaces).isEmpty)
+                .accessibilityIdentifier("auth.reset")
             }
-            .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(Theme.homePreview)
-            .buttonStyle(.plain)
-            .padding(.top, 18)
-            .padding(.horizontal, 4)
-            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder private var passwordField: some View {
+        if revealsPassword {
+            TextField("", text: $password, prompt: Text("Sua senha").foregroundStyle(Theme.inkFaint))
+                .autocorrectionDisabled()
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                #endif
+        } else {
+            SecureField("", text: $password, prompt: Text("Sua senha").foregroundStyle(Theme.inkFaint))
         }
     }
 
     /// What the person needs to know before choosing: the test environment, or why they are here again.
     @ViewBuilder private var status: some View {
-        if session.isLocal {
-            Label("Desenvolvimento local · dados de teste", systemImage: "hammer")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(GalleryStyle.secondary)
-                .padding(.top, 12)
-        }
-        if let notice = session.accountNotice {
-            Text(notice)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Theme.homePreview)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity)
-                .background(GalleryStyle.fill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .padding(.top, 14)
-                .accessibilityIdentifier("auth.notice")
+        if session.isLocal || session.accountNotice != nil {
+            VStack(spacing: 10) {
+                if session.isLocal {
+                    Text("Desenvolvimento local · dados de teste")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Theme.inkSoft)
+                }
+                if let notice = session.accountNotice {
+                    Text(notice)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Theme.ink)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity)
+                        .surface(.fill, radius: Theme.controlRadius)
+                        .accessibilityIdentifier("auth.notice")
+                }
+            }
+            .padding(.top, -12)
         }
     }
 
@@ -187,11 +182,10 @@ struct SignInView: View {
         if let error {
             Text(error)
                 .font(.system(size: 14))
-                .foregroundStyle(Color(red: 0.70, green: 0.16, blue: 0.14))
+                .foregroundStyle(Theme.danger)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity)
-                .padding(.top, 12)
                 .accessibilityIdentifier("auth.error")
         }
     }
@@ -203,87 +197,31 @@ struct SignInView: View {
             Text(LocalizedStringKey(
                 "Ao continuar, você aceita os [Termos](\(terms.absoluteString)) e a [Privacidade](\(privacy.absoluteString))."))
                 .font(.system(size: 12))
-                .foregroundStyle(GalleryStyle.secondary)
-                .tint(Theme.homeInk)
+                .foregroundStyle(Theme.inkFaint)
+                .tint(Theme.ink)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 16)
+                .padding(.top, 4)
         }
-    }
-
-    private var googleButton: some View {
-        Button {
-            Task { await run { try await session.signIn(with: try await SocialAuth.googleCredential()) } }
-        } label: {
-            HStack(spacing: 10) {
-                if busy {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Image("BrandGoogle")
-                        .resizable()
-                        .frame(width: 18, height: 18)
-                        .accessibilityHidden(true)
-                }
-                Text("Continuar com o Google")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.homeInk)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: Theme.masterHeight)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous)
-                    .strokeBorder(Theme.homeLine)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("auth.google")
-    }
-
-    /// The identifier goes on the control itself so UI tests keep finding a text field.
-    private func field(_ title: String, text: Binding<String>, _ kind: Field, identifier: String) -> some View {
-        Group {
-            if kind == .password {
-                SecureField(title, text: text)
-            } else {
-                TextField(title, text: text)
-            }
-        }
-        .accessibilityIdentifier(identifier)
-        .textFieldStyle(.plain)
-        .font(.system(size: 16))
-        .foregroundStyle(Theme.homeInk)
-        .focused($focus, equals: kind)
-        .padding(.horizontal, 16)
-        .frame(height: Theme.masterHeight)
-        .background(GalleryStyle.fill, in: RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous)
-                .strokeBorder(focus == kind ? Theme.queepThingsInk : Color.clear, lineWidth: 1.5)
-        }
-        // The text control is only as tall as its line; the whole surface should take the tap.
-        .contentShape(Rectangle())
-        .onTapGesture { focus = kind }
     }
 
     private var canSubmit: Bool {
-        !busy && !email.trimmingCharacters(in: .whitespaces).isEmpty && password.count >= 6
+        busy == nil && !email.trimmingCharacters(in: .whitespaces).isEmpty && password.count >= 6
     }
 
-    private func submit() {
+    private func submit(create: Bool) {
         guard canSubmit else { return }
+        let address = email.trimmingCharacters(in: .whitespaces)
         Task {
-            await run {
-                try await session.signIn(email: email.trimmingCharacters(in: .whitespaces),
-                                         password: password, create: create)
+            await run(create ? .create : .signIn) {
+                try await session.signIn(email: address, password: password, create: create)
             }
         }
     }
 
-    private func run(_ work: () async throws -> Void) async {
-        busy = true
-        defer { busy = false }
+    private func run(_ action: Action, _ work: () async throws -> Void) async {
+        busy = action
+        defer { busy = nil }
         do { try await work(); error = nil }
         catch { fail(error) }
     }

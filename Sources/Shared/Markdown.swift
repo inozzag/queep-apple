@@ -335,7 +335,7 @@ struct MarkdownEditor: View {
             .frame(minHeight: minHeight, alignment: .top)
             .overlay(alignment: .topLeading) {
                 if text.isEmpty {
-                    Text(placeholder).foregroundStyle(Color.muted.opacity(0.6)).allowsHitTesting(false)
+                    Text(placeholder).foregroundStyle(Theme.inkSoft.opacity(0.6)).allowsHitTesting(false)
                         .accessibilityHidden(true)
                 }
             }

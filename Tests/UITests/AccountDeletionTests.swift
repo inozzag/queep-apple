@@ -27,7 +27,7 @@ final class AccountDeletionTests: XCTestCase {
         XCTAssertEqual(before, 200)
         password.tap(); password.typeText(fixture.password)
         app.buttons["account.delete.confirm"].tap()
-        XCTAssertTrue(app.buttons["auth.emailStart"].waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertTrue(app.textFields["auth.email"].waitForExistence(timeout: 30), app.debugDescription)
         let notice = app.staticTexts["auth.notice"]
         XCTAssertTrue(notice.waitForExistence(timeout: 10))
         XCTAssertTrue(notice.label.contains("Exclusão definitiva solicitada"))

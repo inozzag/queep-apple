@@ -69,7 +69,7 @@ struct PostDetailView: View {
                     actions
                     tags
                     if let error {
-                        Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red)
+                        Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(Theme.danger)
                     }
                     if let pollError {
                         AnalysisPollFailure(
@@ -147,13 +147,13 @@ struct PostDetailView: View {
                 if !identity.author.isEmpty {
                     Text(identity.author)
                         .font(.headline)
-                        .foregroundStyle(Theme.homeInk)
+                        .foregroundStyle(Theme.ink)
                         .lineLimit(1)
                 }
                 if !identity.handle.isEmpty {
                     Text(identity.handle)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.homePreview)
+                        .foregroundStyle(Theme.inkSoft)
                         .lineLimit(1)
                 }
             }
@@ -188,7 +188,7 @@ struct PostDetailView: View {
         if live.status == "queued" || live.status == "processing" {
             Label("A interpretação acontece em segundo plano. Você já pode fechar este post.",
                   systemImage: "sparkles")
-                .font(.callout).foregroundStyle(Color.muted)
+                .font(.callout).foregroundStyle(Theme.inkSoft)
         } else if !items.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
@@ -217,7 +217,7 @@ struct PostDetailView: View {
                 VStack(spacing: 8) {
                     Label(mediaError, systemImage: "exclamationmark.circle")
                     Button("Tentar novamente") { mediaAttempt += 1 }.disabled(busy)
-                }.font(.callout).foregroundStyle(Color.muted).frame(maxWidth: .infinity)
+                }.font(.callout).foregroundStyle(Theme.inkSoft).frame(maxWidth: .infinity)
             } else {
                 ProgressView("Carregando áudio…").controlSize(.small).frame(maxWidth: .infinity)
             }

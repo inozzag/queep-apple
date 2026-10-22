@@ -1,15 +1,16 @@
 import SwiftUI
 
-/// The first screen: a ticker of the kind of things people save, then a wait or the way in.
-/// Loading and sign-in share the ticker, so one turns into the other without a cut.
+/// The first screen. While the session opens: a white page with the Queep motion small in the
+/// middle. Then the way in, from the Figma "Login": the form beside a dark panel of clouds and the
+/// places people save from. iPhone stacks the panel above the form.
 struct EntryView: View {
     let loading: Bool
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
     #endif
 
-    /// iPhone raises a sheet from the bottom edge. Wider windows float a card over the ticker.
-    private var floating: Bool {
+    /// iPhone stacks; wider windows show the split card.
+    private var split: Bool {
         #if os(iOS)
         sizeClass == .regular
         #else
@@ -19,159 +20,116 @@ struct EntryView: View {
 
     var body: some View {
         ZStack {
-            Color.white.ignoresSafeArea()
-            // Ignores the keyboard too, so typing an e-mail never lays the lanes out again.
-            ReferenceTicker(gap: floating ? 14 : 10)
-                .overlay { if floating { floatingVeil } else { sheetVeil } }
-                .ignoresSafeArea()
-            if floating { floatingStage } else { sheetStage }
-        }
-        .animation(.spring(duration: 0.55, bounce: 0.14), value: loading)
-    }
-
-    /// Keeps the status bar readable at the top and dissolves the lanes into the page below.
-    private var sheetVeil: some View {
-        ZStack(alignment: .top) {
-            LinearGradient(
-                stops: [
-                    .init(color: .white.opacity(0), location: 0.44),
-                    .init(color: .white.opacity(0.82), location: 0.59),
-                    .init(color: .white, location: 0.70),
-                    .init(color: .white, location: 1)
-                ],
-                startPoint: .top, endPoint: .bottom)
-            LinearGradient(colors: [.white.opacity(0.9), .white.opacity(0)],
-                           startPoint: .top, endPoint: .bottom)
-                .frame(height: 120)
-        }
-    }
-
-    private var floatingVeil: some View {
-        ZStack {
-            Color.white.opacity(0.3)
-            RadialGradient(colors: [.white.opacity(0.92), .white.opacity(0)],
-                           center: .center, startRadius: 140, endRadius: 560)
-        }
-    }
-
-    private var sheetStage: some View {
-        GeometryReader { proxy in
-            let insets = proxy.safeAreaInsets
-            // The keyboard counts as bottom inset, so this stays the height of the screen.
-            let screen = proxy.size.height + insets.top + insets.bottom
-            ZStack(alignment: .bottom) {
-                if loading {
-                    EntryLoadingMark()
-                        .padding(.bottom, max(0, screen * 0.12 - insets.bottom))
-                        .transition(.opacity)
-                } else {
-                    // Rises to about 62% of the screen. With the keyboard up it hugs its content.
-                    SignInView()
-                        .padding(.horizontal, 24)
-                        .padding(.top, 54)
-                        .padding(.bottom, 12)
-                        .frame(maxWidth: .infinity, minHeight: max(0, screen * 0.62 - insets.bottom),
-                               alignment: .top)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .background {
-                            UnevenRoundedRectangle(topLeadingRadius: 36, topTrailingRadius: 36,
-                                                   style: .continuous)
-                                .fill(Color.white)
-                                .shadow(color: .black.opacity(0.1), radius: 28, y: -6)
-                                .ignoresSafeArea(.container, edges: .bottom)
-                        }
-                        .overlay(alignment: .top) { LogoChip().offset(y: -LogoChip.defaultSize / 2) }
-                        .transition(.offset(y: screen * 0.8))
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        }
-    }
-
-    private var floatingStage: some View {
-        ZStack {
+            Theme.surface.ignoresSafeArea()
             if loading {
-                EntryLoadingMark().transition(.opacity)
+                QueepLoadingScreen()
+                    .transition(.opacity)
+            } else if split {
+                SplitSignIn()
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
             } else {
-                SignInView()
-                    .padding(.horizontal, 28)
-                    .padding(.top, 56)
-                    .padding(.bottom, 24)
-                    .frame(width: 400)
-                    .frame(minHeight: 430, alignment: .top)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(Theme.homeLine)
-                    }
-                    .shadow(color: .black.opacity(0.12), radius: 40, y: 18)
-                    .overlay(alignment: .top) { LogoChip().offset(y: -LogoChip.defaultSize / 2) }
-                    .transition(.scale(scale: 0.96).combined(with: .opacity))
+                StackedSignIn()
+                    .transition(.opacity)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeInOut(duration: 0.35), value: loading)
     }
 }
 
-/// The mark on a white disc. It sits on the edge between the ticker and what comes after it.
-struct LogoChip: View {
-    static let defaultSize: CGFloat = 68
-    var size: CGFloat = LogoChip.defaultSize
-
+/// Mac and iPad: one card, 53pt corners, the form on the left and the art panel on the right.
+private struct SplitSignIn: View {
     var body: some View {
-        QueepLogo(size: size * 0.46)
-            .frame(width: size, height: size)
-            .background(Color.white, in: Circle())
-            .shadow(color: .black.opacity(0.08), radius: 18, y: 8)
-            .accessibilityHidden(true)
-    }
-}
-
-private struct EntryLoadingMark: View {
-    var body: some View {
-        VStack(spacing: 0) {
-            LogoChip(size: 76)
-            Text("Queep")
-                .font(.system(size: 30, weight: .bold))
-                .tracking(-0.89)
-                .foregroundStyle(Theme.homeInk)
-                .padding(.top, 18)
-            Text("Abrindo sua biblioteca…")
-                .font(.system(size: 15))
-                .foregroundStyle(Theme.homePreview)
-                .padding(.top, 6)
-            EntryLoadingBar()
-                .padding(.top, 22)
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Abrindo sua biblioteca…")
-        .accessibilityIdentifier("entry.loading")
-    }
-}
-
-/// A short stroke sweeping a track: there is no measurable progress while the session opens.
-private struct EntryLoadingBar: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let track: CGFloat = 132
-    private let stroke: CGFloat = 46
-
-    var body: some View {
-        if reduceMotion {
-            ProgressView().controlSize(.small)
-        } else {
-            Capsule()
-                .fill(Theme.homeLine)
-                .frame(width: track, height: 4)
-                .overlay(alignment: .leading) {
-                    Capsule()
-                        .fill(Theme.queepThingsInk)
-                        .frame(width: stroke, height: 4)
-                        .phaseAnimator([false, true]) { view, moved in
-                            view.offset(x: moved ? track - stroke : 0)
-                        } animation: { _ in .easeInOut(duration: 0.9) }
+        GeometryReader { geo in
+            let width = min(1006, geo.size.width - 64)
+            let height = min(698, geo.size.height - 48)
+            HStack(spacing: 0) {
+                ViewThatFits(in: .vertical) {
+                    form
+                    ScrollView { form }
+                        .scrollIndicators(.hidden)
                 }
-                .clipShape(Capsule())
+                .frame(width: width / 2)
+                .frame(maxHeight: .infinity)
+                .background(Theme.surface)
+                SignInArtPanel()
+                    .frame(width: width / 2)
+            }
+            .frame(width: width, height: height)
+            .clipShape(RoundedRectangle(cornerRadius: 53, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 53, style: .continuous)
+                    .strokeBorder(Theme.lineStrong, lineWidth: 1)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
+    }
+
+    private var form: some View {
+        SignInView()
+            .frame(maxWidth: 360)
+            .padding(.horizontal, 40)
+            .padding(.vertical, 48)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// iPhone: the art panel as a rounded hero, then the form.
+private struct StackedSignIn: View {
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                SignInArtPanel(compact: true)
+                    .frame(height: 300)
+                    .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+                    .padding(.horizontal, 8)
+                SignInView()
+                    .padding(.horizontal, 24)
+                    .padding(.top, 28)
+                    .padding(.bottom, 24)
+            }
+        }
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+        .scrollBounceBehavior(.basedOnSize)
+    }
+}
+
+/// Dark panel: the headline, the networks Queep saves from, and the clouds rising from below.
+private struct SignInArtPanel: View {
+    var compact = false
+
+    private let networks = [
+        ["ri-instagram-fill", "ri-youtube-fill", "ri-dribbble-line", "ri-twitter-x-fill"],
+        ["ri-facebook-box-fill", "ri-linkedin-fill", "ri-behance-fill", "ri-threads-fill"],
+    ]
+
+    var body: some View {
+        PromoStage(style: .signIn, anchor: compact ? .bottom : .center)
+            .overlay(alignment: .topLeading) {
+                VStack(alignment: .leading, spacing: compact ? 18 : 28) {
+                    Text("Salve tudo o que você vê em")
+                        .font(.system(size: compact ? 26 : 35, weight: .medium))
+                        .tracking(-0.35)
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                    VStack(alignment: .leading, spacing: compact ? 12 : 22) {
+                        ForEach(networks, id: \.self) { row in
+                            HStack(spacing: compact ? 12 : 20) {
+                                ForEach(row, id: \.self) { icon in
+                                    QueepIcon(icon, size: compact ? 22 : 26.6, color: Theme.lime)
+                                        .frame(width: compact ? 44 : 51, height: compact ? 44 : 51)
+                                        .background(Theme.lime.opacity(0.1),
+                                                    in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                }
+                            }
+                        }
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Instagram, YouTube, Dribbble, X, Facebook, LinkedIn, Behance e Threads")
+                }
+                .padding(.horizontal, compact ? 24 : 40)
+                .padding(.top, compact ? 28 : 72)
+            }
     }
 }

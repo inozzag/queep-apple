@@ -33,100 +33,108 @@ struct SubscriptionView: View {
     }
 
     private var detail: some View {
-        ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    if managesOnly {
-                        Text("Sua assinatura")
-                            .font(.title2.bold())
-                        Text("O plano vale no Mac e no iPhone. Cobrança e cancelamento ficam com a Apple.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                    Label("Suas referências, sempre à mão", systemImage: "bookmark.square")
-                        .font(.title2.bold())
-                    Text("Salve imagens, links e notas. Encontre pelo que você lembra, no Mac e no iPhone.")
-                        .foregroundStyle(.secondary)
-                    if let requirement {
-                        Text(requirement.message).font(.headline)
-                        if requirement.requiredPlan == nil, let reset = requirement.resetsAt {
-                            Text("Sua cota mensal renova em \(reset.formatted(date: .abbreviated, time: .shortened)). Você pode continuar abrindo e excluindo suas referências.")
-                        }
+        SettingsPage(title: managesOnly ? "Sua assinatura" : "Assinatura",
+                     subtitle: managesOnly
+                        ? "O plano vale no Mac e no iPhone. Cobrança e cancelamento ficam com a Apple."
+                        : "Salve imagens, links e notas. Encontre pelo que você lembra, no Mac e no iPhone.",
+                     closeIdentifier: "subscription.close",
+                     close: close) {
+            if let requirement {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(requirement.message)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                    if requirement.requiredPlan == nil, let reset = requirement.resetsAt {
+                        Text("Sua cota mensal renova em \(reset.formatted(date: .abbreviated, time: .shortened)). Você pode continuar abrindo e excluindo suas referências.")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Theme.inkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    if !managesOnly {
-                    planSummary(.free, detail: "Sem assinatura: 12 capturas com IA, 8 buscas por mês, 100 itens e 250 MiB. Sincronize, abra e exclua suas referências no Mac e no iPhone.")
-                    planSummary(.pro, detail: "100 capturas, 50 buscas por mês, até 800 itens, 2 GiB e 15 Spaces. Imagens, notas, sites e posts sociais.")
-                    planSummary(.max, detail: "200 capturas, 80 buscas por mês, até 2.500 itens, 10 GiB e 40 Spaces. Inclui 40 minutos mensais de áudio e vídeo de arquivo.")
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .surface(.fill, radius: Theme.radius)
+            }
+            if store.ownerID == session.userID { status }
+            if !managesOnly {
+                SettingsSection(title: "Planos") {
+                    VStack(spacing: 6) {
+                        planSummary(.free, icon: "ri-bookmark-line",
+                                    detail: "Sem assinatura: 12 capturas com IA, 8 buscas por mês, 100 itens e 250 MiB. Sincronize, abra e exclua suas referências no Mac e no iPhone.")
+                        planSummary(.pro, icon: "ri-gallery-line",
+                                    detail: "100 capturas, 50 buscas por mês, até 800 itens, 2 GiB e 15 Spaces. Imagens, notas, sites e posts sociais.")
+                        planSummary(.max, icon: "ri-vip-crown-line",
+                                    detail: "200 capturas, 80 buscas por mês, até 2.500 itens, 10 GiB e 40 Spaces. Inclui 40 minutos mensais de áudio e vídeo de arquivo.")
                     }
-                    }
-                    if store.ownerID == session.userID {
-                        status
-                        if let message = store.message {
-                            Text(message).foregroundStyle(.secondary)
-                        }
-                        if let error = store.error {
-                            Label(error, systemImage: "exclamationmark.circle")
-                                .foregroundStyle(.red).accessibilityIdentifier("subscription.error")
-                        }
-                        if !managesOnly && !store.awaitingConfirmation && (requirement == nil || requirement?.requiredPlan != nil) {
+                }
+            }
+            if store.ownerID == session.userID {
+                if let message = store.message {
+                    SettingsNotice(text: message)
+                }
+                if let error = store.error {
+                    SettingsNotice(text: error, failure: true)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(error)
+                        .accessibilityAddTraits(.isStaticText)
+                        .accessibilityIdentifier("subscription.error")
+                }
+                if !managesOnly && !store.awaitingConfirmation && (requirement == nil || requirement?.requiredPlan != nil),
+                   !visiblePackages.isEmpty {
+                    SettingsSection(title: "Assinar") {
+                        VStack(spacing: 6) {
                             ForEach(visiblePackages, id: \.identifier) { package in
-                                let managesInStore = SubscriptionCheckout.managesInAppStore(
-                                    access: store.access, packagePlan: SubscriptionStore.plan(package))
-                                Button {
-                                    if managesInStore {
-                                        openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
-                                    } else {
-                                        Task { await store.purchase(package, session: session) }
-                                    }
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text("Queep \(SubscriptionStore.plan(package)?.title ?? "") · \(SubscriptionStore.isAnnual(package) ? "Anual" : "Mensal")").font(.headline)
-                                        if managesInStore {
-                                            Text("Alterar na App Store").font(.callout)
-                                        }
-                                        if SubscriptionStore.isAnnual(package), SubscriptionStore.plan(package) == .max {
-                                            Text("Recomendado").font(.caption.bold())
-                                        }
-                                        Text("\(package.storeProduct.localizedPriceString) / \(period(package))")
-                                        if let discount = store.annualDiscount(package) {
-                                            Text("Economize \(discount)% em relação a 12 meses do mensal").font(.caption)
-                                        }
-                                        if let days = store.trialDays(for: package), SubscriptionStore.plan(package) != nil {
-                                            let period: PaywallBillingPeriod = SubscriptionStore.isAnnual(package) ? .year : .month
-                                            Text(PaywallOfferCopy.priceLine(
-                                                price: package.storeProduct.localizedPriceString,
-                                                period: period, trialDays: days, monthlyEquivalent: nil).primary)
-                                                .font(.callout)
-                                        }
-                                    }.frame(maxWidth: .infinity, alignment: .leading).padding(8)
-                                }.buttonStyle(.borderedProminent)
-                                    .accessibilityIdentifier("subscription.buy.\(package.identifier)")
-                                    .disabled(store.busy)
+                                packageRow(package)
                             }
                         }
                     }
-                    if store.busy { ProgressView("Verificando assinatura…") }
+                }
+            }
+            if store.busy {
+                HStack(spacing: 10) {
+                    ProgressView().controlSize(.small)
+                    Text("Verificando assinatura…")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Theme.inkSoft)
+                }
+            }
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
                     Button("Restaurar compras") { Task { await store.restore(session) } }
+                        .buttonStyle(.queep(.neutral))
                         .disabled(store.busy || !store.storeAvailable)
                         .accessibilityIdentifier("subscription.restore")
                     Button("Atualizar assinatura") { Task { await store.load(session, refresh: true) } }
-                        .disabled(store.busy).accessibilityIdentifier("subscription.refresh")
-                    Link("Gerenciar na App Store", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
-                    Text("Assinaturas renovam automaticamente. Você pode cancelar pela App Store; o acesso segue até o vencimento. Suas referências salvas continuam disponíveis para consulta e exclusão.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .buttonStyle(.queep(.neutral))
+                        .disabled(store.busy)
+                        .accessibilityIdentifier("subscription.refresh")
+                }
+                Link(destination: URL(string: "https://apps.apple.com/account/subscriptions")!) {
+                    HStack(spacing: 8) {
+                        QueepIcon("ri-apple-fill", size: 18, color: Theme.ink)
+                        Text("Gerenciar na App Store")
+                    }
+                }
+                .buttonStyle(.queep(.outline))
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Assinaturas renovam automaticamente. Você pode cancelar pela App Store; o acesso segue até o vencimento. Suas referências salvas continuam disponíveis para consulta e exclusão.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 14) {
                     if let privacy = SubscriptionStore.configuredURL("QueepPrivacyURL") {
                         Link("Privacidade", destination: privacy)
                     }
                     if let terms = SubscriptionStore.configuredURL("QueepTermsURL") {
                         Link("Termos de uso", destination: terms)
                     }
-                }.padding(24).frame(maxWidth: 540, alignment: .leading)
-                    .frame(maxWidth: .infinity)
-            }
-            .navigationTitle("Assinatura")
-            .toolbar {
-                ToolbarItem(placement: pushedInSettings ? .confirmationAction : .cancellationAction) {
-                    Button("Fechar") { close() }.accessibilityIdentifier("subscription.close")
                 }
+                .font(.system(size: 12, weight: .medium))
+                .tint(Theme.ink)
             }
+            .padding(.horizontal, 4)
+        }
     }
 
     private func close() {
@@ -135,19 +143,83 @@ struct SubscriptionView: View {
 
     @ViewBuilder private var status: some View {
         if let access = store.access {
-            VStack(alignment: .leading, spacing: 6) {
-                Label(access.isDevelopment ? "Acesso de desenvolvimento" : "Queep \(access.plan.title)",
-                      systemImage: access.active ? "checkmark.seal" : "person.crop.circle")
-                    .font(.headline).accessibilityIdentifier("subscription.status")
-                if access.isDevelopment {
-                    Text("A cobrança está desativada neste ambiente.").font(.callout)
-                } else if let date = access.expiresAt {
-                    Text("\(access.willRenew ? "Renovação" : "Vencimento"): \(date.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.callout)
+            HStack(spacing: 14) {
+                IconTile(asset: access.active ? "ri-vip-crown-line" : "ri-user-line",
+                         fill: access.active ? Theme.lime.opacity(0.5) : Theme.fill,
+                         color: access.active ? Theme.forest : Theme.ink)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(access.isDevelopment ? "Acesso de desenvolvimento" : "Queep \(access.plan.title)")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Theme.ink)
+                            .accessibilityIdentifier("subscription.status")
+                        PlanBadge(plan: access.plan)
+                    }
+                    if access.isDevelopment {
+                        Text("A cobrança está desativada neste ambiente.")
+                            .font(.system(size: 13)).foregroundStyle(Theme.inkSoft)
+                    } else if let date = access.expiresAt {
+                        Text("\(access.willRenew ? "Renovação" : "Vencimento"): \(date.formatted(date: .abbreviated, time: .omitted))")
+                            .font(.system(size: 13)).foregroundStyle(Theme.inkSoft)
+                    }
                 }
-            }.padding().frame(maxWidth: .infinity, alignment: .leading)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+                Spacer(minLength: 0)
+            }
+            .padding(Theme.chromeInset + 6)
+            .surface(.outline, radius: Theme.radius)
         }
+    }
+
+    private func packageRow(_ package: Package) -> some View {
+        let plan = SubscriptionStore.plan(package)
+        let annual = SubscriptionStore.isAnnual(package)
+        let managesInStore = SubscriptionCheckout.managesInAppStore(access: store.access, packagePlan: plan)
+        return Button {
+            if managesInStore {
+                openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
+            } else {
+                Task { await store.purchase(package, session: session) }
+            }
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                IconTile(asset: plan == .max ? "ri-vip-crown-line" : "ri-gallery-line",
+                         fill: annual ? Theme.lime.opacity(0.5) : Theme.fill,
+                         color: annual ? Theme.forest : Theme.ink)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text("Queep \(plan?.title ?? "") · \(annual ? "Anual" : "Mensal")")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Theme.ink)
+                        if annual, plan == .max { OfferTag(text: "Recomendado") }
+                    }
+                    Text("\(package.storeProduct.localizedPriceString) / \(period(package))")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.ink)
+                    if let discount = store.annualDiscount(package) {
+                        Text("Economize \(discount)% em relação a 12 meses do mensal")
+                            .font(.system(size: 12)).foregroundStyle(Theme.forest)
+                    }
+                    if let days = store.trialDays(for: package), plan != nil {
+                        Text(PaywallOfferCopy.priceLine(
+                            price: package.storeProduct.localizedPriceString,
+                            period: annual ? .year : .month, trialDays: days, monthlyEquivalent: nil).primary)
+                            .font(.system(size: 12)).foregroundStyle(Theme.inkSoft)
+                    }
+                    if managesInStore {
+                        Text("Alterar na App Store").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.inkSoft)
+                    }
+                }
+                .padding(.top, 2)
+                Spacer(minLength: 8)
+                QueepIcon(managesInStore ? "ri-arrow-right-up-line" : "ri-arrow-right-s-line", size: 20, color: Theme.inkFaint)
+                    .padding(.top, 12)
+                    .padding(.trailing, 6)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(SettingsRowStyle())
+        .disabled(store.busy)
+        .accessibilityIdentifier("subscription.buy.\(package.identifier)")
     }
 
     /// Max first, yearly before monthly: the launch offer leads the list.
@@ -163,11 +235,27 @@ struct SubscriptionView: View {
         }
     }
 
-    private func planSummary(_ plan: SubscriptionPlan, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Queep \(plan.title)").font(.headline).accessibilityAddTraits(.isHeader)
-            Text(detail).font(.callout).foregroundStyle(.secondary)
-        }.accessibilityElement(children: .combine)
+    private func planSummary(_ plan: SubscriptionPlan, icon: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            IconTile(asset: icon)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text("Queep \(plan.title)")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Theme.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    if store.access?.plan == plan { OfferTag(text: "Seu plano") }
+                }
+                Text(detail)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, 4)
+            Spacer(minLength: 0)
+        }
+        .padding(.trailing, 8)
+        .accessibilityElement(children: .combine)
     }
 
     private func period(_ package: Package) -> String {

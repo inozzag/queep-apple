@@ -6,49 +6,59 @@ struct SpacesOverview: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     private var columns: [GridItem] {
+        #if os(macOS)
+        let count = typeSize.isAccessibilitySize ? 2 : 4
+        #else
         let count = typeSize.isAccessibilitySize ? 1 : 2
-        return Array(repeating: GridItem(.flexible(), spacing: GalleryStyle.gap), count: count)
+        #endif
+        return Array(repeating: GridItem(.flexible(), spacing: Theme.gap, alignment: .top), count: count)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            #if os(macOS)
-            HStack {
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .center, spacing: 12) {
+                PageTitle(text: "Spaces", detail: store.spaces.isEmpty ? nil
+                          : "\(store.spaces.count) \(store.spaces.count == 1 ? "Space" : "Spaces")")
+                #if os(macOS)
                 Button { store.presentation = .newSpace } label: {
-                    Label("Novo Space", systemImage: "plus")
+                    HStack(spacing: 8) {
+                        QueepIcon("ri-folder-add-line", size: 20, color: Theme.ink)
+                        Text("Novo Space")
+                    }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.queep(.neutral, height: Theme.control, stretches: false))
                 .accessibilityIdentifier("spaces.new")
+                #endif
             }
-            #endif
             if store.spaces.isEmpty {
                 emptySpaces
             } else {
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 22) {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 28) {
                     ForEach(store.spaces) { space in
                         SpaceGalleryCard(space: space)
                     }
                 }
             }
             if let error = store.spaceError {
-                Text(error).foregroundStyle(.red).font(.callout)
+                SettingsNotice(text: error, failure: true)
             }
         }
     }
 
     private var emptySpaces: some View {
-        VStack(spacing: 12) {
-            HomeGlyph(asset: "HomeSpaces", size: 28)
-            Text("Crie e organize os seus itens em spaces inteligentes")
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.homePreview)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+        EmptyState(icon: "ri-folder-6-line", title: "Seus projetos, cada um no seu Space",
+                   message: "Crie Spaces e reúna as referências de cada trabalho. Uma referência pode estar em vários.") {
+            Button {
+                store.presentation = .newSpace
+            } label: {
+                HStack(spacing: 8) {
+                    QueepIcon("ri-folder-add-line", size: 20, color: Theme.ink)
+                    Text("Criar Space")
+                }
+            }
+            .buttonStyle(.queep(.primary, stretches: false))
+            .accessibilityIdentifier("spaces.create")
         }
-        .frame(maxWidth: 260)
-        .frame(maxWidth: .infinity)
-        .containerRelativeFrame(.vertical, alignment: .center)
     }
 }
 
@@ -70,12 +80,12 @@ private struct SpaceGalleryCard: View {
 
     var body: some View {
         Button { store.selectSpace(space.id) } label: {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 SpaceMosaic(previews: previews)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(space.name)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(Theme.homeInk)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -83,8 +93,8 @@ private struct SpaceGalleryCard: View {
                         Text(space.countLabel)
                         Text(SpaceBoardTime.compact(since: activityDate))
                     }
-                    .font(.system(size: 14))
-                    .foregroundStyle(Theme.homePreview)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.inkSoft)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -111,8 +121,8 @@ private struct SpaceGalleryCard: View {
 /// Large tile on the left, two stacked tiles on the right. Missing images stay light gray.
 private struct SpaceMosaic: View {
     let previews: [Reference]
-    private let gap: CGFloat = 2.5
-    private let placeholder = Color(red: 228 / 255, green: 228 / 255, blue: 231 / 255)
+    private let gap: CGFloat = 3
+    private let placeholder = Theme.fill
 
     var body: some View {
         Color.white
@@ -136,7 +146,7 @@ private struct SpaceMosaic: View {
                     }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
             .accessibilityHidden(true)
     }
 
@@ -188,37 +198,50 @@ struct SpaceNameSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                TextField("Nome do Space", text: $name)
-                    .textFieldStyle(.roundedBorder).focused($focused)
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(spacing: 12) {
+                IconTile(asset: "ri-folder-add-line")
+                Text(space == nil ? "Novo Space" : "Renomear Space")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            VStack(alignment: .leading, spacing: 7) {
+                FieldLabel(text: "Nome")
+                TextField("", text: $name, prompt: Text("Ex.: Rebrand da padaria 🥐").foregroundStyle(Theme.inkFaint))
+                    .focused($focused)
+                    .accessibilityLabel("Nome do Space")
                     .accessibilityIdentifier("spaces.name")
                     .onSubmit { save() }
+                    .queepField(focused: focused)
                 Text("De 1 a 40 caracteres. Você pode usar um emoji no nome.")
-                    .font(.caption).foregroundStyle(.secondary)
-                if let error = store.spaceError { Text(error).font(.callout).foregroundStyle(.red) }
-                Spacer(minLength: 0)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkSoft)
             }
-            .padding(24)
-            .navigationTitle(space == nil ? "Novo Space" : "Renomear Space")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }.disabled(store.spaceMutating)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(space == nil ? "Criar" : "Salvar", action: save)
-                        .disabled(!valid || store.spaceMutating)
-                        .accessibilityIdentifier("spaces.save")
-                }
+            if let error = store.spaceError { SettingsNotice(text: error, failure: true) }
+            Spacer(minLength: 0)
+            HStack(spacing: 10) {
+                Button("Cancelar") { dismiss() }
+                    .buttonStyle(.queep(.neutral))
+                    .disabled(store.spaceMutating)
+                    .keyboardShortcut(.cancelAction)
+                Button(space == nil ? "Criar" : "Salvar", action: save)
+                    .buttonStyle(.queepPrimary)
+                    .disabled(!valid || store.spaceMutating)
+                    .accessibilityIdentifier("spaces.save")
             }
         }
+        .padding(24)
+        .background(Theme.surface)
+        .environment(\.colorScheme, .light)
         .subscriptionGate()
         .interactiveDismissDisabled(store.spaceMutating)
         .onAppear { store.spaceError = nil; focused = true }
         #if os(macOS)
-        .frame(width: 440, height: 240)
+        .frame(width: 440, height: 300)
         #else
-        .presentationDetents([.medium])
+        .presentationDetents([.height(340)])
+        .presentationCornerRadius(Theme.radius + 10)
         #endif
     }
 
@@ -239,44 +262,47 @@ struct SpacePicker: View {
     @State private var creating = false
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ForEach(store.spaces) { space in
-                        let current = references.map { store.reference($0.id) ?? $0 }
-                        let count = current.filter { $0.membershipIDs.contains(space.id) }.count
-                        let all = count == current.count
-                        Button {
-                            Task {
-                                guard let api = session.client(), let uid = session.userID else { return }
-                                await store.assignSpace(space, references: current, adding: !all, client: api, account: uid)
-                            }
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: all ? "checkmark.square.fill" : count > 0 ? "minus.square" : "square")
-                                Text(space.name)
-                                Spacer()
-                                Text(space.countLabel).font(.caption).foregroundStyle(.secondary)
-                            }.frame(minHeight: 36).contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain).disabled(store.spaceMutating)
-                        .accessibilityLabel(space.name)
-                        .accessibilityValue(all ? "Selecionado" : count > 0 ? "Parcialmente selecionado" : "Não selecionado")
-                        .accessibilityIdentifier("spaces.pick.\(space.id)")
-                    }
-                    Button("Novo Space", systemImage: "plus") { creating = true }
-                        .disabled(store.spaceMutating).accessibilityIdentifier("spaces.new")
-                } footer: {
-                    Text(references.count == 1 ? "Marque os Spaces desta referência. As alterações são salvas imediatamente."
-                         : "Marque para adicionar todas as referências. Desmarque para remover todas deste Space.")
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Spaces")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Text(references.count == 1 ? "Marque os Spaces desta referência. As alterações são salvas na hora."
+                         : "Marque para adicionar as \(references.count) referências. Desmarque para tirar todas deste Space.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                if let error = store.spaceError { Text(error).foregroundStyle(.red) }
+                Spacer(minLength: 8)
+                Button("Concluir") { dismiss() }
+                    .buttonStyle(.queep(.primary, height: 40, stretches: false))
+                    .disabled(store.spaceMutating)
+                    .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier("spaces.done")
             }
-            .navigationTitle("Spaces")
-            .toolbar { ToolbarItem(placement: .confirmationAction) {
-                Button("Concluir") { dismiss() }.disabled(store.spaceMutating).accessibilityIdentifier("spaces.done")
-            } }
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(store.spaces) { space in
+                        row(space)
+                    }
+                    Button { creating = true } label: {
+                        SettingsRow(icon: "ri-folder-add-line", title: "Novo Space", chevron: false)
+                    }
+                    .buttonStyle(SettingsRowStyle())
+                    .disabled(store.spaceMutating)
+                    .accessibilityIdentifier("spaces.new")
+                }
+                .padding(Theme.chromeInset)
+                .surface(.outline, radius: Theme.radius)
+            }
+            .scrollIndicators(.hidden)
+            if let error = store.spaceError { SettingsNotice(text: error, failure: true) }
         }
+        .padding(24)
+        .background(Theme.surface)
+        .environment(\.colorScheme, .light)
         .sheet(isPresented: $creating) { SpaceNameSheet() }
         .task {
             guard let api = session.client(), let uid = session.userID else { return }
@@ -284,8 +310,50 @@ struct SpacePicker: View {
         }
         .interactiveDismissDisabled(store.spaceMutating)
         #if os(macOS)
-        .frame(width: 480, height: 440)
+        .frame(width: 480, height: 480)
+        #else
+        .presentationDetents([.medium, .large])
         #endif
+    }
+
+    private func row(_ space: Space) -> some View {
+        let current = references.map { store.reference($0.id) ?? $0 }
+        let count = current.filter { $0.membershipIDs.contains(space.id) }.count
+        let all = count == current.count && count > 0
+        return Button {
+            Task {
+                guard let api = session.client(), let uid = session.userID else { return }
+                await store.assignSpace(space, references: current, adding: !all, client: api, account: uid)
+            }
+        } label: {
+            HStack(spacing: 12) {
+                IconTile(asset: "ri-folder-6-line")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(space.name)
+                        .font(.system(size: 16))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                    Text(space.countLabel)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.inkSoft)
+                }
+                Spacer(minLength: 8)
+                QueepIcon(all ? "ri-checkbox-fill" : count > 0 ? "ri-checkbox-blank-line" : "ri-checkbox-blank-line",
+                          size: 22, color: all ? Theme.forest : Theme.inkFaint)
+                    .overlay {
+                        if count > 0 && !all {
+                            RoundedRectangle(cornerRadius: 1).fill(Theme.forest).frame(width: 9, height: 2)
+                        }
+                    }
+                    .padding(.trailing, 8)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(SettingsRowStyle())
+        .disabled(store.spaceMutating)
+        .accessibilityLabel(space.name)
+        .accessibilityValue(all ? "Selecionado" : count > 0 ? "Parcialmente selecionado" : "Não selecionado")
+        .accessibilityIdentifier("spaces.pick.\(space.id)")
     }
 }
 
@@ -319,13 +387,11 @@ struct CaptureSpaceChoice: View {
 struct EmptySpaceView: View {
     @Environment(LibraryStore.self) private var store
     var body: some View {
-        ContentUnavailableView {
-            Label("Este Space está esperando suas ideias", systemImage: "square.stack.3d.up")
-        } description: {
-            Text("Selecione referências da biblioteca e use Space para reuni-las aqui.")
-        } actions: {
-            Button("Adicionar da biblioteca") { store.showHome() }
-                .buttonStyle(.borderedProminent).accessibilityIdentifier("spaces.addFromLibrary")
+        EmptyState(icon: "ri-folder-6-line", title: "Este Space está esperando suas ideias",
+                   message: "Selecione referências na Gallery e use Spaces para reuni-las aqui.") {
+            Button("Abrir a Gallery") { store.showHome() }
+                .buttonStyle(.queep(.primary, stretches: false))
+                .accessibilityIdentifier("spaces.addFromLibrary")
         }
     }
 }

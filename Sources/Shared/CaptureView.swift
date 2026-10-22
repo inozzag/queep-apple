@@ -66,13 +66,15 @@ struct CaptureView: View {
                         CaptureSpaceChoice(selection: $captureSpaceID).disabled(locked || preparing)
                     }
                     TextField("Título", text: $title, axis: .vertical)
-                        .textFieldStyle(.plain).font(.title.weight(.bold)).lineLimit(1...3)
+                        .textFieldStyle(.plain).font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(Theme.ink).lineLimit(1...3)
                         .focused($titleFocused).disabled(locked)
                         .accessibilityLabel("Título (opcional)")
                         .accessibilityIdentifier("capture.title")
                         .onChange(of: title) { _, _ in titleTouched = true }
                     if title.count > 200 {
-                        Text("O título tem no máximo 200 caracteres.").font(.caption).foregroundStyle(.orange)
+                        Text("O título tem no máximo 200 caracteres.").font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Theme.danger)
                     }
                     switch kind {
                     case "link": linkFields
@@ -86,13 +88,13 @@ struct CaptureView: View {
                         AnalysisView(reference: live)
                     }
                     if busy && reference == nil {
-                        Label(kind == "image" ? "Enviando imagem…" : kind == "media" ? "Enviando mídia…" : "Salvando…", systemImage: "arrow.up.circle")
-                            .font(.callout).foregroundStyle(Color.muted)
+                        LibraryBanner(icon: "ri-loader-4-line",
+                                      text: kind == "image" ? "Enviando imagem…" : kind == "media" ? "Enviando mídia…" : "Salvando…")
                     }
-                    if let error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red) }
+                    if let error { SettingsNotice(text: error, failure: true) }
                     if attempted {
                         Text("Envio não confirmado. Tente novamente com o mesmo conteúdo para evitar duplicação.")
-                            .font(.caption).foregroundStyle(Color.muted)
+                            .font(.system(size: 12)).foregroundStyle(Theme.inkSoft)
                     }
                 }
                 .padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 40)
@@ -197,7 +199,7 @@ struct CaptureView: View {
     private var linkFields: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
-                Image(systemName: "link").foregroundStyle(Color.muted)
+                QueepIcon("ri-link", size: 20, color: Theme.inkSoft)
                 TextField(store.captureIntent == "post" || live?.linkSurface?.isPost == true
                           ? "Cole o link do post (X, Instagram, Dribbble, Behance ou Medium)"
                           : "https://…",
@@ -209,12 +211,13 @@ struct CaptureView: View {
                     .accessibilityIdentifier("capture.url")
                     .disabled(locked)
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.horizontal, 14)
+            .frame(minHeight: Theme.button)
+            .surface(.field, radius: Theme.controlRadius)
             if let live, !live.gallery.isEmpty {
                 RemoteImageCarousel(reference: live, thumbnail: false, fill: false, height: 280)
                     .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
             }
             if let source = live?.source, source.state == "read", live?.linkSurface?.isPost == true,
                !source.text.isEmpty {
@@ -305,57 +308,67 @@ struct LinkCaptureView: View {
     private var capture: Capture { Capture(kind: "link", title: "", text: "", url: url) }
     private var canSave: Bool { !busy && capture.isValid }
 
-    private var heading: String { store.captureIntent == "site" ? "Site" : "Post" }
+    private var isSite: Bool { store.captureIntent == "site" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Button { dismiss() } label: { GalleryPill(title: "Fechar", leading: "xmark") }
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .top, spacing: 12) {
+                IconTile(asset: isSite ? "ri-link" : "ri-hashtag")
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(isSite ? "Salvar um site" : "Salvar um post")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Text(isSite ? "Uma página pública para o Queep ler e guardar."
+                         : "X, Instagram, Dribbble, Behance ou Medium.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                Button { dismiss() } label: { GalleryPill(title: "Fechar", leading: "ri-close-line") }
                     .buttonStyle(.plain)
                     .disabled(busy)
                     .keyboardShortcut(.cancelAction)
-                Spacer()
-                Text(heading)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(GalleryStyle.ink)
             }
-            TextField("https://…", text: $url)
-                .textFieldStyle(.plain)
-                .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(GalleryStyle.ink)
-                .textContentType(.URL)
-                .autocorrectionDisabled()
-                #if os(iOS)
-                .textInputAutocapitalization(.never)
-                .keyboardType(.URL)
-                #endif
-                .focused($focused)
-                .submitLabel(.done)
-                .onSubmit { if canSave { Task { await save() } } }
-                .accessibilityLabel("Endereço do link")
-                .accessibilityIdentifier("capture.url")
-                .padding(14)
-                .background(GalleryStyle.fill, in: RoundedRectangle(cornerRadius: GalleryStyle.radius, style: .continuous))
-            if busy {
-                Text("Salvando…")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(GalleryStyle.secondary)
+            HStack(spacing: 10) {
+                QueepIcon("ri-link", size: 20, color: Theme.inkSoft)
+                TextField("", text: $url, prompt: Text("Cole o link aqui").foregroundStyle(Theme.inkFaint))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.ink)
+                    .textContentType(.URL)
+                    .autocorrectionDisabled()
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.URL)
+                    #endif
+                    .focused($focused)
+                    .submitLabel(.done)
+                    .onSubmit { if canSave { Task { await save() } } }
+                    .accessibilityLabel("Endereço do link")
+                    .accessibilityIdentifier("capture.url")
             }
-            if let error {
-                Text(error)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.red)
-                    .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 14)
+            .frame(height: Theme.button)
+            .background(Theme.field, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                    .strokeBorder(focused ? Theme.sage : Theme.line, lineWidth: focused ? 1.5 : 1)
             }
+            if let error { SettingsNotice(text: error, failure: true) }
             if attempted {
                 Text("Envio não confirmado. Tente novamente com o mesmo conteúdo para evitar duplicação.")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(GalleryStyle.secondary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkSoft)
             }
             Button { Task { await save() } } label: {
-                Text(busy ? "Salvando…" : error == nil ? "Salvar" : "Tentar novamente")
+                HStack(spacing: 8) {
+                    if busy { ProgressView().controlSize(.small).tint(Theme.ink) }
+                    Text(busy ? "Salvando…" : error == nil ? "Salvar" : "Tentar novamente")
+                }
             }
-            .buttonStyle(MasterButtonStyle())
+            .buttonStyle(.queepPrimary)
             .disabled(!canSave)
             .keyboardShortcut(.return, modifiers: .command)
             .accessibilityIdentifier("capture.save")
@@ -365,13 +378,16 @@ struct LinkCaptureView: View {
         .padding(24)
         .frame(maxWidth: 520, maxHeight: .infinity, alignment: .topLeading)
         .frame(maxWidth: .infinity)
-        .background(Color.white)
+        .background(Theme.surface)
         .environment(\.colorScheme, .light)
         .subscriptionGate()
         .interactiveDismissDisabled(busy)
         .onAppear { focused = true }
         #if os(macOS)
-        .frame(minWidth: 420, idealWidth: 480, minHeight: 280, idealHeight: 360)
+        .frame(minWidth: 440, idealWidth: 500, minHeight: 300, idealHeight: 360)
+        #else
+        .presentationDetents([.height(360), .large])
+        .presentationCornerRadius(Theme.radius + 10)
         #endif
     }
 

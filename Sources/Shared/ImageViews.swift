@@ -40,7 +40,7 @@ struct ImagePickerSection: View {
                 Label(image == nil ? "Escolher arquivo" : "Trocar imagem", systemImage: "folder")
             }.disabled(disabled || preparing).accessibilityIdentifier("capture.imageFile")
             if preparing { ProgressView("Preparando imagem…") }
-            if let error { Text(error).foregroundStyle(.red) }
+            if let error { Text(error).foregroundStyle(Theme.danger) }
             Text("JPEG, PNG ou HEIC · até 32 MB. A imagem é otimizada para salvar e sincronizar.")
                 .font(.caption).foregroundStyle(.secondary)
         }
@@ -459,7 +459,7 @@ struct ImageDetailView: View {
                                         disabled: busy || reference.isArchived, minHeight: 120,
                                         identifier: "image.text")
                     AnalysisView(reference: reference)
-                    if let error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.red) }
+                    if let error { Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(Theme.danger) }
                 }
                 .padding(.horizontal, 28).padding(.top, 20).padding(.bottom, 40)
                 .frame(maxWidth: 760).frame(maxWidth: .infinity)
@@ -569,7 +569,7 @@ struct ImageDetailView: View {
             VStack(spacing: 8) {
                 Label(loadError, systemImage: "photo.badge.exclamationmark")
                 Button("Tentar novamente") { attempt += 1 }
-            }.font(.callout).foregroundStyle(Color.muted).frame(maxWidth: .infinity).padding(.vertical, 40)
+            }.font(.callout).foregroundStyle(Theme.inkSoft).frame(maxWidth: .infinity).padding(.vertical, 40)
         } else {
             ProgressView("Carregando imagem…").controlSize(.small).frame(maxWidth: .infinity).padding(.vertical, 60)
         }

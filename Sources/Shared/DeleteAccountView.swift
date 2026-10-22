@@ -30,35 +30,43 @@ struct DeleteAccountView: View {
     }
 
     private var detail: some View {
-        ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    Text("Excluir sua conta?").font(.title2.bold())
-                    Text("Sua biblioteca será bloqueada agora. Você terá 30 dias para cancelar a exclusão e recuperar suas referências. Depois desse prazo, a conta e os conteúdos serão apagados automaticamente.")
-                    Toggle("Excluir definitivamente agora", isOn: $immediate)
-                        .accessibilityIdentifier("account.delete.immediate")
-                        .disabled(session.deletingAccount)
-                        .onChange(of: immediate) { _, _ in operationID = UUID() }
-                    if immediate {
-                        Text("A exclusão começa após confirmar sua identidade. Você não poderá recuperar a conta.")
-                            .foregroundStyle(.red)
-                    }
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Excluir a conta não cancela uma assinatura da Apple. Para evitar novas cobranças, cancele também sua assinatura.")
-                        Link("Gerenciar assinatura da Apple", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
-                    }
-                    confirmControls
-                    if let error {
-                        Text(error).foregroundStyle(.red).accessibilityIdentifier("account.delete.error")
-                    }
-                }.padding(24).frame(maxWidth: 500)
+        SettingsPage(title: "Excluir sua conta?",
+                     subtitle: "Sua biblioteca será bloqueada agora. Você terá 30 dias para cancelar a exclusão e recuperar suas referências. Depois desse prazo, a conta e os conteúdos serão apagados automaticamente.",
+                     closeIdentifier: "account.delete.cancel",
+                     closeDisabled: session.deletingAccount,
+                     close: close) {
+            SettingsSection {
+                SettingsToggleRow(icon: "ri-delete-bin-line", title: "Excluir definitivamente agora",
+                                  isOn: $immediate, identifier: "account.delete.immediate")
+                    .disabled(session.deletingAccount)
+                    .onChange(of: immediate) { _, _ in operationID = UUID() }
             }
-            .navigationTitle("Excluir conta")
-            .toolbar {
-                ToolbarItem(placement: pushedInSettings ? .confirmationAction : .cancellationAction) {
-                    Button("Cancelar") { close() }.disabled(session.deletingAccount)
-                        .accessibilityIdentifier("account.delete.cancel")
+            if immediate {
+                SettingsNotice(text: "A exclusão começa após confirmar sua identidade. Você não poderá recuperar a conta.",
+                               failure: true)
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Excluir a conta não cancela uma assinatura da Apple. Para evitar novas cobranças, cancele também sua assinatura.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+                Link(destination: URL(string: "https://apps.apple.com/account/subscriptions")!) {
+                    HStack(spacing: 8) {
+                        QueepIcon("ri-apple-fill", size: 18, color: Theme.ink)
+                        Text("Gerenciar assinatura da Apple")
+                    }
                 }
+                .buttonStyle(.queep(.outline))
             }
+            confirmControls
+            if let error {
+                Text(error)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Theme.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("account.delete.error")
+            }
+        }
     }
 
     private func close() {
@@ -68,15 +76,22 @@ struct DeleteAccountView: View {
     @ViewBuilder private var confirmControls: some View {
         switch session.signInMethod {
         case .password:
-            SecureField("Confirme sua senha", text: $password)
-                .textContentType(.password).textFieldStyle(.roundedBorder)
-                .accessibilityIdentifier("account.delete.password")
+            VStack(alignment: .leading, spacing: 7) {
+                FieldLabel(text: "Confirme sua senha")
+                SecureField("", text: $password)
+                    .textContentType(.password)
+                    .accessibilityLabel("Confirme sua senha")
+                    .accessibilityIdentifier("account.delete.password")
+                    .queepField()
+            }
             destructiveButton(enabled: !password.isEmpty) {
                 await submit(password: password)
             }
         case .apple:
             Text("A Apple confirma que é você; em seguida a exclusão segue a opção acima.")
-                .font(.callout).foregroundStyle(.secondary)
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
             AppleIDAuthButton(title: "Continuar com a Apple", identifier: "account.delete.apple") { credential, code in
                 Task { await submit(credential: credential, appleCode: code) }
             } onError: { error in
@@ -95,14 +110,22 @@ struct DeleteAccountView: View {
         Button(role: .destructive) {
             Task { await perform(action) }
         } label: {
-            HStack {
-                if session.deletingAccount { ProgressView().controlSize(.small) }
+            HStack(spacing: 8) {
+                if session.deletingAccount { ProgressView().controlSize(.small).tint(.white) }
                 Text(immediate ? "Excluir definitivamente" : "Agendar exclusão em 30 dias")
-            }.frame(maxWidth: .infinity)
-        }.buttonStyle(.borderedProminent).tint(.red).controlSize(.large)
-            .disabled(!enabled || session.deletingAccount || owner != session.userID
-                      || SubscriptionStore.shared.busy)
-            .accessibilityIdentifier("account.delete.confirm")
+                    .foregroundStyle(.white)
+            }
+            .font(.system(size: 16, weight: .medium))
+            .frame(maxWidth: .infinity)
+            .frame(height: Theme.button)
+            .background(Theme.danger, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled || session.deletingAccount || owner != session.userID
+                  || SubscriptionStore.shared.busy)
+        .opacity(!enabled || session.deletingAccount || owner != session.userID ? 0.45 : 1)
+        .accessibilityIdentifier("account.delete.confirm")
     }
 
     private func submit(password: String? = nil, credential: AuthCredential? = nil, appleCode: String? = nil) async {

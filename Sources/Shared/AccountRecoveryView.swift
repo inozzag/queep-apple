@@ -14,28 +14,41 @@ struct AccountRecoveryView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Image(systemName: "clock.arrow.circlepath").font(.largeTitle).accessibilityHidden(true)
-                Text(state.canRestore ? "Exclusão agendada" : "Exclusão em andamento")
-                    .font(.largeTitle.bold()).accessibilityIdentifier("account.recovery.title")
-                if let date = state.deleteAt {
-                    Text("Exclusão definitiva: \(date.formatted(date: .long, time: .shortened))")
-                        .accessibilityIdentifier("account.recovery.deadline")
+                IconTile(asset: "ri-time-line", size: 64, icon: 28)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(state.canRestore ? "Exclusão agendada" : "Exclusão em andamento")
+                        .font(.system(size: 30, weight: .semibold))
+                        .tracking(-0.6)
+                        .foregroundStyle(Theme.ink)
+                        .accessibilityIdentifier("account.recovery.title")
+                    if let date = state.deleteAt {
+                        Text("Exclusão definitiva: \(date.formatted(date: .long, time: .shortened))")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Theme.ink)
+                            .accessibilityIdentifier("account.recovery.deadline")
+                    }
+                    Text(state.canRestore
+                         ? "Sua biblioteca está bloqueada e suas referências continuam guardadas. Entrar na conta não cancela a exclusão. Confirme sua identidade e escolha recuperar a conta para voltar a usá-la."
+                         : "O prazo para recuperação terminou. A remoção da conta e dos conteúdos continua automaticamente.")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Theme.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Text(state.canRestore
-                     ? "Sua biblioteca está bloqueada e suas referências continuam guardadas. Entrar na conta não cancela a exclusão. Confirme sua identidade e escolha recuperar a conta para voltar a usá-la."
-                     : "O prazo para recuperação terminou. A remoção da conta e dos conteúdos continua automaticamente.")
                 if state.canRestore {
-                    Group {
+                    VStack(spacing: 10) {
                         switch session.signInMethod {
                         case .password:
-                            SecureField("Confirme sua senha", text: $password)
-                                .textContentType(.password).textFieldStyle(.roundedBorder)
+                            SecureField("", text: $password, prompt: Text("Confirme sua senha").foregroundStyle(Theme.inkFaint))
+                                .textContentType(.password)
+                                .accessibilityLabel("Confirme sua senha")
                                 .accessibilityIdentifier("account.recovery.password")
+                                .queepField()
                             Button("Cancelar exclusão e recuperar conta") { perform(cancel: true) }
-                                .buttonStyle(.borderedProminent).controlSize(.large)
+                                .buttonStyle(.queepPrimary)
                                 .disabled(password.isEmpty || session.deletingAccount)
                                 .accessibilityIdentifier("account.recovery.restore")
                             Button("Excluir definitivamente agora", role: .destructive) { confirmImmediate = true }
+                                .buttonStyle(.queep(.destructive))
                                 .disabled(password.isEmpty || session.deletingAccount)
                                 .accessibilityIdentifier("account.recovery.immediate")
                         case .apple:
@@ -47,14 +60,16 @@ struct AccountRecoveryView: View {
                             }
                             .disabled(session.deletingAccount)
                             Button("Excluir definitivamente agora", role: .destructive) { confirmImmediate = true }
+                                .buttonStyle(.queep(.destructive))
                                 .disabled(session.deletingAccount)
                                 .accessibilityIdentifier("account.recovery.immediate")
                         case .google:
                             Button("Cancelar exclusão e recuperar conta") { perform(cancel: true) }
-                                .buttonStyle(.borderedProminent).controlSize(.large)
+                                .buttonStyle(.queepPrimary)
                                 .disabled(session.deletingAccount)
                                 .accessibilityIdentifier("account.recovery.restore")
                             Button("Excluir definitivamente agora", role: .destructive) { confirmImmediate = true }
+                                .buttonStyle(.queep(.destructive))
                                 .disabled(session.deletingAccount)
                                 .accessibilityIdentifier("account.recovery.immediate")
                         }
@@ -64,14 +79,36 @@ struct AccountRecoveryView: View {
                         Button("Excluir definitivamente", role: .destructive) { perform(cancel: false) }
                     }
                 }
-                if session.deletingAccount { ProgressView() }
-                if let error { Text(error).foregroundStyle(.red).accessibilityIdentifier("account.recovery.error") }
-                Link("Gerenciar assinatura da Apple", destination: URL(string: "https://apps.apple.com/account/subscriptions")!)
-                Text("A exclusão da conta não cancela sua assinatura da Apple.").font(.caption).foregroundStyle(.secondary)
-                Button("Sair da conta") { try? session.signOut() }.disabled(session.deletingAccount)
-                    .accessibilityIdentifier("account.recovery.signout")
-            }.padding(32).frame(maxWidth: 500)
-        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                if session.deletingAccount { ProgressView().frame(maxWidth: .infinity) }
+                if let error {
+                    Text(error)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Theme.danger)
+                        .accessibilityIdentifier("account.recovery.error")
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    Link(destination: URL(string: "https://apps.apple.com/account/subscriptions")!) {
+                        HStack(spacing: 8) {
+                            QueepIcon("ri-apple-fill", size: 18, color: Theme.ink)
+                            Text("Gerenciar assinatura da Apple")
+                        }
+                    }
+                    .buttonStyle(.queep(.outline))
+                    Text("A exclusão da conta não cancela sua assinatura da Apple.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.inkSoft)
+                    Button("Sair da conta") { try? session.signOut() }
+                        .buttonStyle(.queep(.quiet))
+                        .disabled(session.deletingAccount)
+                        .accessibilityIdentifier("account.recovery.signout")
+                }
+            }
+            .padding(32)
+            .frame(maxWidth: 480, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.surface)
     }
 
     private func perform(cancel: Bool) {

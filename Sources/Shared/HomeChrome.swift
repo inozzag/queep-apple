@@ -1,38 +1,8 @@
+import QueepCore
 import SwiftUI
 #if os(iOS)
 import UIKit
 #endif
-
-struct HomeBrand: View {
-    var body: some View {
-        HStack(spacing: 8) {
-            QueepLogo(size: 28)
-            Text("Queep")
-                .font(.system(size: 22, weight: .bold))
-                .tracking(-0.89)
-                .foregroundStyle(Color(red: 41 / 255, green: 37 / 255, blue: 33 / 255))
-                .lineLimit(1)
-                .fixedSize()
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityLabel("Queep")
-    }
-}
-
-/// Gradient mark from `queep-logo-nobg.svg`, used on sign-in and onboarding.
-struct QueepLogo: View {
-    var size: CGFloat = 72
-
-    var body: some View {
-        Image("HomeLogo")
-            .resizable()
-            .renderingMode(.original)
-            .aspectRatio(690 / 670, contentMode: .fit)
-            .frame(width: size, height: size * 670 / 690)
-            .accessibilityHidden(true)
-    }
-}
 
 struct HomeTopBarHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
@@ -44,7 +14,7 @@ struct HomeTopBarHeightKey: PreferenceKey {
 extension View {
     /// Opaque bar. Reports its height so the library can scroll underneath without a fade.
     func homeTopBar() -> some View {
-        background(Color.white.ignoresSafeArea(edges: .top))
+        background(Theme.surface.ignoresSafeArea(edges: .top))
             .background {
                 GeometryReader { geo in
                     Color.clear.preference(key: HomeTopBarHeightKey.self, value: geo.size.height)
@@ -53,87 +23,81 @@ extension View {
     }
 }
 
-struct HomeGlyph: View {
-    let asset: String
-    var size: CGFloat = 20
-    var original = false
-    var color: Color = Theme.homePreview
+// MARK: - Search
 
-    var body: some View {
-        Group {
-            if original {
-                Image(asset).resizable().renderingMode(.original)
-            } else {
-                Image(asset).resizable().renderingMode(.template)
-                    .foregroundStyle(color)
-            }
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
-    }
-}
-
-struct HomePillLabel: View {
-    let title: String
-    let asset: String
-    var accent = false
-
-    var body: some View {
-        HStack(spacing: 16) {
-            HomeGlyph(asset: asset, color: accent ? Theme.queepThingsInk : Theme.homePreview)
-            Text(title)
-                .font(.system(size: 13, weight: accent ? .semibold : .regular))
-                .foregroundStyle(accent ? Theme.queepThingsInk : Theme.homePreview)
-                .lineLimit(1)
-                .fixedSize()
-        }
-        .padding(.horizontal, 16.4)
-        .frame(height: Theme.homeChrome)
-        .contentShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
-    }
-}
-
-struct HomeIconChrome: View {
-    let asset: String
-    var size: CGFloat = 20
-    var chrome: CGFloat = Theme.homeChrome
-
-    var body: some View {
-        HomeGlyph(asset: asset, size: size)
-            .frame(width: chrome, height: chrome)
-            .contentShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
-    }
-}
-
-struct HomeSearchField: View {
+/// Search from the gallery header: the AI search icon, an example query as the hint, and
+/// optional tools on the right (screen capture and filters on the Mac).
+struct HomeSearchField<Accessories: View>: View {
     @Binding var text: String
-    var width: CGFloat?
-    var height: CGFloat = Theme.homeChrome
+    var height: CGFloat = Theme.chrome
     var autofocus = false
     var surfaced = true
     var submit: () -> Void
+    @ViewBuilder var accessories: Accessories
     @FocusState private var focused: Bool
+    @State private var example = HomeSearchExamples.pick()
 
     var body: some View {
         HStack(spacing: 16) {
-            HomeGlyph(asset: "HomeSearch")
-            TextField("Busque na sua língua...", text: $text)
-                .textFieldStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.homeInk)
-                .focused($focused)
-                .onSubmit(submit)
-                .accessibilityLabel("Busca da biblioteca")
-                .accessibilityIdentifier("library.search")
+            QueepIcon("ri-search-ai-line", size: 22, color: Theme.ink)
+            ZStack(alignment: .leading) {
+                if text.isEmpty {
+                    Text("Tente “\(example)”")
+                        .font(.system(size: 13))
+                        .foregroundStyle(LinearGradient(
+                            stops: [
+                                .init(color: Theme.inkSoft, location: 0),
+                                .init(color: Color(hex: 0xCFCFCF), location: 0.49),
+                                .init(color: Color(hex: 0x9C9C9C), location: 1),
+                            ],
+                            startPoint: .leading, endPoint: .trailing))
+                        .lineLimit(1)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+                TextField("", text: $text)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.ink)
+                    .focused($focused)
+                    .submitLabel(.search)
+                    .onSubmit(submit)
+                    .accessibilityLabel("Busca da biblioteca")
+                    .accessibilityIdentifier("library.search")
+            }
+            HStack(spacing: 16) { accessories }
         }
-        .padding(.horizontal, 16)
-        .frame(maxWidth: width == nil ? .infinity : nil)
-        .frame(width: width, height: height)
-        .modifier(HomeOptionalSurface(enabled: surfaced))
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity)
+        .frame(height: height)
+        .modifier(OptionalSurface(style: .field, radius: Theme.radius, enabled: surfaced))
         .onAppear { if autofocus { focused = true } }
     }
 }
 
+extension HomeSearchField where Accessories == EmptyView {
+    init(text: Binding<String>, height: CGFloat = Theme.chrome, autofocus: Bool = false,
+         surfaced: Bool = true, submit: @escaping () -> Void) {
+        self.init(text: text, height: height, autofocus: autofocus, surfaced: surfaced,
+                  submit: submit, accessories: { EmptyView() })
+    }
+}
+
+/// Example queries shown as the search hint. One per appearance.
+enum HomeSearchExamples {
+    static let all = [
+        "CRM colorido para web",
+        "landing page escura com 3D",
+        "tipografia serifada em pôster",
+        "app de finanças minimalista",
+        "paleta verde e creme",
+        "onboarding com ilustrações",
+    ]
+
+    static func pick() -> String { all.randomElement() ?? all[0] }
+}
+
+/// The terms of a search, each removable.
 struct HomeSearchChips: View {
     let chips: [String]
     var remove: (String) -> Void
@@ -144,19 +108,17 @@ struct HomeSearchChips: View {
                 Button {
                     remove(chip)
                 } label: {
-                    HStack(spacing: 8) {
-                        Image("HomeClose").resizable().renderingMode(.template)
-                            .foregroundStyle(Theme.homePreview)
-                            .frame(width: 11, height: 11)
-                            .accessibilityHidden(true)
+                    HStack(spacing: 6) {
                         Text(chip)
-                            .font(.system(size: 11))
-                            .foregroundStyle(Theme.homePreview)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Theme.ink)
                             .lineLimit(1)
+                        QueepIcon("ri-close-line", size: 14, color: Theme.inkSoft)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .homeSurface()
+                    .padding(.leading, 14)
+                    .padding(.trailing, 10)
+                    .frame(height: 32)
+                    .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Remover \(chip)")
@@ -206,33 +168,58 @@ private struct HomeChipWrap: Layout {
     }
 }
 
+// MARK: - Filters, tabs and account
+
+/// Kinds filter. The four coloured dots from the Figma search field.
 struct HomeFilterMenu: View {
     @Environment(LibraryStore.self) private var store
     let refresh: () -> Void
-    var chrome: CGFloat = Theme.homeChrome
-    var icon: CGFloat = 20
-    var surfaced = true
+    /// Square face behind the dots. Nil draws the dots alone, as inside the search field.
+    var chrome: CGFloat? = nil
+    var icon: CGFloat = 24
 
     var body: some View {
         Menu {
-            Button("Tudo") { store.kindFilter = nil }
-            Button("Notas") { store.kindFilter = "note" }
-            Button("Links") { store.kindFilter = "link" }
-            Button("Imagens") { store.kindFilter = "image" }
-            Button("Áudio e vídeo") { store.kindFilter = "media" }
+            Picker("Tipo", selection: Binding(get: { store.kindFilter ?? "" },
+                                              set: { store.kindFilter = $0.isEmpty ? nil : $0 })) {
+                Text("Tudo").tag("")
+                Text("Notas").tag("note")
+                Text("Links").tag("link")
+                Text("Imagens").tag("image")
+                Text("Áudio e vídeo").tag("media")
+            }
+            .pickerStyle(.inline)
             Divider()
             Button("Atualizar", action: refresh)
         } label: {
-            HomeIconChrome(asset: "HomeEqualizer", size: icon, chrome: chrome)
-                .modifier(HomeOptionalSurface(enabled: surfaced))
+            label
         }
         .buttonStyle(.plain)
         #if os(macOS)
         .menuIndicator(.hidden)
+        .fixedSize()
         #endif
         .accessibilityLabel("Filtrar referências")
         .accessibilityIdentifier("library.filter")
         .help(filterHelp)
+    }
+
+    @ViewBuilder private var label: some View {
+        let dots = QueepIcon("ri-apps-2-fill", size: icon, original: true)
+            .overlay(alignment: .topTrailing) {
+                if store.kindFilter != nil {
+                    Circle().fill(Theme.forest).frame(width: 8, height: 8)
+                        .overlay(Circle().strokeBorder(Color.white, lineWidth: 1.5))
+                        .offset(x: 3, y: -3)
+                }
+            }
+        if let chrome {
+            dots.frame(width: chrome, height: chrome)
+                .surface(.fill, radius: chrome >= Theme.chrome ? Theme.radius : Theme.controlRadius)
+                .contentShape(Rectangle())
+        } else {
+            dots.contentShape(Rectangle())
+        }
     }
 
     private var filterHelp: String {
@@ -246,31 +233,102 @@ struct HomeFilterMenu: View {
     }
 }
 
-struct HomeAccountButton: View {
+/// How many references the account holds, for the Gallery tab. Read from Uso, which counts the
+/// whole library; the loaded page would only know the first eighteen.
+@MainActor @Observable
+final class LibraryTotals {
+    static let shared = LibraryTotals()
+    private(set) var items: Int?
+    private var owner: String?
+
+    func refresh(_ session: Session) async {
+        guard let api = session.client(), let uid = session.userID else { return }
+        if owner != uid { items = nil; owner = uid }
+        guard let usage = try? await api.usage(), session.userID == uid else { return }
+        items = usage.counters["items"]?.used
+    }
+}
+
+/// Gallery and Spaces, each with its count, as in the Figma header.
+struct LibraryTabs: View {
+    @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
-    var chrome: CGFloat = Theme.homeChrome
-    var surfaced = true
+    @State private var totals = LibraryTotals.shared
+    var stretches = false
+
+    var body: some View {
+        QueepSegment<LibrarySurface>(
+            items: [
+                .init(title: "Gallery", value: LibrarySurface.home, count: galleryCount, identifier: "library.home"),
+                .init(title: "Spaces", value: LibrarySurface.spaces,
+                      count: store.spaces.isEmpty ? nil : store.spaces.count, identifier: "library.spaces"),
+            ],
+            selection: Binding(
+                get: { store.surface == .spaces ? .spaces : .home },
+                set: { surface in
+                    if surface == .home { store.showHome() } else { store.show(.spaces) }
+                }),
+            stretches: stretches)
+            .task(id: "\(session.userID ?? "")/\(store.items.count)") {
+                try? await Task.sleep(for: .milliseconds(600))
+                guard !Task.isCancelled else { return }
+                await totals.refresh(session)
+            }
+    }
+
+    private var galleryCount: Int? {
+        if let items = totals.items { return items }
+        return store.hasLoaded && store.surface == .home && store.nextCursor == nil ? store.items.count : nil
+    }
+}
+
+/// The person, with the plan underneath, as in the Figma header. Opens Ajustes.
+struct HomeAccountButton: View {
+    @Environment(Session.self) private var session
+    @Environment(LibraryStore.self) private var store
+    @State private var subscriptions = SubscriptionStore.shared
+    var size: CGFloat = Theme.chrome
 
     var body: some View {
         Button {
             store.presentation = .account
         } label: {
-            HomeIconChrome(asset: "HomeUser", chrome: chrome)
-                .modifier(HomeOptionalSurface(enabled: surfaced))
+            QueepIcon("ri-user-5-fill", size: size * 0.57, color: Theme.ink)
+                .frame(width: size, height: size)
+                .surface(.fill, radius: size >= Theme.chrome ? Theme.radius : Theme.controlRadius)
+                .overlay(alignment: .bottom) {
+                    if let plan = subscriptions.access?.plan {
+                        PlanBadge(plan: plan)
+                            .scaleEffect(size >= Theme.chrome ? 1 : 0.85)
+                            .offset(y: size >= Theme.chrome ? 5 : 6)
+                    }
+                }
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Conta")
+        .help("Conta e ajustes")
         .accessibilityLabel("Conta")
+        .accessibilityValue(subscriptions.access.map { "Plano \($0.plan.title)" } ?? "")
         .accessibilityIdentifier("person.crop.circle")
+        .task(id: session.userID) {
+            guard session.userID != nil, subscriptions.access == nil else { return }
+            await subscriptions.load(session)
+        }
     }
 }
 
-private struct HomeOptionalSurface: ViewModifier {
+private struct OptionalSurface: ViewModifier {
+    var style: SurfaceStyle
+    var radius: CGFloat
     var enabled: Bool
+
     func body(content: Content) -> some View {
-        if enabled { content.homeSurface() } else { content }
+        if enabled { content.surface(style, radius: radius) } else { content }
     }
 }
+
+// MARK: - Glass
+
 enum QueepGlassShape {
     case circle, capsule, card
 }
@@ -286,119 +344,77 @@ private struct QueepGlass: ViewModifier {
             case .capsule:
                 content.glassEffect(.regular, in: Capsule())
             case .card:
-                content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: Theme.homeNavMenuRadius, style: .continuous))
+                content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
             }
         } else {
             content
                 .background(.ultraThinMaterial, in: fallback)
                 .overlay(fallback.strokeBorder(Color.white.opacity(0.45)))
-                .shadow(color: .black.opacity(0.12), radius: 16, y: 4)
+                .shadow(color: .black.opacity(0.10), radius: 16, y: 4)
         }
     }
 
     private var fallback: RoundedRectangle {
         let radius: CGFloat = switch shape {
-        case .circle, .capsule: Theme.homeNav / 2
-        case .card: Theme.homeNavMenuRadius
+        case .circle, .capsule: Theme.nav / 2
+        case .card: Theme.radius
         }
         return RoundedRectangle(cornerRadius: radius, style: .continuous)
     }
 }
 
 extension View {
-    /// Liquid Glass for chrome that floats over content: header chips, the bottom bar, menus.
+    /// Liquid Glass for iPhone chrome that floats over content: the bottom bar and its menus.
     func queepGlass(_ shape: QueepGlassShape = .capsule) -> some View {
         modifier(QueepGlass(shape: shape))
     }
 }
 
-/// Same capsule as the iPhone library: glass, “Selecionar”, then “Cancelar”.
-struct LibrarySelectButton: View {
-    var selecting: Bool
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(selecting ? "Cancelar" : "Selecionar")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Theme.homePreview)
-                .padding(.horizontal, 16)
-                .frame(height: 48)
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .queepGlass(.capsule)
-        .overlay { Capsule().strokeBorder(Color.white, lineWidth: 1.5) }
-        .accessibilityIdentifier("library.select")
-    }
-}
+// MARK: - iPhone
 
 #if os(iOS)
 enum MobileNavMode: Equatable {
     case standard, add, search
 }
 
+/// Top of the iPhone library: the lockup, or the way back from a Space, then filters and account.
 struct MobileLibraryHeader: View {
     @Environment(Session.self) private var session
     @Environment(LibraryStore.self) private var store
     let refresh: () -> Void
-    var selecting = false
-    var canSelect = false
-    var toggleSelect: () -> Void = {}
 
     var body: some View {
-        HStack(spacing: 16) {
-            HomeFilterMenu(refresh: refresh, chrome: 48, icon: 22, surfaced: false)
-                .queepGlass(.circle)
-            HomeAccountButton(chrome: 48, surfaced: false)
-                .queepGlass(.circle)
+        HStack(spacing: 10) {
+            if store.surface == .spaces, store.selectedSpaceID != nil {
+                Button { store.selectSpace(nil) } label: {
+                    GalleryPill(title: "Spaces", leading: "ri-arrow-left-s-line", height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Spaces")
+                .accessibilityIdentifier("spaces.back")
+            } else {
+                QueepLockup(scale: 0.78)
+                    .accessibilityAddTraits(.isHeader)
+            }
             Spacer(minLength: 0)
             if session.isLocal {
-                Image(systemName: "hammer.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color(red: 0.18, green: 0.45, blue: 0.95))
+                QueepIcon("ri-settings-3-line", size: 18, color: Theme.forest)
                     .accessibilityLabel("Versão de desenvolvimento local")
             }
             if store.surface == .spaces, store.selectedSpaceID == nil {
                 Button { store.presentation = .newSpace } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 15, weight: .medium))
-                        Text("Space")
-                            .font(.system(size: 15, weight: .medium))
-                    }
-                    .foregroundStyle(Theme.homeInk)
-                    .padding(.horizontal, 16)
-                    .frame(height: 48)
-                    .contentShape(Capsule())
+                    GalleryPill(title: "Space", leading: "ri-add-line", height: 44)
                 }
                 .buttonStyle(.plain)
-                .queepGlass(.capsule)
                 .accessibilityIdentifier("spaces.new")
-            } else if store.surface == .spaces {
-                Button { store.selectSpace(nil) } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("Spaces")
-                            .font(.system(size: 15, weight: .medium))
-                    }
-                    .foregroundStyle(Theme.homeInk)
-                    .padding(.horizontal, 14)
-                    .frame(height: 48)
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .queepGlass(.capsule)
-                .accessibilityLabel("Spaces")
-                .accessibilityIdentifier("spaces.back")
-            } else if canSelect {
-                LibrarySelectButton(selecting: selecting, action: toggleSelect)
+            } else {
+                HomeFilterMenu(refresh: refresh, chrome: 48, icon: 22)
             }
+            HomeAccountButton(size: 48)
         }
-        .padding(.horizontal, Theme.homeNavInset)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
+        .padding(.horizontal, Theme.navInset)
+        .padding(.top, 6)
+        .padding(.bottom, 10)
     }
 }
 
@@ -407,8 +423,6 @@ struct iPhoneLibrary<Content: View, Dock: View>: View {
     let search: () -> Void
     let refresh: () async -> Void
     var selecting = false
-    var canSelect = false
-    var toggleSelect: () -> Void = {}
     @ViewBuilder var content: Content
     @ViewBuilder var dock: Dock
     @State private var mode: MobileNavMode = .standard
@@ -418,9 +432,9 @@ struct iPhoneLibrary<Content: View, Dock: View>: View {
         ZStack(alignment: .bottom) {
             ScrollView {
                 content
-                    .padding(.horizontal, Theme.homeNavInset)
-                    .padding(.top, max(8, headerHeight))
-                    .padding(.bottom, Theme.homeNav + Theme.homeNavBottom + 24 + (selecting ? 76 : 0))
+                    .padding(.horizontal, Theme.navInset)
+                    .padding(.top, max(8, headerHeight + 4))
+                    .padding(.bottom, Theme.nav + Theme.navBottom + 24 + (selecting ? 84 : 0))
                     .frame(maxWidth: 1280)
                     .frame(maxWidth: .infinity)
             }
@@ -433,7 +447,7 @@ struct iPhoneLibrary<Content: View, Dock: View>: View {
                 Spacer(minLength: 0)
                 if selecting {
                     dock
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, Theme.navInset)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 MobileLibraryNav(mode: $mode, search: search)
@@ -443,18 +457,13 @@ struct iPhoneLibrary<Content: View, Dock: View>: View {
         }
         .overlay(alignment: .top) {
             VStack(spacing: 0) {
-                MobileLibraryHeader(
-                    refresh: { Task { await refresh() } },
-                    selecting: selecting,
-                    canSelect: canSelect,
-                    toggleSelect: toggleSelect
-                )
+                MobileLibraryHeader(refresh: { Task { await refresh() } })
                 if kindTitle != nil || !store.searchChips.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             if let kindTitle {
                                 Button { store.kindFilter = nil } label: {
-                                    GalleryChip(title: kindTitle, symbol: "xmark", selected: true)
+                                    GalleryChip(title: kindTitle, symbol: "ri-close-line", selected: true)
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel("Remover filtro \(kindTitle)")
@@ -464,12 +473,23 @@ struct iPhoneLibrary<Content: View, Dock: View>: View {
                                 HomeSearchChips(chips: store.searchChips, remove: removeChip)
                             }
                         }
-                        .padding(.horizontal, Theme.homeNavInset)
+                        .padding(.horizontal, Theme.navInset)
                     }
-                    .padding(.bottom, 8)
+                    .padding(.bottom, 10)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .top)
+            .background {
+                // White under the status bar and the row, then a short fade into the gallery.
+                Theme.surface
+                    .overlay(alignment: .bottom) {
+                        LinearGradient(colors: [Theme.surface, Theme.surface.opacity(0)],
+                                       startPoint: .top, endPoint: .bottom)
+                            .frame(height: 14)
+                            .offset(y: 14)
+                    }
+                    .ignoresSafeArea(edges: .top)
+            }
             .background {
                 GeometryReader { geo in
                     Color.clear.preference(key: HomeTopBarHeightKey.self, value: geo.size.height)
@@ -509,6 +529,7 @@ struct iPhoneLibrary<Content: View, Dock: View>: View {
     }
 }
 
+/// Floating bottom bar: Gallery and Spaces, add, search. Glass, because it floats over the gallery.
 struct MobileLibraryNav: View {
     @Environment(LibraryStore.self) private var store
     @Binding var mode: MobileNavMode
@@ -516,11 +537,11 @@ struct MobileLibraryNav: View {
     @State private var keyboardVisible = false
 
     private var navWidth: CGFloat {
-        UIScreen.main.bounds.width - Theme.homeNavInset * 2
+        UIScreen.main.bounds.width - Theme.navInset * 2
     }
 
     private var tabsWidth: CGFloat {
-        max(0, navWidth - Theme.homeNav * 2 - Theme.homeNavGap * 2)
+        max(0, navWidth - Theme.nav * 2 - Theme.navGap * 2)
     }
 
     var body: some View {
@@ -529,21 +550,21 @@ struct MobileLibraryNav: View {
                 addBar
             } else if mode == .search {
                 if #available(iOS 26.0, *) {
-                    GlassEffectContainer(spacing: Theme.homeNavGap) { searchBar }
+                    GlassEffectContainer(spacing: Theme.navGap) { searchBar }
                         .frame(width: navWidth)
                 } else {
                     searchBar.frame(width: navWidth, alignment: .leading)
                 }
             } else if #available(iOS 26.0, *) {
-                GlassEffectContainer(spacing: Theme.homeNavGap) { standardBar }
+                GlassEffectContainer(spacing: Theme.navGap) { standardBar }
                     .frame(width: navWidth)
             } else {
                 standardBar.frame(width: navWidth)
             }
         }
         .frame(width: navWidth)
-        .padding(.horizontal, Theme.homeNavInset)
-        .padding(.bottom, Theme.homeNavBottom)
+        .padding(.horizontal, Theme.navInset)
+        .padding(.bottom, Theme.navBottom)
         .animation(.spring(duration: 0.22, bounce: 0), value: mode)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             keyboardVisible = true
@@ -557,12 +578,12 @@ struct MobileLibraryNav: View {
     }
 
     private var standardBar: some View {
-        HStack(alignment: .bottom, spacing: Theme.homeNavGap) {
+        HStack(alignment: .bottom, spacing: Theme.navGap) {
             tabGroup(width: tabsWidth)
-            chromeButton(asset: "HomeAdd", identifier: "library.add", label: "Adicionar") {
+            chromeButton(asset: "ri-add-line", identifier: "library.add", label: "Queep things") {
                 mode = .add
             }
-            chromeButton(asset: "HomeSearch", identifier: "library.nav.search", label: "Buscar") {
+            chromeButton(asset: "ri-search-ai-line", identifier: "library.nav.search", label: "Buscar") {
                 mode = .search
             }
         }
@@ -570,7 +591,7 @@ struct MobileLibraryNav: View {
     }
 
     private var addBar: some View {
-        HStack(alignment: .bottom, spacing: Theme.homeNavGap) {
+        HStack(alignment: .bottom, spacing: Theme.navGap) {
             tabGroup(width: nil)
             addMenu
         }
@@ -579,11 +600,11 @@ struct MobileLibraryNav: View {
 
     private func tabGroup(width: CGFloat?) -> some View {
         HStack(spacing: 4) {
-            tab("Home", "HomeDashboard", .home, "library.home", flexible: width != nil)
-            tab("Spaces", "HomeSpaces", .spaces, "library.spaces", flexible: width != nil)
+            tab("Gallery", .home, "library.home", flexible: width != nil)
+            tab("Spaces", .spaces, "library.spaces", flexible: width != nil)
         }
-        .padding(5)
-        .frame(width: width, height: Theme.homeNav)
+        .padding(Theme.chromeInset)
+        .frame(width: width, height: Theme.nav)
         .queepGlass(.capsule)
     }
 
@@ -599,16 +620,17 @@ struct MobileLibraryNav: View {
     }
 
     private var searchBar: some View {
-        HStack(spacing: Theme.homeNavGap) {
+        HStack(spacing: Theme.navGap) {
             if !keyboardVisible {
-                chromeButton(asset: "HomeBack", identifier: "library.nav.back", label: "Voltar") {
+                chromeButton(asset: "ri-arrow-left-s-line", identifier: "library.nav.back", label: "Voltar") {
                     dismissKeyboard()
                     mode = .standard
                 }
             }
             HomeSearchField(
                 text: Binding(get: { store.query }, set: { store.query = $0 }),
-                height: Theme.homeNav,
+                height: Theme.nav,
+                autofocus: true,
                 surfaced: false,
                 submit: {
                     search()
@@ -620,10 +642,8 @@ struct MobileLibraryNav: View {
             .id("library.search.field")
             if keyboardVisible {
                 Button(action: dismissKeyboard) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.homePreview)
-                        .frame(width: Theme.homeNav, height: Theme.homeNav)
+                    QueepIcon("ri-close-line", size: 22, color: Theme.ink)
+                        .frame(width: Theme.nav, height: Theme.nav)
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -634,24 +654,27 @@ struct MobileLibraryNav: View {
         }
     }
 
-    private func tab(_ title: String, _ asset: String, _ surface: LibrarySurface, _ identifier: String, flexible: Bool) -> some View {
+    private func tab(_ title: String, _ surface: LibrarySurface, _ identifier: String, flexible: Bool) -> some View {
         let selected = store.surface == surface
         return Button {
-            store.show(surface)
+            if surface == .home { store.showHome() } else { store.show(surface) }
             mode = .standard
         } label: {
-            VStack(spacing: 0) {
-                HomeGlyph(asset: asset, size: 24, color: selected ? Theme.homeInk : Theme.homePreview)
+            HStack(spacing: 6) {
                 Text(title)
-                    .font(.system(size: 10, weight: selected ? .semibold : .regular))
-                    .foregroundStyle(selected ? Theme.homeInk : Theme.homePreview)
+                    .font(.system(size: 15, weight: selected ? .medium : .regular))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+                    .fixedSize()
+                if surface == .spaces, !store.spaces.isEmpty {
+                    CountBadge(value: store.spaces.count, selected: selected)
+                }
             }
             .padding(.horizontal, flexible ? 8 : 18)
-            .padding(.vertical, 7)
-            .frame(maxWidth: flexible ? .infinity : nil)
+            .frame(maxWidth: flexible ? .infinity : nil, maxHeight: .infinity)
             .background {
                 if selected {
-                    Capsule(style: .continuous).fill(.white.opacity(0.62))
+                    Capsule(style: .continuous).fill(.white.opacity(0.7))
                 }
             }
             .contentShape(Capsule())
@@ -660,13 +683,12 @@ struct MobileLibraryNav: View {
         .accessibilityLabel(title)
         .accessibilityIdentifier(identifier)
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .help(surface == .spaces ? "Pastas com filtros." : "Galeria")
     }
 
     private func chromeButton(asset: String, identifier: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HomeGlyph(asset: asset, size: 26)
-                .frame(width: Theme.homeNav, height: Theme.homeNav)
+            QueepIcon(asset, size: 26, color: Theme.ink)
+                .frame(width: Theme.nav, height: Theme.nav)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -682,6 +704,8 @@ struct MobileLibraryNav: View {
 }
 #endif
 
+// MARK: - Queep things
+
 private struct AddMenuCardShape: Shape {
     var rect: CGRect
     func path(in _: CGRect) -> Path { Path(rect) }
@@ -695,8 +719,8 @@ private struct AddMenuFrameKey: PreferenceKey {
     }
 }
 
-/// Full-screen hit target behind the Mais card. Taps outside the card dismiss the menu
-/// and are not delivered to the gallery, the top bar, or the Home/Spaces tabs.
+/// Full-screen hit target behind the Queep things card. Taps outside the card dismiss the menu
+/// and are not delivered to the gallery, the top bar, or the tabs.
 private struct AddMenuDismissOverlay: View {
     var dismiss: () -> Void
     var globalFrame: CGRect
@@ -738,68 +762,94 @@ private struct AddMenuDismissOverlay: View {
     }
 }
 
+/// What Queep things can save. Glass on the iPhone bar; a white card under the Mac header.
 private struct LibraryAddMenu: View {
     @Environment(LibraryStore.self) private var store
     var dismiss: () -> Void
     var exposesAccessibility = true
 
     var body: some View {
-        VStack(spacing: 6) {
-            addRow("Posts", "HomeHashtag", "library.add.post") {
+        VStack(spacing: 2) {
+            addRow("Posts", "ri-hashtag", "library.add.post") {
                 store.startCapture(kind: "link", intent: "post")
             }
-            addRow("Galeria", "photo.on.rectangle", "library.add.files", symbol: true) {
+            addRow("Galeria", "ri-image-line", "library.add.files") {
                 DispatchQueue.main.async { store.openPhotoLibrary = true }
             }
             #if os(macOS)
-            addRow("Arquivos", "folder", "library.add.arquivo", symbol: true) {
+            addRow("Arquivos", "ri-folder-line", "library.add.arquivo") {
                 DispatchQueue.main.async { store.openFileImporter = true }
             }
             #endif
-            addRow("Sites", "HomeLink", "library.add.site") {
+            addRow("Sites", "ri-link", "library.add.site") {
                 store.startCapture(kind: "link", intent: "site")
             }
-            addRow("Notes", "HomeFile", "library.add.note") {
+            addRow("Notes", "ri-sticky-note-line", "library.add.note") {
                 store.startCapture(kind: "note")
             }
         }
-        .padding(10)
-        .frame(width: 204)
-        .queepGlass(.card)
+        .padding(Theme.chromeInset)
+        .frame(width: 232)
+        .modifier(AddMenuSurface())
         .accessibilityHidden(!exposesAccessibility)
     }
 
-    private func addRow(_ title: String, _ asset: String, _ identifier: String, symbol: Bool = false, action: @escaping () -> Void) -> some View {
+    private func addRow(_ title: String, _ asset: String, _ identifier: String, action: @escaping () -> Void) -> some View {
         Button {
             dismiss()
             action()
         } label: {
             HStack(spacing: 12) {
-                if symbol {
-                    Image(systemName: asset)
-                        .font(.system(size: 20))
-                        .foregroundStyle(Theme.homePreview)
-                        .frame(width: 22, height: 22)
-                        .accessibilityHidden(true)
-                } else {
-                    HomeGlyph(asset: asset, size: 22)
-                }
-                Text(title).font(.system(size: 16)).foregroundStyle(Theme.homeInk)
+                IconTile(asset: asset, size: 40, icon: 18)
+                Text(title).font(.system(size: 16)).foregroundStyle(Theme.ink)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 13)
+            .padding(4)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AddRowStyle())
         .accessibilityIdentifier(exposesAccessibility ? identifier : "")
         .accessibilityLabel(title)
         .accessibilityHidden(!exposesAccessibility)
     }
 }
 
-/// Mac header control. Opens the same glass card the iPhone add button uses.
+private struct AddRowStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        AddRowBody(configuration: configuration)
+    }
+}
+
+private struct AddRowBody: View {
+    let configuration: ButtonStyleConfiguration
+    @State private var hovered = false
+
+    var body: some View {
+        configuration.label
+            .background {
+                if hovered || configuration.isPressed {
+                    RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous)
+                        .fill(Theme.fill.opacity(0.7))
+                }
+            }
+            .onHover { hovered = $0 }
+    }
+}
+
+private struct AddMenuSurface: ViewModifier {
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        content.queepGlass(.card)
+        #else
+        content
+            .surface(.outline, radius: Theme.radius)
+            .shadow(color: .black.opacity(0.08), radius: 24, y: 10)
+        #endif
+    }
+}
+
+/// Mac header control. Opens the Queep things card under it.
 struct QueepThingsControl: View {
     @Binding var isPresented: Bool
 
@@ -807,14 +857,28 @@ struct QueepThingsControl: View {
         Button {
             isPresented.toggle()
         } label: {
-            HomePillLabel(title: "Queep things", asset: "HomeAdd", accent: true)
-                .homeSurface(highlighted: true)
+            HStack(spacing: 8) {
+                QueepIcon("ri-add-line", size: 24, color: Theme.ink)
+                Text("Queep things")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+            .padding(.horizontal, 20)
+            .frame(height: Theme.control)
+            .background {
+                if isPresented {
+                    RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous).fill(Color.white.opacity(0.7))
+                }
+            }
+            .chrome(.fill)
+            .contentShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
         }
         .buttonStyle(.plain)
-        .buttonBorderShape(.roundedRectangle(radius: Theme.homeRadius))
         .accessibilityIdentifier("library.add")
         .accessibilityLabel("Queep things")
-        .help("Posts, galeria, sites ou notes")
+        .help("Posts, galeria, arquivos, sites ou notes")
         .overlay(alignment: .topTrailing) {
             if isPresented {
                 LibraryAddMenu(dismiss: { isPresented = false }, exposesAccessibility: false)
@@ -827,14 +891,14 @@ struct QueepThingsControl: View {
                     .opacity(0)
                     .accessibilityHidden(true)
                     .allowsHitTesting(false)
-                    .offset(y: Theme.homeChrome + 8)
+                    .offset(y: Theme.chrome + 8)
             }
         }
     }
 }
 
 extension View {
-    /// Glass card anchored to Queep things. Taps outside the card dismiss it.
+    /// Card anchored to Queep things. Taps outside the card dismiss it.
     func queepThingsMenu(isPresented: Binding<Bool>) -> some View {
         overlayPreferenceValue(AddMenuFrameKey.self) { frame in
             if isPresented.wrappedValue {

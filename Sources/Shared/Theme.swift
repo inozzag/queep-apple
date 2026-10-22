@@ -5,179 +5,325 @@ import AppKit
 import UIKit
 #endif
 
-/// Shared visual language: quiet canvas, soft cards, one restrained gradient reserved for AI.
-/// Everything stays on the system font; only sizes, weights, spacing and surfaces change.
+/// Queep V2 tokens, taken from the "Queep V2" Figma file (`i4zmG8DjKzkHgq6mkLT8Hh`).
+/// One warm gray ink on white, a pale fill for every surface, lime for the main action and a
+/// dark stage for promotional art. Type stays on the system font.
 enum Theme {
-    static let cardRadius: CGFloat = 16
-    static let homeRadius: CGFloat = 16.4
-    static let homeGap: CGFloat = 24
-    static let homeColumn: CGFloat = 250
-    static let homeChrome: CGFloat = 46
-    /// Floating iOS chips: 64pt matches the previous visual weight; add stays a 16.4 card.
-    static let homeNav: CGFloat = 64
-    static let homeNavGap: CGFloat = 8
-    static let homeNavInset: CGFloat = 16
-    static let homeNavBottom: CGFloat = 16
-    static let homeNavMenuRadius: CGFloat = 22
-    static let homeInk = Color(red: 23 / 255, green: 23 / 255, blue: 29 / 255)
-    static let homePreview = Color(red: 102 / 255, green: 102 / 255, blue: 113 / 255)
-    static let homeLine = Color(red: 238 / 255, green: 238 / 255, blue: 238 / 255)
-    static let homeAccent = Color(red: 60 / 255, green: 107 / 255, blue: 157 / 255)
-    /// Deep stop of `HomeLogo.svg` (`#3D6855`). Shared by the Queep things label and its plus.
-    static let queepThingsInk = Color(red: 61 / 255, green: 104 / 255, blue: 85 / 255)
-    /// Full-width actions on sign-in and the paywall. The Mac header keeps `homeChrome`.
+    // MARK: Palette
+
+    /// Text, icons and the logo. `#484848`.
+    static let ink = Color(hex: 0x484848)
+    /// Secondary text and counters. `#696969`.
+    static let inkSoft = Color(hex: 0x696969)
+    /// Placeholders and quiet captions: the ink at half strength.
+    static let inkFaint = Color(hex: 0x484848, opacity: 0.5)
+    /// Pages, sheets and cards.
+    static let surface = Color.white
+    /// Tiles, chrome and icon wells. `#F5F5F5`.
+    static let fill = Color(hex: 0xF5F5F5)
+    /// Fill under the pointer or a press.
+    static let fillPressed = Color(hex: 0xEDEDED)
+    /// Search field. `#FCFCFC`.
+    static let field = Color(hex: 0xFCFCFC)
+    /// Hairline around grouped controls. `#F5F5F5`.
+    static let line = Color(hex: 0xF5F5F5)
+    /// Outlined buttons and the sign-in card edge. `#E7E5E3`.
+    static let lineStrong = Color(hex: 0xE7E5E3)
+    /// Main action. `#DFE6B2`.
+    static let lime = Color(hex: 0xDFE6B2)
+    /// Middle green of the logo washes. `#ACBE95`.
+    static let sage = Color(hex: 0xACBE95)
+    /// Plan labels, checks and text on lime washes. `#3D6855`.
+    static let forest = Color(hex: 0x3D6855)
+    /// Text on a lime button. `#333333`.
+    static let onLime = Color(hex: 0x333333)
+    /// Dark action, as in "Ver original". `#211F12`.
+    static let action = Color(hex: 0x211F12)
+    /// Text and icons on `action` and on the dark stage. `#F5F5F5`.
+    static let onAction = Color(hex: 0xF5F5F5)
+    /// Promotional stage, top to bottom: `#13110C` to `#0A0807`.
+    static let night = Color(hex: 0x13110C)
+    static let nightDeep = Color(hex: 0x0A0807)
+    /// Sign-in art panel. `#1E1E1E`.
+    static let panel = Color(hex: 0x1E1E1E)
+    static let danger = Color(red: 0.70, green: 0.16, blue: 0.14)
+
+    // MARK: Shape and size
+
+    /// Containers, tiles and cards.
+    static let radius: CGFloat = 22
+    /// Controls that sit inside a container.
+    static let controlRadius: CGFloat = 16.4
+    /// A chrome container: 6pt inset around a 46pt control.
+    static let chrome: CGFloat = 60
+    static let control: CGFloat = 46
+    static let chromeInset: CGFloat = 6
+    /// Capsule pills on the opened item (Esc, Anterior, Próximo).
+    static let pill: CGFloat = 39
+    /// Full-width actions and text fields.
     #if os(iOS)
-    static let masterHeight: CGFloat = 52
+    static let button: CGFloat = 52
     #else
-    static let masterHeight: CGFloat = homeChrome
+    static let button: CGFloat = 48
     #endif
-    static let homeFill = Color(red: 250 / 255, green: 250 / 255, blue: 250 / 255)
-    static let homeShadow = Color(red: 60 / 255, green: 60 / 255, blue: 60 / 255).opacity(0.05)
-    static let aiColors = [Color(red: 0.45, green: 0.38, blue: 0.96), Color(red: 0.24, green: 0.60, blue: 0.98),
-                           Color(red: 0.22, green: 0.79, blue: 0.70)]
-    static var aiGradient: LinearGradient {
-        LinearGradient(colors: aiColors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    /// Space between gallery tiles.
+    static let gap: CGFloat = 18
+    /// Inset of badges and marks inside a tile.
+    static let tileInset: CGFloat = 12
+    #if os(iOS)
+    static let badge: CGFloat = 26
+    static let tileTitle: CGFloat = 15
+    #else
+    static let badge: CGFloat = 28
+    static let tileTitle: CGFloat = 17
+    #endif
+
+    /// Side margin of a page: 97pt on a 1440pt window, never under 20.
+    static func pageMargin(for width: CGFloat) -> CGFloat {
+        #if os(iOS)
+        return 16
+        #else
+        return min(97, max(20, (width * 0.0674).rounded()))
+        #endif
     }
 
-    /// Queep things fill from Figma `58:4730`. White underneath, then this linear
-    /// gradient at 40% opacity. Stops are the logo greens in the frame's order:
-    /// white 6.6%, `#ACBE95` 17%, `#DFE6B2` 60.6%, `#3D6855` 100%.
-    /// `t = ax + by + c` is that node's `gradientTransform` (x right, y down, 0...1).
-    static var addWash: LinearGradient {
-        let a = 0.5172437429428101
-        let b = -0.33731937408447266
-        let c = 0.47177886962890625
-        let length = (a * a + b * b).squareRoot()
-        let ux = a / length
-        let uy = b / length
-        let tCenter = a * 0.5 + b * 0.5 + c
-        func point(t: CGFloat) -> UnitPoint {
-            let distance = (t - tCenter) / length
-            return UnitPoint(x: 0.5 + distance * ux, y: 0.5 + distance * uy)
-        }
-        return LinearGradient(
-            stops: [
-                .init(color: Color.white.opacity(0.4), location: 0.06599999964237213),
-                .init(color: Color(red: 172 / 255, green: 190 / 255, blue: 149 / 255).opacity(0.4), location: 0.17000000178813934),
-                .init(color: Color(red: 223 / 255, green: 230 / 255, blue: 178 / 255).opacity(0.4), location: 0.6060000061988831),
-                .init(color: Color(red: 61 / 255, green: 104 / 255, blue: 85 / 255).opacity(0.4), location: 1)
-            ],
-            startPoint: point(t: 0),
-            endPoint: point(t: 1)
-        )
+    // MARK: iPhone floating chrome
+
+    static let nav: CGFloat = 60
+    static let navGap: CGFloat = 8
+    static let navInset: CGFloat = 16
+    static let navBottom: CGFloat = 16
+
+    // MARK: Washes
+
+    /// Logo greens over white, as on the PRO label and the paywall action.
+    /// `strength` is the gradient's alpha (0.4 on labels, 0.7 on the action); `angle` is CSS degrees.
+    static func limeWash(strength: Double = 0.4, angle: Double = 32.1) -> LinearGradient {
+        cssGradient(angle: angle, stops: [
+            .init(color: Color.white.opacity(strength), location: 0.080),
+            .init(color: sage.opacity(strength), location: 0.080),
+            .init(color: lime.opacity(strength), location: 0.552),
+            .init(color: forest.opacity(strength), location: 1.0),
+        ])
+    }
+
+    /// Gray version of the label wash, for the free plan.
+    static var grayWash: LinearGradient {
+        cssGradient(angle: 32.1, stops: [
+            .init(color: Color.white.opacity(0.4), location: 0.080),
+            .init(color: Color(hex: 0xBCBCBC, opacity: 0.4), location: 0.080),
+            .init(color: Color(hex: 0xE6E6E2, opacity: 0.4), location: 0.552),
+            .init(color: Color(hex: 0x4A4C4B, opacity: 0.4), location: 1.0),
+        ])
+    }
+
+    /// Soft green for anything the AI layer produced.
+    static var aiGradient: LinearGradient {
+        LinearGradient(colors: [sage, forest], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    /// CSS `linear-gradient(<angle>deg, …)`: 0° points up, angles turn clockwise.
+    static func cssGradient(angle: Double, stops: [Gradient.Stop]) -> LinearGradient {
+        let radians = angle * .pi / 180
+        let dx = sin(radians) / 2
+        let dy = -cos(radians) / 2
+        return LinearGradient(stops: stops,
+                              startPoint: UnitPoint(x: 0.5 - dx, y: 0.5 - dy),
+                              endPoint: UnitPoint(x: 0.5 + dx, y: 0.5 + dy))
     }
 }
 
 extension Color {
-    /// Page background behind cards; on the Mac it mirrors the grouped iOS palette so cards read
-    /// as raised surfaces in both appearances.
-    static var canvas: Color {
-        #if os(macOS)
-        Color(nsColor: NSColor(name: nil) { appearance in
-                appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-                ? NSColor(red: 0.11, green: 0.11, blue: 0.118, alpha: 1) : .white
-        })
-        #else
-        Color(uiColor: .systemGroupedBackground)
-        #endif
+    init(hex: UInt32, opacity: Double = 1) {
+        self.init(.sRGB,
+                  red: Double((hex >> 16) & 0xFF) / 255,
+                  green: Double((hex >> 8) & 0xFF) / 255,
+                  blue: Double(hex & 0xFF) / 255,
+                  opacity: opacity)
     }
-    /// Raised surface for cards and documents.
-    static var card: Color {
-        #if os(macOS)
-        Color(nsColor: NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-                ? NSColor(red: 0.173, green: 0.173, blue: 0.18, alpha: 1) : .white
-        })
-        #else
-        Color(uiColor: .secondarySystemGroupedBackground)
-        #endif
-    }
+
+    /// Page background. Queep stays on a white page in every appearance.
+    static var canvas: Color { Theme.surface }
+    /// Raised surface for documents and editors.
+    static var card: Color { Theme.surface }
     /// Secondary text that still passes contrast audits.
-    static let muted = Color.primary.opacity(0.72)
+    static var muted: Color { Theme.inkSoft }
 }
 
-struct CardStyle: ViewModifier {
-    var radius: CGFloat = Theme.cardRadius
-    var padding: CGFloat? = nil
-    var elevated = true
+// MARK: - Surfaces
+
+/// How a container or control is painted.
+enum SurfaceStyle {
+    /// `#F5F5F5`, no edge: tiles, chrome, icon wells.
+    case fill
+    /// White with a 1pt `#F5F5F5` edge: grouped controls such as the tabs or the plan list.
+    case outline
+    /// `#FCFCFC` with an edge: the search field.
+    case field
+    /// White with a 1pt `#E7E5E3` edge: secondary buttons and the sign-in card.
+    case outlineStrong
+    /// White, no edge.
+    case plain
+}
+
+private struct Surface: ViewModifier {
+    var style: SurfaceStyle
+    var radius: CGFloat
 
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         content
-            .padding(.all, padding ?? 0)
-            .background(Color.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.primary.opacity(0.06)))
-            .shadow(color: .black.opacity(elevated ? 0.06 : 0), radius: 12, y: 4)
+            .background {
+                switch style {
+                case .fill: shape.fill(Theme.fill)
+                case .field: shape.fill(Theme.field)
+                case .outline, .outlineStrong, .plain: shape.fill(Theme.surface)
+                }
+            }
+            .overlay {
+                switch style {
+                case .outline, .field: shape.strokeBorder(Theme.line, lineWidth: 1)
+                case .outlineStrong: shape.strokeBorder(Theme.lineStrong, lineWidth: 1)
+                case .fill, .plain: EmptyView()
+                }
+            }
     }
 }
 
 extension View {
-    func card(radius: CGFloat = Theme.cardRadius, padding: CGFloat? = nil, elevated: Bool = true) -> some View {
-        modifier(CardStyle(radius: radius, padding: padding, elevated: elevated))
+    /// Paints a V2 surface behind the view. Containers use `Theme.radius`; controls `Theme.controlRadius`.
+    func surface(_ style: SurfaceStyle = .fill, radius: CGFloat = Theme.radius) -> some View {
+        modifier(Surface(style: style, radius: radius))
     }
 
-    func homeSurface(highlighted: Bool = false) -> some View {
-        modifier(HomeSurface(highlighted: highlighted))
+    /// A 60pt chrome container: the 6pt inset around 46pt controls, as in the gallery header.
+    func chrome(_ style: SurfaceStyle = .fill) -> some View {
+        padding(Theme.chromeInset)
+            .frame(minHeight: Theme.chrome)
+            .surface(style, radius: Theme.radius)
     }
 
-    /// A small uppercase-free section label, Craft style: light, quiet, aligned with content.
+    /// Clips to a gallery tile.
+    func galleryTile() -> some View {
+        clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+    }
+
+    /// Raised document surface. Kept for editors that still float a card.
+    func card(radius: CGFloat = Theme.radius, padding: CGFloat? = nil, elevated: Bool = true) -> some View {
+        self.padding(.all, padding ?? 0)
+            .surface(.outline, radius: radius)
+            .shadow(color: .black.opacity(elevated ? 0.04 : 0), radius: 12, y: 4)
+    }
+
+    /// A quiet label above a group: 13pt, soft ink.
     func sectionLabel() -> some View {
-        self.font(.footnote.weight(.medium)).foregroundStyle(Color.muted)
+        font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.inkSoft)
     }
 }
 
-private struct HomeSurface: ViewModifier {
-    var highlighted = false
+// MARK: - Buttons
 
-    func body(content: Content) -> some View {
-        content
-            .background {
-                RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous)
-                    .fill(Color.white)
-                if highlighted {
-                    RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous)
-                        .fill(Theme.addWash)
-                }
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous)
-                    .strokeBorder(Theme.homeLine)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
-            .shadow(color: Theme.homeShadow, radius: 6, y: 3)
+/// Every V2 button. `primary` is the lime action; `promo` adds the logo wash; `neutral` is the
+/// gray chrome; `dark` is "Ver original"; `outline` is "Criar conta".
+struct QueepButtonStyle: ButtonStyle {
+    enum Kind {
+        case primary, promo, neutral, dark, outline, destructive, quiet
     }
-}
 
-/// Queep's master button: the Queep things surface from the Mac header as a full-width action.
-/// White underneath, the logo wash on top, deep green label.
-struct MasterButtonStyle: ButtonStyle {
-    var height: CGFloat = Theme.masterHeight
+    var kind: Kind = .neutral
+    var height: CGFloat = Theme.button
+    var stretches = true
+    var radius: CGFloat = Theme.controlRadius
 
     func makeBody(configuration: Configuration) -> some View {
-        MasterButtonBody(configuration: configuration, height: height)
+        QueepButtonBody(configuration: configuration, kind: kind, height: height,
+                        stretches: stretches, radius: radius)
     }
 }
 
-/// `isEnabled` is only readable from a view, not from the style itself.
-private struct MasterButtonBody: View {
+extension ButtonStyle where Self == QueepButtonStyle {
+    /// Full-width lime action.
+    static var queepPrimary: QueepButtonStyle { QueepButtonStyle(kind: .primary) }
+
+    static func queep(_ kind: QueepButtonStyle.Kind, height: CGFloat = Theme.button,
+                      stretches: Bool = true, radius: CGFloat = Theme.controlRadius) -> QueepButtonStyle {
+        QueepButtonStyle(kind: kind, height: height, stretches: stretches, radius: radius)
+    }
+}
+
+/// `isEnabled` and the pointer are only readable from a view, not from the style itself.
+private struct QueepButtonBody: View {
     let configuration: ButtonStyleConfiguration
+    let kind: QueepButtonStyle.Kind
     let height: CGFloat
+    let stretches: Bool
+    let radius: CGFloat
     @Environment(\.isEnabled) private var enabled
+    @State private var hovered = false
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         configuration.label
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(Theme.queepThingsInk)
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(foreground)
             .lineLimit(1)
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
+            .frame(maxWidth: stretches ? .infinity : nil)
             .frame(height: height)
-            .contentShape(RoundedRectangle(cornerRadius: Theme.homeRadius, style: .continuous))
-            .homeSurface(highlighted: true)
-            .opacity(enabled ? (configuration.isPressed ? 0.8 : 1) : 0.5)
+            .background { fillShape(shape) }
+            .overlay {
+                if kind == .outline { shape.strokeBorder(Theme.lineStrong, lineWidth: 1) }
+            }
+            .contentShape(shape)
+            .opacity(enabled ? (configuration.isPressed ? 0.82 : 1) : 0.45)
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.15), value: hovered)
+            .onHover { hovered = $0 }
+    }
+
+    private var foreground: Color {
+        switch kind {
+        case .primary, .neutral, .outline: Theme.ink
+        case .promo: Theme.onLime
+        case .dark: Theme.onAction
+        case .destructive: Theme.danger
+        case .quiet: Theme.inkSoft
+        }
+    }
+
+    @ViewBuilder private func fillShape(_ shape: RoundedRectangle) -> some View {
+        switch kind {
+        case .primary:
+            shape.fill(Theme.lime).brightness(hovered ? -0.02 : 0)
+        case .promo:
+            ZStack {
+                shape.fill(Theme.lime)
+                shape.fill(Theme.limeWash(strength: 0.7, angle: 15.4))
+            }
+            .brightness(hovered ? -0.02 : 0)
+        case .neutral, .destructive:
+            shape.fill(hovered ? Theme.fillPressed : Theme.fill)
+        case .dark:
+            shape.fill(Theme.action).brightness(hovered ? 0.06 : 0)
+        case .outline:
+            shape.fill(hovered ? Theme.field : Theme.surface)
+        case .quiet:
+            shape.fill(hovered ? Theme.fill : Color.clear)
+        }
     }
 }
+
+/// The primary action under its earlier name. It is the lime button now.
+struct MasterButtonStyle: ButtonStyle {
+    var height: CGFloat = Theme.button
+
+    func makeBody(configuration: Configuration) -> some View {
+        QueepButtonStyle(kind: .primary, height: height).makeBody(configuration: configuration)
+    }
+}
+
+// MARK: - Small pieces shared by many screens
 
 /// A rounded tag for topics, kinds and states.
 struct Chip: View {
@@ -187,22 +333,21 @@ struct Chip: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            if let symbol { Image(systemName: symbol).font(.caption2.weight(.semibold)) }
-            Text(text).font(.caption.weight(.medium)).lineLimit(1)
+            if let symbol { Image(systemName: symbol).font(.system(size: 10, weight: .semibold)) }
+            Text(text).font(.system(size: 12, weight: .medium)).lineLimit(1)
         }
-        .padding(.horizontal, 9).padding(.vertical, 4)
-        .foregroundStyle(tint ?? Color.primary.opacity(0.8))
-        .background((tint ?? Color.primary).opacity(tint == nil ? 0.07 : 0.12), in: Capsule())
+        .padding(.horizontal, 10).frame(height: 24)
+        .foregroundStyle(tint ?? Theme.inkSoft)
+        .background((tint ?? Theme.fill).opacity(tint == nil ? 1 : 0.12),
+                    in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
     }
 }
 
-/// The sparkle that marks anything produced by the AI layer.
+/// The mark on anything produced by the AI layer.
 struct Sparkle: View {
     var size: CGFloat = 15
     var body: some View {
-        Image(systemName: "sparkles").font(.system(size: size, weight: .semibold))
-            .foregroundStyle(Theme.aiGradient)
-            .accessibilityHidden(true)
+        QueepIcon("ri-sparkling-2-line", size: size + 2, color: Theme.forest)
     }
 }
 
@@ -218,10 +363,11 @@ struct StatusPill: View {
             // accessibility role of the whole card.
             HStack(spacing: 6) {
                 PulseDot()
-                Text(status == "queued" ? "Na fila para análise" : "Analisando").font(.caption.weight(.medium))
-            }.foregroundStyle(Color.muted)
+                Text(status == "queued" ? "Na fila para análise" : "Analisando").font(.system(size: 12, weight: .medium))
+            }.foregroundStyle(Theme.inkSoft)
         case "error":
-            Chip(text: "Falha na análise", symbol: "exclamationmark.circle", tint: .orange)
+            Chip(text: "Falha na análise", symbol: "exclamationmark.circle", tint: Theme.danger)
+                .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.controlRadius, style: .continuous))
         default:
             if partial { Chip(text: "Análise parcial", symbol: "circle.lefthalf.filled") }
         }
@@ -235,14 +381,14 @@ struct Shimmer: ViewModifier {
             .redacted(reason: .placeholder)
             .overlay {
                 GeometryReader { geometry in
-                    LinearGradient(colors: [.clear, Color.card.opacity(0.9), .clear], startPoint: .leading, endPoint: .trailing)
+                    LinearGradient(colors: [.clear, Color.white.opacity(0.7), .clear], startPoint: .leading, endPoint: .trailing)
                         .frame(width: geometry.size.width * 0.6)
                         .phaseAnimator([false, true]) { view, moved in
                             view.offset(x: moved ? geometry.size.width : -geometry.size.width * 0.6)
                         } animation: { _ in .linear(duration: 1.3) }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
             .accessibilityHidden(true)
     }
 }
@@ -256,10 +402,10 @@ struct KindTile: View {
     let symbol: String
     var size: CGFloat = 40
     var body: some View {
-        Image(systemName: symbol).font(.system(size: size * 0.42, weight: .semibold))
-            .foregroundStyle(Color.primary.opacity(0.7))
+        Image(systemName: symbol).font(.system(size: size * 0.4, weight: .medium))
+            .foregroundStyle(Theme.ink)
             .frame(width: size, height: size)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
+            .background(Theme.fill, in: RoundedRectangle(cornerRadius: size * 0.36, style: .continuous))
             .accessibilityHidden(true)
     }
 }
@@ -298,7 +444,7 @@ func platformImage(_ data: Data) -> Image? {
 /// A quiet breathing dot for work in progress.
 struct PulseDot: View {
     var body: some View {
-        Circle().fill(Theme.aiGradient).frame(width: 7, height: 7)
+        Circle().fill(Theme.forest).frame(width: 7, height: 7)
             .phaseAnimator([0.35, 1.0]) { view, phase in view.opacity(phase).scaleEffect(0.8 + phase * 0.2) }
                 animation: { _ in .easeInOut(duration: 0.9) }
             .accessibilityHidden(true)

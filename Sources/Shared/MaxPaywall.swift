@@ -32,8 +32,9 @@ struct PaywallPreviewOffer {
         discountPercent: 35, yearlyTrialDays: 7, monthlyTrialDays: nil)
 }
 
-/// The journey paywall: a ticker of saved references, why it opened, one hook, and Pro yearly
-/// (Max yearly when the wall is video or audio). The other plans stay one tap away.
+/// The journey paywall from the Figma template: the cloud art with why it opened and one hook,
+/// then Queep and the plan, Mensal or Anual, the price, the benefits and one action. Pro yearly by
+/// default, Max when the wall is video or audio. The other plans stay one tap away.
 struct MaxPaywall: View {
     let context: PaywallContext
     var preview: PaywallPreviewOffer? = nil
@@ -82,290 +83,294 @@ struct MaxPaywall: View {
         .sheet(isPresented: $showingPlans) { SubscriptionView() }
     }
 
+    // MARK: Layout
+
+    /// iPhone: the art as a hero with the hook over it, the plan below, the action pinned.
     private var phone: some View {
-        ScrollView { storyContent }
-            .scrollIndicators(.hidden)
-            .scrollBounceBehavior(.basedOnSize)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.white)
-            .safeAreaInset(edge: .bottom, spacing: 0) { purchaseBar }
-            .overlay(alignment: .topLeading) { closeButton }
+        ScrollView {
+            VStack(spacing: 0) {
+                art
+                    .frame(height: typeSize.isAccessibilitySize ? 220 : 300)
+                    .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+                    .padding(.horizontal, 8)
+                planColumn
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 12)
+            }
+        }
+        .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.surface)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 10) {
+                purchaseButton
+                footer
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+            .background(Theme.surface)
+        }
     }
 
+    /// Mac: the Figma card, 786pt wide: art on the left, the plan column on the right.
     private var macCard: some View {
-        ViewThatFits(in: .vertical) {
-            macColumn
-            ScrollView { macColumn }
-                .scrollIndicators(.hidden)
-                .scrollBounceBehavior(.basedOnSize)
+        // The plan column sets the height; the art fills whatever that is.
+        HStack(spacing: 0) {
+            Color.clear.frame(width: 364)
+            ViewThatFits(in: .vertical) {
+                macColumn
+                ScrollView { macColumn }
+                    .scrollIndicators(.hidden)
+            }
+            .frame(width: 422)
+            .frame(minHeight: 559)
+            .background(Theme.surface)
         }
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: .black.opacity(0.18), radius: 28, y: 16)
-        .overlay(alignment: .topLeading) { closeButton }
+        .background(alignment: .leading) { art.frame(width: 364) }
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
+        .shadow(color: .black.opacity(0.05), radius: 42, x: -8, y: 8)
+        .shadow(color: .black.opacity(0.10), radius: 18, y: 10)
     }
 
     private var macColumn: some View {
-        VStack(spacing: 0) {
-            storyContent
-            purchaseBar
+        VStack(spacing: 17) {
+            planColumn
+            purchaseButton
+            footer
         }
-    }
-
-    private var storyContent: some View {
-        VStack(spacing: 0) {
-            hero
-            VStack(spacing: 18) {
-                intro
-                benefits
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 22)
-            .padding(.bottom, 8)
-        }
-    }
-
-    private var hero: some View {
-        ReferenceTicker(axis: .horizontal, lanes: 2, gap: 8, bleed: 0, speed: 9)
-            .frame(height: typeSize.isAccessibilitySize ? 120 : 176)
-            .frame(maxWidth: .infinity)
-            .mask {
-                LinearGradient(
-                    stops: [
-                        .init(color: .black, location: 0),
-                        .init(color: .black, location: 0.78),
-                        .init(color: .clear, location: 1)
-                    ],
-                    startPoint: .top, endPoint: .bottom)
-            }
-            .accessibilityHidden(true)
-    }
-
-    private var intro: some View {
-        VStack(spacing: 10) {
-            if let badge = PaywallCopy.badge(reason: context.reason, resource: context.resource) {
-                Text(badge)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(GalleryStyle.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(GalleryStyle.fill, in: Capsule())
-                    .accessibilityLabel(badge)
-                    .accessibilityIdentifier("paywall.badge")
-            }
-            Text(hook.title)
-                .font(.title.weight(.bold))
-                .foregroundStyle(GalleryStyle.ink)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier("paywall.title")
-            Text(PaywallCopy.subtitle(for: plan))
-                .font(.body)
-                .foregroundStyle(GalleryStyle.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("paywall.subtitle")
-        }
+        .frame(width: 267)
+        .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
     }
 
+    /// The clouds, the reason and the hook. The close button sits on the art.
+    private var art: some View {
+        PromoStage(style: .paywall)
+            .overlay(alignment: .bottomLeading) {
+                VStack(alignment: .leading, spacing: 10) {
+                    if let badge = PaywallCopy.badge(reason: context.reason, resource: context.resource) {
+                        Text(badge)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .frame(height: 26)
+                            .background(.white.opacity(0.16), in: Capsule())
+                            .accessibilityLabel(badge)
+                            .accessibilityIdentifier("paywall.badge")
+                    }
+                    Text(hook.title)
+                        .font(.system(size: 24, weight: .semibold))
+                        .tracking(-0.4)
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityIdentifier("paywall.title")
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background {
+                    LinearGradient(colors: [Theme.nightDeep.opacity(0), Theme.nightDeep.opacity(0.78)],
+                                   startPoint: .top, endPoint: .bottom)
+                }
+            }
+            .overlay(alignment: .topLeading) { closeButton }
+    }
+
+    /// Lockup and plan, period, price, benefits: the right side of the Figma card.
+    private var planColumn: some View {
+        VStack(spacing: 17) {
+            HStack(spacing: 9) {
+                QueepMark(size: 36.5)
+                Text("Queep")
+                    .font(.system(size: 27, weight: .bold))
+                    .tracking(-0.75)
+                    .foregroundStyle(Theme.ink)
+                PlanBadge(plan: plan, size: .large)
+            }
+            .frame(height: 60)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Queep \(plan.title)")
+            periodToggle
+            priceBox
+            benefits
+            if let error = store.error {
+                Text(error)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Theme.danger)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("paywall.error")
+            }
+        }
+    }
+
+    private var periodToggle: some View {
+        QueepSegment(
+            items: [
+                .init(title: "Mensal", value: false, identifier: "paywall.monthly"),
+                .init(title: "Anual", value: true, tag: discountPercent.map { "\($0)% off" }, identifier: "paywall.annual"),
+            ],
+            selection: $annual,
+            accent: .lime,
+            stretches: true)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Período da assinatura")
+            .accessibilityIdentifier("paywall.period")
+    }
+
+    /// The billed amount leads; the trial or the monthly equivalent sits under it.
+    @ViewBuilder private var priceBox: some View {
+        Group {
+            if hasOffer {
+                let line = PaywallOfferCopy.priceLine(
+                    price: billedPrice,
+                    period: annual ? .year : .month,
+                    trialDays: currentTrialDays,
+                    monthlyEquivalent: annual ? monthlyEquivalent : nil)
+                VStack(spacing: 4) {
+                    Text("\(Text(billedPrice).font(.system(size: 26, weight: .bold)))\(Text(annual ? "/ano" : "/mês").font(.system(size: 16)))")
+                        .tracking(-0.6)
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    if let caption = priceCaption(line) {
+                        Text(caption)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.inkSoft)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel([line.primary, line.secondary].compactMap { $0 }.joined(separator: ", "))
+                .accessibilityIdentifier("paywall.price")
+            } else if loading || store.busy {
+                HStack(spacing: 10) {
+                    ProgressView().controlSize(.small)
+                    Text("Verificando assinatura…")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Theme.inkSoft)
+                }
+            } else {
+                VStack(spacing: 10) {
+                    Text(store.message ?? "Nenhum plano disponível agora. Tente novamente em instantes.")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Theme.inkSoft)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Tentar de novo") { Task { await store.load(session, refresh: true) } }
+                        .buttonStyle(.queep(.neutral, height: 36, stretches: false))
+                        .accessibilityIdentifier("paywall.retry")
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, minHeight: Theme.chrome)
+        .surface(.outline, radius: Theme.radius)
+    }
+
+    /// Under the price: the trial, or what a year costs per month. Never repeats the price itself.
+    private func priceCaption(_ line: PaywallPriceLine) -> String? {
+        if let trial = currentTrialDays, trial > 0 {
+            return "Grátis por \(trial) \(trial == 1 ? "dia" : "dias"), depois cobrado por \(annual ? "ano" : "mês")"
+        }
+        return line.secondary
+    }
+
     private var benefits: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(spacing: 6) {
             ForEach(PaywallCopy.benefits(for: plan), id: \.text) { benefit in
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Image(systemName: benefit.symbol)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(Theme.queepThingsInk)
-                        .frame(width: 22, alignment: .center)
-                        .accessibilityHidden(true)
+                HStack(spacing: 12) {
+                    IconTile(asset: Self.icon(for: benefit.symbol))
                     Text(benefit.text)
-                        .font(.body)
-                        .foregroundStyle(GalleryStyle.ink)
+                        .font(.system(size: 15))
+                        .foregroundStyle(Theme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .accessibilityElement(children: .combine)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.chromeInset)
+        .surface(.outline, radius: Theme.radius)
         .accessibilityIdentifier("paywall.benefits")
     }
 
-    private var periodToggle: some View {
-        HStack(spacing: 4) {
-            periodButton("Mensal", yearly: false)
-            periodButton("Anual", yearly: true)
+    /// Remix icons for the benefits, which QueepCore names with SF Symbols.
+    private static func icon(for symbol: String) -> String {
+        switch symbol {
+        case "photo.on.rectangle.angled": "ri-gallery-line"
+        case "text.magnifyingglass": "ri-search-eye-line"
+        case "rectangle.3.group": "ri-folder-6-line"
+        case "laptopcomputer.and.iphone": "ri-device-line"
+        case "square.stack.3d.up": "ri-stack-line"
+        case "waveform": "ri-voiceprint-line"
+        default: "ri-sparkling-2-line"
         }
-        .padding(4)
-        .background(GalleryStyle.fill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Período da assinatura")
-        .accessibilityIdentifier("paywall.period")
     }
 
-    private func periodButton(_ title: String, yearly: Bool) -> some View {
-        let selected = annual == yearly
-        let discount = yearly ? discountPercent : nil
-        return Button {
-            annual = yearly
-        } label: {
-            HStack(spacing: 6) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(selected ? GalleryStyle.ink : GalleryStyle.secondary)
-                if let discount {
-                    Text("\(discount)% off")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(Theme.queepThingsInk)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(Color.white, in: Capsule())
-                        .accessibilityHidden(true)
+    @ViewBuilder private var purchaseButton: some View {
+        if hasOffer {
+            Button { Task { await buy() } } label: {
+                HStack(spacing: 8) {
+                    if purchasing { ProgressView().controlSize(.small).tint(Theme.onLime) }
+                    Text(purchasing ? "Confirmando…" : ctaTitle)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background {
-                if selected {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(Color.white)
-                        .shadow(color: .black.opacity(0.06), radius: 4, y: 1)
-                }
-            }
+            .buttonStyle(.queep(.promo, height: 48))
+            .disabled(purchasing || (preview == nil && store.busy))
+            .accessibilityLabel(ctaTitle)
+            .accessibilityIdentifier("paywall.buy")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(discount.map { "\(title), \($0)% off" } ?? title)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier(yearly ? "paywall.annual" : "paywall.monthly")
     }
 
-    private var purchaseBar: some View {
-        VStack(spacing: 10) {
-            periodToggle
-            if hasOffer {
-                Button { Task { await buy() } } label: {
-                    HStack(spacing: 8) {
-                        if purchasing { ProgressView().controlSize(.small).tint(Theme.queepThingsInk) }
-                        Text(purchasing ? "Confirmando…" : ctaTitle)
-                    }
-                }
-                .buttonStyle(MasterButtonStyle())
-                .disabled(purchasing || (preview == nil && store.busy))
-                .accessibilityLabel(ctaTitle)
-                .accessibilityIdentifier("paywall.buy")
-                priceBlock
-            } else if loading || store.busy {
-                HStack(spacing: 10) {
-                    ProgressView().controlSize(.small)
-                    Text("Verificando assinatura…")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(GalleryStyle.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-            } else {
-                VStack(spacing: 12) {
-                    Text(store.message ?? "Nenhum plano disponível agora. Tente novamente em instantes.")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(GalleryStyle.secondary)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button("Tentar de novo") { Task { await store.load(session, refresh: true) } }
-                        .buttonStyle(MasterButtonStyle())
-                        .accessibilityIdentifier("paywall.retry")
-                }
-            }
-            if let error = store.error {
-                Text(error)
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(Color(red: 0.70, green: 0.16, blue: 0.14))
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("paywall.error")
-            }
+    private var footer: some View {
+        VStack(spacing: 8) {
             Button("Ver todos os planos") {
                 ProductAnalytics.paywallAllPlansTapped()
                 showingPlans = true
             }
-            .font(.body.weight(.medium))
-            .foregroundStyle(Theme.homeInk)
             .buttonStyle(.plain)
-            .frame(maxWidth: .infinity)
-            .padding(.top, 2)
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(Theme.ink)
             .accessibilityIdentifier("paywall.plans")
-            footer
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-        .frame(maxWidth: .infinity)
-        .background(Color.white)
-    }
-
-    private var priceBlock: some View {
-        let line = PaywallOfferCopy.priceLine(
-            price: billedPrice,
-            period: annual ? .year : .month,
-            trialDays: currentTrialDays,
-            monthlyEquivalent: annual ? monthlyEquivalent : nil)
-        return VStack(spacing: 2) {
-            Text(line.primary)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(GalleryStyle.ink)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            if let secondary = line.secondary {
-                Text(secondary)
-                    .font(.footnote)
-                    .foregroundStyle(GalleryStyle.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 14) {
+                Button("Restaurar compras") { Task { await store.restore(session) } }
+                    .disabled(preview != nil || store.busy)
+                    .accessibilityIdentifier("paywall.restore")
+                if let terms = SubscriptionStore.configuredURL("QueepTermsURL") {
+                    Link("Termos", destination: terms)
+                }
+                if let privacy = SubscriptionStore.configuredURL("QueepPrivacyURL") {
+                    Link("Privacidade", destination: privacy)
+                }
             }
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(Theme.inkFaint)
+            .tint(Theme.inkFaint)
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel([line.primary, line.secondary].compactMap { $0 }.joined(separator: ", "))
-        .accessibilityIdentifier("paywall.price")
-    }
-
-    private var footer: some View {
-        HStack(spacing: 16) {
-            Button("Restaurar compras") { Task { await store.restore(session) } }
-                .disabled(preview != nil || store.busy)
-                .accessibilityIdentifier("paywall.restore")
-            if let terms = SubscriptionStore.configuredURL("QueepTermsURL") {
-                Link("Termos", destination: terms)
-            }
-            if let privacy = SubscriptionStore.configuredURL("QueepPrivacyURL") {
-                Link("Privacidade", destination: privacy)
-            }
-        }
-        .font(.footnote.weight(.medium))
-        .foregroundStyle(GalleryStyle.secondary)
-        .tint(GalleryStyle.secondary)
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
-        .padding(.top, 2)
     }
 
     private var closeButton: some View {
         Button {
             close()
         } label: {
-            HomeGlyph(asset: "HomeClose", size: 16, color: Theme.homeInk)
+            QueepIcon("ri-close-large-line", size: 24, color: .white.opacity(0.7))
                 .frame(width: 44, height: 44)
-                .contentShape(Circle())
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .queepGlass(.circle)
         .keyboardShortcut(.cancelAction)
         .accessibilityLabel("Fechar")
         .accessibilityIdentifier("paywall.close")
-        .padding(.leading, 12)
-        .padding(.top, 12)
+        .padding(.leading, 10)
+        .padding(.top, 10)
     }
 
     private var hasOffer: Bool { preview != nil || package != nil }
@@ -480,14 +485,14 @@ private struct JourneyPaywallModifier: ViewModifier {
                         ZStack {
                         Rectangle()
                             .fill(.ultraThinMaterial)
-                            .overlay(Color.black.opacity(0.22))
+                            .overlay(Color.white.opacity(0.35))
                             .ignoresSafeArea()
                             .contentShape(Rectangle())
                             .onTapGesture { offer = nil }
                             .accessibilityHidden(true)
                         MaxPaywall(context: context, onFinish: { offer = nil })
-                            .frame(width: 520)
-                            .frame(maxHeight: max(320, proxy.size.height - 64))
+                            .frame(width: 786)
+                            .frame(maxHeight: max(420, proxy.size.height - 64))
                     }
                 }
             }
@@ -510,14 +515,16 @@ private struct PaywallPreviewCanvas: View {
         ZStack {
             Color.black.opacity(0.18)
             MaxPaywall(context: context, preview: offer)
-                .frame(width: 520)
-                .frame(maxHeight: 680)
+                .frame(width: 786)
+                .frame(maxHeight: 700)
         }
-        .frame(width: 900, height: 760)
+        .frame(width: 1000, height: 780)
         .environment(Session())
+        .environment(LibraryStore())
         #else
         MaxPaywall(context: context, preview: offer)
             .environment(Session())
+            .environment(LibraryStore())
         #endif
     }
 }
