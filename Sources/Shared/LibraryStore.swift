@@ -264,12 +264,16 @@ final class LibraryStore {
         }
         defer { if operation == searchGeneration { searching = false } }
         do {
-            let result = try await client.search(term, spaceID: scopedSpaceID)
+            // With Apple Intelligence the device checks the head and the server skips its paid check.
+            let checker = deviceSearchChecker()
+            let result = try await client.search(term, spaceID: scopedSpaceID, verify: checker == nil)
+            var items = result.items
+            if let checker { items = await checker.filter(query: term, items: items) }
             guard operation == searchGeneration, account == accountID else { return }
-            searchItems = result.items
-            for ref in result.items { knownReferences[ref.id] = ref }
+            searchItems = items
+            for ref in items { knownReferences[ref.id] = ref }
             hasPending = result.hasPending
-            LibraryAnalytics.searchSubmitted?(!result.items.isEmpty)
+            LibraryAnalytics.searchSubmitted?(!items.isEmpty)
         } catch is CancellationError { }
         catch { if operation == searchGeneration { searchError = error.localizedDescription } }
     }

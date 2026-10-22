@@ -30,6 +30,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GIDClientID</key>
 	<string>$(QUEEP_GOOGLE_CLIENT_ID)</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>O Queep transcreve no próprio aparelho a fala dos áudios e vídeos que você salva, para encontrá-los na busca.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSAppTransportSecurity</key>

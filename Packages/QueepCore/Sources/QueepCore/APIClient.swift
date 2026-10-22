@@ -14,11 +14,14 @@ public struct APIClient: Sendable {
     }
 
     private let retryDelay: @Sendable (Int) -> Duration
+    /// Reads uploads on the device first. The share extension leaves it nil to stay within its memory.
+    private let deviceReader: (any DeviceReader)?
 
     public init(baseURL: URL, session: URLSession = .shared,
                 onUnauthorized: @escaping @Sendable () async -> Void = {},
                 onPlanRequired: @escaping @Sendable (PlanRequirement) async -> Void = { _ in },
                 retryDelay: @escaping @Sendable (Int) -> Duration = APIClient.defaultRetryDelay,
+                deviceReader: (any DeviceReader)? = nil,
                 token: @escaping @Sendable () async throws -> String) {
         self.baseURL = baseURL
         self.session = session
@@ -26,6 +29,7 @@ public struct APIClient: Sendable {
         self.onUnauthorized = onUnauthorized
         self.onPlanRequired = onPlanRequired
         self.retryDelay = retryDelay
+        self.deviceReader = deviceReader
     }
 
     public static func decoder() -> JSONDecoder {
@@ -133,16 +137,27 @@ public struct APIClient: Sendable {
         try await decoded("v1/references/\(id)")
     }
 
-    public func search(_ query: String, spaceID: String? = nil) async throws -> SearchResults {
+    /// `verify: false` skips the paid server check; the caller checks the head on the device.
+    public func search(_ query: String, spaceID: String? = nil, verify: Bool = true) async throws -> SearchResults {
         let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (2...500).contains(term.count) else {
             throw QueepError.server("Escreva uma busca de 2 a 500 caracteres.")
         }
-        var body = ["query": term]
-        if let spaceID { body["space_id"] = spaceID }
+        let body = SearchBody(query: term, spaceID: spaceID, verify: verify)
         let data = try await request("v1/search", method: "POST",
                                      body: JSONEncoder().encode(body), timeout: 90)
         return try Self.decoder().decode(SearchResults.self, from: data)
+    }
+
+    /// Sent before the file so the worker finds it. A failure only means the cloud reads it instead.
+    public func storeDeviceReading(id: UUID, reading: DeviceReading) async throws {
+        _ = try await request("v1/references/\(id.uuidString.lowercased())/device-reading", method: "PUT",
+                              body: JSONEncoder().encode(reading.bounded), timeout: 20)
+    }
+
+    private func sendReading(id: UUID, _ read: @Sendable (any DeviceReader) async -> DeviceReading?) async {
+        guard let deviceReader, let reading = await read(deviceReader), !reading.isEmpty else { return }
+        try? await storeDeviceReading(id: id, reading: reading)
     }
 
     public func retryAnalysis(_ reference: Reference, scope: String? = "fetch") async throws -> Reference {
@@ -224,6 +239,7 @@ public struct APIClient: Sendable {
         guard !data.isEmpty, data.count <= 12 * 1024 * 1024, title.count <= 200 else {
             throw QueepError.server("Escolha uma imagem de até 12 MB e um título de até 200 caracteres.")
         }
+        await sendReading(id: id) { await $0.read(image: data) }
         let result = try await request("v1/references/\(id.uuidString.lowercased())/image", method: "PUT",
                                        query: [.init(name: "title", value: title)] + spaceIDs.map { .init(name: "space_ids", value: $0) }, body: data,
                                        contentType: "application/octet-stream", timeout: 120)
@@ -245,6 +261,7 @@ public struct APIClient: Sendable {
         guard file.isFileURL, size > 0, size <= 25 * 1024 * 1024, title.count <= 200 else {
             throw QueepError.server("Escolha um áudio ou vídeo de até 25 MB.")
         }
+        await sendReading(id: id) { await $0.read(media: file) }
         let data = try await request("v1/references/\(id.uuidString.lowercased())/media", method: "PUT",
                                      query: [.init(name: "title", value: title)] + spaceIDs.map { .init(name: "space_ids", value: $0) },
                                      contentType: "application/octet-stream", timeout: 150, file: file)
@@ -425,5 +442,25 @@ public struct APIClient: Sendable {
             throw QueepError.server(failure?.detail ?? "Serviço temporariamente indisponível. Tente novamente.")
         default: throw QueepError.unavailable
         }
+    }
+}
+
+
+private struct SearchBody: Encodable {
+    let query: String
+    let spaceID: String?
+    let verify: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case query, verify
+        case spaceID = "space_id"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(query, forKey: .query)
+        try container.encodeIfPresent(spaceID, forKey: .spaceID)
+        // Older servers reject unknown fields, so `verify` is only sent when it changes behavior.
+        if !verify { try container.encode(verify, forKey: .verify) }
     }
 }
